@@ -1,0 +1,2650 @@
+import React, { useEffect, useState } from 'react'
+import { api } from '../services/api.js'
+import { useNotifications, useContractNotifications } from '../Components/NotificationSystem.jsx'
+import PaymentModal from '../Components/PaymentModal.jsx'
+import BikeSwapper from '../Components/BikeSwapper.jsx'
+
+export default function ContractManager(){
+  const [contracts, setContracts] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [filter, setFilter] = useState('all')
+  const [editingContract, setEditingContract] = useState(null)
+  const [swapBikeModal, setSwapBikeModal] = useState(null)
+  const [availableBikes, setAvailableBikes] = useState([])
+  const [historyModal, setHistoryModal] = useState(null)
+  const [contractHistory, setContractHistory] = useState([])
+  const [selectedContractDetails, setSelectedContractDetails] = useState(null)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showBillModal, setShowBillModal] = useState(false)
+  const [selectedContractBill, setSelectedContractBill] = useState(null)
+  const [showSummaryModal, setShowSummaryModal] = useState(false)
+  const [selectedContractSummary, setSelectedContractSummary] = useState(null)
+  const [showReturnModal, setShowReturnModal] = useState(false)
+  const [selectedContractForReturn, setSelectedContractForReturn] = useState(null)
+  const [itemsToReturn, setItemsToReturn] = useState([])
+  const [summary, setSummary] = useState(null)
+  
+  // Stati per il modal di pagamento
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedContractForPayment, setSelectedContractForPayment] = useState(null)
+  
+  // Stati per la modifica prezzi
+  const [showPriceEditModal, setShowPriceEditModal] = useState(false)
+  const [selectedItemForPriceEdit, setSelectedItemForPriceEdit] = useState(null)
+  const [newPriceHourly, setNewPriceHourly] = useState('')
+  const [newPriceDaily, setNewPriceDaily] = useState('')
+  
+  // Stati per bici e accessori (per le foto)
+  const [bikes, setBikes] = useState([])
+  const [accessories, setAccessories] = useState([])
+
+  // Stati per sostituzione bici
+  const [showBikeSwapper, setShowBikeSwapper] = useState(false)
+  const [selectedContractForSwap, setSelectedContractForSwap] = useState(null)
+
+  // Hook per le notifiche
+  const { showSuccess, showError, showWarning } = useNotifications()
+  const { notifyBikeSwapped, notifyContractUpdated } = useContractNotifications()
+
+  useEffect(() => {
+    loadContracts()
+    loadSummary()
+    loadBikesAndAccessories()
+  }, [filter])
+
+  const loadContracts = async () => {
+    setLoading(true)
+    try {
+      const params = filter !== 'all' ? { status: filter } : {}
+      const { data } = await api.get('/api/contracts', { params })
+      
+      // Assicurati che data sia un array
+      if (Array.isArray(data)) {
+        setContracts(data)
+      } else {
+        console.error('I dati ricevuti non sono un array:', data)
+        setContracts([])
+        showError('Formato dati non valido ricevuto dal server')
+      }
+    } catch (error) {
+      console.error('Errore caricamento contratti:', error)
+      setContracts([]) // Imposta array vuoto in caso di errore
+      showError(`Errore nel caricamento dei contratti: ${error.response?.data?.error || error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadBikesAndAccessories = async () => {
+    try {
+      const [bikesRes, accessoriesRes] = await Promise.all([
+        api.get('/api/bikes'),
+        api.get('/api/accessories')
+      ])
+      setBikes(bikesRes.data)
+      setAccessories(accessoriesRes.data)
+    } catch (error) {
+      console.error('Errore caricamento bici/accessori:', error)
+    }
+  }
+
+  // Funzione helper per ottenere la foto di un item
+  const getItemPhoto = (item) => {
+    if (item.photoUrl) return item.photoUrl
+    
+    if (item.kind === 'bike') {
+      const bike = bikes.find(b => 
+        b._id === item.refId || 
+        b._id === item.bikeId || 
+        b.barcode === item.barcode ||
+        b.name === item.name
+      )
+      return bike?.photoUrl
+    } else if (item.kind === 'accessory') {
+      const accessory = accessories.find(a => 
+        a._id === item.refId || 
+        a._id === item.accessoryId || 
+        a.barcode === item.barcode ||
+        a.name === item.name
+      )
+      return accessory?.photoUrl
+    }
+    
+    return null
+  }
+
+  const loadSummary = async () => {
+    try {
+      const { data } = await api.get('/api/reports/summary')
+      setSummary(data)
+    } catch (error) {
+      console.error('Errore caricamento riepilogo:', error)
+      // Imposta un summary di default per evitare errori
+      setSummary({
+        total: 0,
+        count: 0,
+        activeContracts: 0,
+        totalBikes: 0,
+        availableBikes: 0,
+        contracts: []
+      })
+      showError(`Errore nel caricamento dei dati: ${error.response?.data?.error || error.message}`)
+    }
+  }
+
+  const updateContractStatus = async (contractId, newStatus) => {
+    try {
+      await api.put(`/api/contracts/${contractId}`, { status: newStatus })
+      showSuccess(`Stato contratto aggiornato a: ${newStatus}`)
+      notifyContractUpdated(contractId, { 'Nuovo stato': newStatus })
+      loadContracts()
+    } catch (error) {
+      showError(`Errore aggiornamento stato: ${error.response?.data?.error || error.message}`)
+    }
+  }
+
+  const activateReservedContract = async (contractId) => {
+    try {
+      await api.put(`/api/contracts/${contractId}`, { 
+        status: 'in-use',
+        actualStartAt: new Date().toISOString()
+      })
+      showSuccess('✅ Contratto attivato con successo!')
+      notifyContractUpdated(contractId, { 
+        'Stato': 'Attivato',
+        'Data attivazione': new Date().toLocaleString('it-IT')
+      })
+      loadContracts()
+    } catch (error) {
+      showError(`Errore attivazione contratto: ${error.response?.data?.error || error.message}`)
+    }
+  }
+
+  const openContractDetails = (contract) => {
+    setSelectedContractDetails(contract)
+    setShowDetailsModal(true)
+  }
+
+  const openBillModal = (contract) => {
+    setSelectedContractBill(contract)
+    setShowBillModal(true)
+  }
+
+  const calculateBill = (contract) => {
+    const detailed = calculateDetailedBill(contract)
+    return detailed
+  }
+
+  const calculateDetailedBill = (contract) => {
+    if (!contract) return null
+
+    const bill = {
+      contractId: contract._id,
+      customer: contract.customer,
+      startDate: contract.startAt || contract.createdAt,
+      endDate: contract.endAt || new Date(),
+      status: contract.status,
+      isFromReservation: contract.isFromReservation || false,
+      paymentMethod: contract.paymentMethod,
+      paymentCompleted: contract.paymentCompleted,
+      subtotals: {},
+      total: 0,
+      taxes: 0,
+      finalTotal: 0,
+      items: [],
+      alreadyPaid: false
+    }
+
+    // Determina se è già pagato (prenotazioni sono sempre pagate)
+    bill.alreadyPaid = contract.isFromReservation || contract.paymentCompleted
+
+    // Calcola durata
+    const startTime = new Date(contract.actualStartAt || contract.startAt || contract.createdAt)
+    const endTime = contract.endAt ? new Date(contract.endAt) : new Date()
+    const durationMs = endTime - startTime
+    const durationHours = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60)))
+    const durationDays = Math.max(1, Math.ceil(durationHours / 24))
+
+    // Calcola costi per ogni item
+    contract.items?.forEach(item => {
+      const itemCost = {
+        name: item.name || item.barcode,
+        kind: item.kind,
+        priceHourly: item.priceHourly || 0,
+        priceDaily: item.priceDaily || 0,
+        duration: 0,
+        subtotal: 0,
+        pricingType: ''
+      }
+
+      if (item.kind === 'bike') {
+        if (contract.isFromReservation) {
+          // Prenotazione → pagamento giornaliero
+          itemCost.duration = durationDays
+          itemCost.subtotal = item.priceDaily * durationDays
+          itemCost.pricingType = 'giornaliero'
+        } else {
+          // Nuovo contratto → pagamento a ore
+          itemCost.duration = durationHours
+          itemCost.subtotal = item.priceHourly * durationHours
+          itemCost.pricingType = 'orario'
+        }
+        
+        bill.subtotals.bikes = (bill.subtotals.bikes || 0) + itemCost.subtotal
+      } else if (item.kind === 'accessory') {
+        // Accessori - sempre prezzo giornaliero
+        itemCost.duration = durationDays
+        itemCost.subtotal = item.priceDaily * durationDays
+        itemCost.pricingType = 'giornaliero'
+        bill.subtotals.accessories = (bill.subtotals.accessories || 0) + itemCost.subtotal
+      }
+
+      bill.items.push(itemCost)
+      bill.total += itemCost.subtotal
+
+      // Aggiungi assicurazione per ogni bici se presente
+      if (item.kind === 'bike' && item.insurance) {
+        const insuranceCost = {
+          name: `Assicurazione - ${item.name}`,
+          kind: 'insurance',
+          priceHourly: 0,
+          priceDaily: item.insuranceFlat || 5,
+          duration: 1,
+          subtotal: item.insuranceFlat || 5,
+          pricingType: 'forfait'
+        }
+        
+        bill.items.push(insuranceCost)
+        bill.subtotals.insurance = (bill.subtotals.insurance || 0) + insuranceCost.subtotal
+        bill.total += insuranceCost.subtotal
+      }
+    })
+
+    // Nessuna IVA
+    bill.taxes = 0
+    bill.finalTotal = bill.total
+
+    return bill
+  }
+
+  const updatePaymentStatus = async (contractId, paymentMethod, paid = true) => {
+    try {
+      await api.put(`/api/contracts/${contractId}`, { 
+        paymentMethod,
+        paymentCompleted: paid,
+        paymentDate: paid ? new Date().toISOString() : null
+      })
+      showSuccess(`Pagamento ${paid ? 'confermato' : 'rimosso'} - Metodo: ${paymentMethod}`)
+      notifyContractUpdated(contractId, { 
+        'Pagamento': paid ? 'Confermato' : 'Rimosso',
+        'Metodo': paymentMethod 
+      })
+      loadContracts()
+    } catch (error) {
+      showError(`Errore aggiornamento pagamento: ${error.response?.data?.error || error.message}`)
+    }
+  }
+
+  const completePayment = async (contractId, paymentMethod, paymentNotes = '', finalAmount = null) => {
+    try {
+      await api.post(`/api/contracts/${contractId}/complete-payment`, {
+        paymentMethod,
+        paymentNotes,
+        finalAmount
+      })
+      showSuccess(`Pagamento completato con successo - Metodo: ${paymentMethod}`)
+      notifyContractUpdated(contractId, { 
+        'Status': 'Completato',
+        'Pagamento': 'Confermato',
+        'Metodo': paymentMethod 
+      })
+      loadContracts()
+    } catch (error) {
+      showError(`Errore completamento pagamento: ${error.response?.data?.error || error.message}`)
+    }
+  }
+
+  const openPaymentModal = (contract) => {
+    setSelectedContractForPayment(contract)
+    setPaymentMethodSelected(contract.paymentMethod || 'cash')
+    setPaymentNotesInput('')
+    
+    // Usa il prezzo finale calcolato al rientro, altrimenti calcola
+    let suggestedAmount = 0;
+    if (contract.finalAmount !== undefined && contract.finalAmount !== null) {
+      suggestedAmount = contract.finalAmount;
+    } else {
+      const bill = calculateBill(contract);
+      suggestedAmount = bill.finalTotal;
+    }
+    
+    setShowPaymentModal(true)
+  }
+
+  const openPriceEditModal = (contract, item) => {
+    setSelectedItemForPriceEdit({ contract, item })
+    setNewPriceHourly(item.priceHourly?.toString() || '')
+    setNewPriceDaily(item.priceDaily?.toString() || '')
+    setShowPriceEditModal(true)
+  }
+
+  const updateItemPrice = async () => {
+    if (!selectedItemForPriceEdit) return
+    
+    try {
+      const { contract, item } = selectedItemForPriceEdit
+      const priceHourly = newPriceHourly ? parseFloat(newPriceHourly) : item.priceHourly
+      const priceDaily = newPriceDaily ? parseFloat(newPriceDaily) : item.priceDaily
+      
+      await api.put(`/api/contracts/${contract._id}/update-item-price`, {
+        itemId: item.refId,
+        priceHourly,
+        priceDaily
+      })
+      
+      showSuccess('Prezzo aggiornato con successo!')
+      notifyContractUpdated(contract._id, { 
+        'Articolo': item.name,
+        'Nuovo prezzo orario': `€${priceHourly}`,
+        'Nuovo prezzo giornaliero': `€${priceDaily}`
+      })
+      
+      // Chiudi il modal e ricarica i contratti
+      setShowPriceEditModal(false)
+      setSelectedItemForPriceEdit(null)
+      setNewPriceHourly('')
+      setNewPriceDaily('')
+      loadContracts()
+    } catch (error) {
+      showError(`Errore aggiornamento prezzo: ${error.response?.data?.error || error.message}`)
+    }
+  }
+
+  const deleteContract = async (contractId) => {
+    if (!confirm('Sei sicuro di voler eliminare questo contratto?')) return
+    
+    try {
+      await api.delete(`/api/contracts/${contractId}`)
+      showSuccess('Contratto eliminato con successo')
+      loadContracts()
+    } catch (error) {
+      showError(`Errore eliminazione contratto: ${error.response?.data?.error || error.message}`)
+    }
+  }
+
+  const loadAvailableBikes = async () => {
+    try {
+      const { data } = await api.get('/api/bikes', { params: { status: 'available' } })
+      setAvailableBikes(data)
+    } catch (error) {
+      console.error('Errore caricamento bici:', error)
+      showError('Errore nel caricamento delle bici disponibili')
+    }
+  }
+
+  const openSwapBikeModal = (contract, bikeItem) => {
+    setSwapBikeModal({ contract, bikeItem })
+    loadAvailableBikes()
+  }
+
+  const openSummaryModal = (contract) => {
+    const summary = calculateDetailedBill(contract)
+    setSelectedContractSummary({ contract, summary })
+    setShowSummaryModal(true)
+  }
+
+  const openReturnModal = (contract) => {
+    setSelectedContractForReturn(contract)
+    // Inizializza con tutti gli items selezionati per la restituzione
+    const returnableItems = contract.items.filter(item => item.kind === 'bike' || item.kind === 'accessory')
+    setItemsToReturn(returnableItems.map(item => ({ ...item, selected: true })))
+    setShowReturnModal(true)
+  }
+
+  const toggleItemForReturn = (itemId) => {
+    setItemsToReturn(prev => 
+      prev.map(item => 
+        item.refId === itemId ? { ...item, selected: !item.selected } : item
+      )
+    )
+  }
+
+  const processMultipleReturns = async () => {
+    const selectedItems = itemsToReturn.filter(item => item.selected)
+    if (selectedItems.length === 0) {
+      showWarning('Seleziona almeno un articolo da restituire')
+      return
+    }
+
+    try {
+      // Restituisci tutti gli items selezionati
+      for (const item of selectedItems) {
+        if (item.kind === 'bike') {
+          await api.put(`/api/bikes/${item.refId}`, { status: 'available' })
+        } else if (item.kind === 'accessory') {
+          await api.put(`/api/accessories/${item.refId}`, { status: 'available' })
+        }
+      }
+
+      // Aggiorna il contratto come "returned" se tutti gli items sono stati restituiti
+      const remainingItems = itemsToReturn.filter(item => !item.selected)
+      if (remainingItems.length === 0) {
+        // Calcola il conto finale al momento della restituzione
+        const bill = calculateDetailedBill(selectedContractForReturn)
+        await api.put(`/api/contracts/${selectedContractForReturn._id}`, { 
+          status: 'returned',
+          endAt: new Date().toISOString(),
+          finalAmount: bill.finalTotal
+        })
+        
+        showSuccess(`${selectedItems.length} articoli restituiti con successo. Ora puoi procedere al pagamento.`)
+        
+        // Chiudi il modal di restituzione e apri quello di pagamento
+        setShowReturnModal(false)
+        
+        // Ricarica i contratti per avere i dati aggiornati
+        await loadContracts()
+        
+        // Trova il contratto aggiornato e apri il modal di pagamento
+        const updatedContract = { 
+          ...selectedContractForReturn, 
+          status: 'returned',
+          endAt: new Date().toISOString(),
+          finalAmount: bill.finalTotal
+        }
+        
+        // Apri automaticamente il modal di pagamento
+        setTimeout(() => {
+          openPaymentModal(updatedContract)
+        }, 500)
+      } else {
+        showSuccess(`${selectedItems.length} articoli restituiti con successo`)
+        setShowReturnModal(false)
+        loadContracts()
+      }
+    } catch (error) {
+      showError(`Errore durante la restituzione: ${error.response?.data?.error || error.message}`)
+    }
+  }
+
+  const swapBike = async (oldBikeId, newBikeId, reason) => {
+    try {
+      const oldBike = swapBikeModal.bikeItem
+      const newBike = availableBikes.find(b => b._id === newBikeId)
+      
+      await api.post(`/api/contracts/swap-bike`, {
+        contractId: swapBikeModal.contract._id,
+        oldBikeId,
+        newBikeId,
+        reason
+      })
+      
+      showSuccess('Bici sostituita con successo!')
+      notifyBikeSwapped(
+        swapBikeModal.contract._id,
+        `${oldBike.name} (${oldBike.barcode})`,
+        `${newBike.name} (${newBike.barcode})`,
+        reason
+      )
+      
+      setSwapBikeModal(null)
+      loadContracts()
+    } catch (error) {
+      showError(`Errore sostituzione bici: ${error.response?.data?.error || error.message}`)
+    }
+  }
+
+  const loadContractHistory = async (contractId) => {
+    try {
+      const { data } = await api.get(`/api/contracts/${contractId}/modifications`)
+      setContractHistory(data)
+      setHistoryModal(contractId)
+    } catch (error) {
+      console.error('Errore caricamento storico:', error)
+      showError('Errore nel caricamento dello storico modifiche')
+    }
+  }
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString('it-IT')
+  }
+
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'in-use': return '#10b981'
+      case 'reserved': return '#f59e0b'
+      case 'completed': return '#6b7280'
+      case 'cancelled': return '#ef4444'
+      default: return '#6b7280'
+    }
+  }
+
+  const getStatusLabel = (status) => {
+    switch(status) {
+      case 'in-use': return 'In Uso'
+      case 'reserved': return 'Prenotato'
+      case 'completed': return 'Completato'
+      case 'cancelled': return 'Annullato'
+      default: return status
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{marginBottom: '32px'}}>
+        <h1 style={{
+          margin: 0,
+          fontSize: '2.5rem',
+          fontWeight: '700',
+          color: '#1e293b',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          📋 Gestione Contratti
+        </h1>
+        <p style={{margin: '8px 0 0 0', color: '#64748b', fontSize: '18px'}}>
+          Visualizza e modifica i contratti esistenti
+        </p>
+      </div>
+
+      {/* Riepilogo Rapido */}
+      {summary && (
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          padding: '24px',
+          marginBottom: '24px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          border: '1px solid #e2e8f0'
+        }}>
+          <h3 style={{
+            margin: '0 0 20px 0',
+            fontSize: '1.25rem',
+            fontWeight: '700',
+            color: '#1e293b',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            📊 Riepilogo Oggi
+          </h3>
+          
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '16px'
+          }}>
+            {/* Ricavi Oggi */}
+            <div style={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              borderRadius: '12px',
+              padding: '16px',
+              color: 'white',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '4px' }}>
+                €{summary.total?.toFixed(2) || '0.00'}
+              </div>
+              <div style={{ fontSize: '12px', opacity: '0.9' }}>
+                💰 Ricavi Totali
+              </div>
+            </div>
+
+            {/* Contratti Attivi */}
+            <div style={{
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              borderRadius: '12px',
+              padding: '16px',
+              color: 'white',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '4px' }}>
+                {summary.activeContracts || 0}
+              </div>
+              <div style={{ fontSize: '12px', opacity: '0.9' }}>
+                🔄 Contratti Attivi
+              </div>
+            </div>
+
+            {/* Contratti Completati */}
+            <div style={{
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              borderRadius: '12px',
+              padding: '16px',
+              color: 'white',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '4px' }}>
+                {summary.count || 0}
+              </div>
+              <div style={{ fontSize: '12px', opacity: '0.9' }}>
+                ✅ Completati
+              </div>
+            </div>
+
+            {/* Bici Disponibili */}
+            {summary.availableBikes !== undefined && (
+              <div style={{
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                borderRadius: '12px',
+                padding: '16px',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '4px' }}>
+                  {summary.availableBikes}/{summary.totalBikes}
+                </div>
+                <div style={{ fontSize: '12px', opacity: '0.9' }}>
+                  🚲 Bici Disponibili
+                </div>
+              </div>
+            )}
+
+            {/* Media per Contratto */}
+            <div style={{
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              borderRadius: '12px',
+              padding: '16px',
+              color: 'white',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '4px' }}>
+                €{summary.count > 0 ? (summary.total / summary.count).toFixed(2) : '0.00'}
+              </div>
+              <div style={{ fontSize: '12px', opacity: '0.9' }}>
+                📈 Media/Contratto
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filtri */}
+      <div style={{
+        background: 'white',
+        borderRadius: '12px',
+        padding: '20px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        marginBottom: '24px'
+      }}>
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          flexWrap: 'wrap'
+        }}>
+          <span style={{ fontWeight: '600', color: '#374151' }}>Filtra per stato:</span>
+          
+          {[
+            { value: 'all', label: 'Tutti', color: '#6b7280' },
+            { value: 'in-use', label: 'In Uso', color: '#10b981' },
+            { value: 'returned', label: 'Da Pagare', color: '#f59e0b' },
+            { value: 'reserved', label: 'Prenotati', color: '#8b5cf6' },
+            { value: 'completed', label: 'Completati', color: '#6b7280' },
+            { value: 'cancelled', label: 'Annullati', color: '#ef4444' }
+          ].map(filterOption => (
+            <button
+              key={filterOption.value}
+              onClick={() => setFilter(filterOption.value)}
+              style={{
+                padding: '8px 16px',
+                background: filter === filterOption.value ? filterOption.color : '#f3f4f6',
+                color: filter === filterOption.value ? 'white' : '#374151',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}
+            >
+              {filterOption.label}
+            </button>
+          ))}
+          
+          <button
+            onClick={loadContracts}
+            style={{
+              padding: '8px 16px',
+              background: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '14px',
+              marginLeft: 'auto'
+            }}
+          >
+            🔄 Ricarica
+          </button>
+        </div>
+      </div>
+
+      {/* Lista Contratti */}
+      {loading ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '40px',
+          color: '#6b7280'
+        }}>
+          Caricamento contratti...
+        </div>
+      ) : contracts.length === 0 ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '40px',
+          color: '#6b7280',
+          background: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+        }}>
+          Nessun contratto trovato
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gap: '16px'
+        }}>
+          {contracts.map(contract => (
+            <div key={contract._id} style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              border: `2px solid ${getStatusColor(contract.status)}20`
+            }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: '20px',
+                alignItems: 'start'
+              }}>
+                {/* Info Cliente */}
+                <div>
+                  <h3 style={{
+                    margin: '0 0 12px 0',
+                    color: '#374151',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    👤 {contract.customer?.name || 'Cliente sconosciuto'}
+                  </h3>
+                  
+                  <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
+                    📞 {contract.customer?.phone || 'N/A'}
+                  </div>
+                  
+                  <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                    ID: {contract._id}
+                  </div>
+                </div>
+
+                {/* Stato e Date */}
+                <div>
+                  <div style={{
+                    display: 'inline-block',
+                    padding: '6px 12px',
+                    background: getStatusColor(contract.status),
+                    color: 'white',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    marginBottom: '12px'
+                  }}>
+                    {getStatusLabel(contract.status)}
+                  </div>
+                  
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    📅 Inizio: {formatDate(contract.startAt)}
+                  </div>
+                  
+                  {contract.endAt && (
+                    <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                      🏁 Fine: {formatDate(contract.endAt)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Items */}
+                <div>
+                  <div style={{ fontWeight: '600', marginBottom: '8px', color: '#374151' }}>
+                    📦 Items ({contract.items?.length || 0})
+                  </div>
+                  
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    {contract.items?.map((item, index) => (
+                      <div key={index} style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        marginBottom: '8px',
+                        padding: '8px',
+                        background: '#f8fafc',
+                        borderRadius: '6px',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                          {/* Foto dell'articolo */}
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            border: '1px solid #e5e7eb',
+                            flexShrink: 0
+                          }}>
+                            {(() => {
+                              const photoUrl = getItemPhoto(item)
+                              return photoUrl ? (
+                                <img 
+                                  src={photoUrl} 
+                                  alt={item.name}
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={() => {
+                                    // Mostra immagine ingrandita
+                                    const modal = document.createElement('div');
+                                    modal.style.cssText = `
+                                      position: fixed;
+                                      top: 0;
+                                    left: 0;
+                                    width: 100%;
+                                    height: 100%;
+                                    background: rgba(0,0,0,0.8);
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    z-index: 1000;
+                                    cursor: pointer;
+                                  `;
+                                  modal.innerHTML = `
+                                    <img src="${photoUrl}" alt="${item.name}" style="
+                                      max-width: 90%;
+                                      max-height: 90%;
+                                      object-fit: contain;
+                                      border-radius: 8px;
+                                      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                                    ">
+                                  `;
+                                  modal.onclick = () => document.body.removeChild(modal);
+                                  document.body.appendChild(modal);
+                                }}
+                              />
+                            ) : (
+                              <div style={{
+                                width: '100%',
+                                height: '100%',
+                                background: item.kind === 'bike' ? '#dbeafe' : '#fef3c7',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '14px'
+                              }}>
+                                {item.kind === 'bike' ? '🚲' : '🎒'}
+                              </div>
+                            )
+                            })()}
+                          </div>
+                          
+                          <div style={{ flex: 1 }}>
+                            <div>
+                              {item.name}
+                              {item.barcode && (
+                                <span style={{ fontSize: '12px', color: '#9ca3af', marginLeft: '8px' }}>
+                                  ({item.barcode})
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                              €{item.priceHourly || 0}/h • €{item.priceDaily || 0}/g
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {/* Pulsante modifica prezzo - sempre visibile se contratto non completato */}
+                          {contract.status !== 'completed' && contract.status !== 'cancelled' && (
+                            <button
+                              onClick={() => openPriceEditModal(contract, item)}
+                              style={{
+                                padding: '4px 8px',
+                                background: '#8b5cf6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}
+                            >
+                              💰 Prezzo
+                            </button>
+                          )}
+                          
+                          {/* Pulsante sostituzione solo per bici e se contratto non completato */}
+                          {item.kind === 'bike' && contract.status !== 'completed' && contract.status !== 'cancelled' && (
+                            <button
+                              onClick={() => openSwapBikeModal(contract, item)}
+                              style={{
+                                padding: '4px 8px',
+                                background: '#f59e0b',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}
+                            >
+                              🔄 Sostituisci
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Pagamento */}
+                <div>
+                  <div style={{ fontWeight: '600', marginBottom: '8px', color: '#374151' }}>
+                    💳 Pagamento
+                  </div>
+                  
+                  <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '4px' }}>
+                    Metodo: {contract.paymentMethod || 'Non specificato'}
+                  </div>
+                  
+                  {/* Prezzo finale */}
+                  {contract.finalAmount !== undefined && contract.finalAmount !== null && (
+                    <div style={{
+                      fontSize: '16px',
+                      fontWeight: '700',
+                      color: '#1f2937',
+                      marginBottom: '4px',
+                      padding: '8px',
+                      background: '#f3f4f6',
+                      borderRadius: '6px',
+                      border: '2px solid #e5e7eb'
+                    }}>
+                      💰 Totale: €{contract.finalAmount.toFixed(2)}
+                    </div>
+                  )}
+                  
+                  <div style={{
+                    fontSize: '12px',
+                    color: contract.paymentCompleted ? '#059669' : '#dc2626',
+                    fontWeight: '600'
+                  }}>
+                    {contract.paymentCompleted ? '✅ Pagato' : '❌ Non pagato'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Azioni */}
+              <div style={{
+                marginTop: '20px',
+                paddingTop: '20px',
+                borderTop: '1px solid #e5e7eb',
+                display: 'flex',
+                gap: '8px',
+                flexWrap: 'wrap'
+              }}>
+                {/* Visualizza Dettagli */}
+                <button
+                  onClick={() => openContractDetails(contract)}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600'
+                  }}
+                >
+                  👁️ Dettagli
+                </button>
+
+                {/* Attiva Contratto Prenotato - Pulsante Migliorato */}
+                {contract.status === 'reserved' && (
+                  <button
+                    onClick={() => activateReservedContract(contract._id)}
+                    style={{
+                      padding: '10px 20px',
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '700',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    🚀 ATTIVA CONTRATTO
+                  </button>
+                )}
+
+                {contract.status === 'in-use' && (
+                  <>
+                    <button
+                      onClick={() => openReturnModal(contract)}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#059669',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      📦 Restituisci
+                    </button>
+                    <button
+                      onClick={() => updateContractStatus(contract._id, 'completed')}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#6b7280',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      ✅ Completa
+                    </button>
+                  </>
+                )}
+
+                {/* Gestione Pagamento */}
+                {contract.status === 'returned' && !contract.paymentCompleted && (
+                  <button
+                    onClick={() => openPaymentModal(contract)}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    💳 Completa Pagamento
+                  </button>
+                )}
+
+                {contract.status !== 'returned' && !contract.paymentCompleted && (
+                  <button
+                    onClick={() => updatePaymentStatus(contract._id, contract.paymentMethod || 'cash', true)}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#059669',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    💳 Segna Pagato
+                  </button>
+                )}
+
+                {contract.paymentCompleted && (
+                  <button
+                    onClick={() => updatePaymentStatus(contract._id, contract.paymentMethod, false)}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#dc2626',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    ❌ Rimuovi Pagamento
+                  </button>
+                )}
+
+                {/* Annulla */}
+                {(contract.status === 'reserved' || contract.status === 'in-use') && (
+                  <button
+                    onClick={() => updateContractStatus(contract._id, 'cancelled')}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    ❌ Annulla
+                  </button>
+                )}
+
+                {/* Riepilogo per contratti completati */}
+                {contract.status === 'completed' && (
+                  <button
+                    onClick={() => openSummaryModal(contract)}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#059669',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    📊 Riepilogo
+                  </button>
+                )}
+
+                {/* Storico Modifiche */}
+                <button
+                  onClick={() => loadContractHistory(contract._id)}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#6366f1',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600'
+                  }}
+                >
+                  📋 Storico
+                </button>
+
+                {/* Elimina */}
+                <button
+                  onClick={() => deleteContract(contract._id)}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#7f1d1d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginLeft: 'auto'
+                  }}
+                >
+                  🗑️ Elimina
+                </button>
+              </div>
+
+              {/* Note */}
+              {contract.notes && (
+                <div style={{
+                  marginTop: '16px',
+                  padding: '12px',
+                  background: '#f8fafc',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  color: '#6b7280'
+                }}>
+                  📝 Note: {contract.notes}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal Sostituzione Bici */}
+      {swapBikeModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h3 style={{ margin: '0 0 16px 0', color: '#374151' }}>
+              🔄 Sostituisci Bici: {swapBikeModal.bikeItem.name}
+            </h3>
+            
+            <div style={{ marginBottom: '16px', fontSize: '14px', color: '#6b7280' }}>
+              Barcode attuale: <strong>{swapBikeModal.bikeItem.barcode}</strong>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                Motivo sostituzione:
+              </label>
+              <input
+                type="text"
+                id="swapReason"
+                placeholder="es. Bici danneggiata, cliente richiede cambio..."
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ margin: '0 0 12px 0', color: '#374151' }}>
+                Seleziona nuova bici:
+              </h4>
+              
+              {availableBikes.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
+                  Nessuna bici disponibile
+                </div>
+              ) : (
+                <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+                  {availableBikes.map(bike => (
+                    <div key={bike._id} style={{
+                      padding: '12px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px',
+                      marginBottom: '8px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: '600', color: '#374151' }}>
+                          🚲 {bike.name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                          Barcode: {bike.barcode}
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => {
+                          const reason = document.getElementById('swapReason').value
+                          if (!reason.trim()) {
+                            alert('Inserisci il motivo della sostituzione')
+                            return
+                          }
+                          swapBike(swapBikeModal.bikeItem._id, bike._id, reason)
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          background: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Seleziona
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setSwapBikeModal(null)}
+                style={{
+                  padding: '8px 16px',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Storico Modifiche */}
+      {historyModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '800px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h3 style={{ margin: '0 0 16px 0', color: '#374151' }}>
+              📋 Storico Modifiche Contratto
+            </h3>
+            
+            {contractHistory.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
+                Nessuna modifica registrata
+              </div>
+            ) : (
+              <div style={{ maxHeight: '400px', overflow: 'auto' }}>
+                {contractHistory.map((entry, index) => (
+                  <div key={index} style={{
+                    padding: '16px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    marginBottom: '12px',
+                    background: '#f9fafb'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '8px'
+                    }}>
+                      <span style={{ fontWeight: '600', color: '#374151' }}>
+                        {entry.action === 'item_swapped' ? '🔄 Sostituzione Bici' :
+                         entry.action === 'status_changed' ? '📝 Cambio Stato' :
+                         entry.action === 'deleted' ? '🗑️ Eliminazione' :
+                         entry.action}
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {formatDate(entry.date)}
+                      </span>
+                    </div>
+                    
+                    <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '4px' }}>
+                      Eseguito da: <strong>{entry.performedBy}</strong>
+                    </div>
+                    
+                    {entry.details && (
+                      <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                        {entry.action === 'item_swapped' && (
+                          <>
+                            <div>Bici sostituita: {entry.details.oldBike?.name} ({entry.details.oldBike?.barcode})</div>
+                            <div>Nuova bici: {entry.details.newBike?.name} ({entry.details.newBike?.barcode})</div>
+                            <div>Motivo: {entry.details.reason}</div>
+                          </>
+                        )}
+                        {entry.action === 'status_changed' && (
+                          <>
+                            <div>Da: {entry.details.oldStatus} → A: {entry.details.newStatus}</div>
+                          </>
+                        )}
+                        {entry.action === 'deleted' && (
+                          <>
+                            <div>Cliente: {entry.details.customerName}</div>
+                            <div>Items: {entry.details.itemsCount}</div>
+                            <div>Stato: {entry.details.status}</div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button
+                onClick={() => setHistoryModal(null)}
+                style={{
+                  padding: '8px 16px',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                Chiudi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dettagli Contratto */}
+      {showDetailsModal && selectedContractDetails && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '800px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <h2 style={{
+                margin: 0,
+                fontSize: '1.8rem',
+                fontWeight: '700',
+                color: '#1e293b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                📋 Dettagli Contratto
+              </h2>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  fontWeight: 'bold'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '24px'
+            }}>
+              {/* Info Cliente */}
+              <div style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: '20px',
+                border: '2px solid #e2e8f0'
+              }}>
+                <h3 style={{
+                  margin: '0 0 16px 0',
+                  color: '#1e293b',
+                  fontSize: '1.2rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  👤 Cliente
+                </h3>
+                <div style={{ fontSize: '16px', marginBottom: '8px' }}>
+                  <strong>Nome:</strong> {selectedContractDetails.customer?.name || 'N/A'}
+                </div>
+                <div style={{ fontSize: '16px', marginBottom: '8px' }}>
+                  <strong>Telefono:</strong> {selectedContractDetails.customer?.phone || 'N/A'}
+                </div>
+                
+                {/* Foto Carta d'Identità */}
+                {selectedContractDetails.customer?.idFrontUrl && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#374151' }}>
+                      📄 Carta d'Identità:
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <img 
+                        src={selectedContractDetails.customer.idFrontUrl} 
+                        alt="Carta d'identità fronte"
+                        style={{
+                          width: '120px',
+                          height: '80px',
+                          objectFit: 'cover',
+                          borderRadius: '8px',
+                          border: '2px solid #e5e7eb',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                        onClick={() => {
+                          // Mostra immagine in grande
+                          const modal = document.createElement('div');
+                          modal.style.cssText = `
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            background: rgba(0,0,0,0.8);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            z-index: 1000;
+                            cursor: pointer;
+                          `;
+                          modal.innerHTML = `
+                            <img src="${selectedContractDetails.customer.idFrontUrl}" alt="Carta d'identità" style="
+                              max-width: 90%;
+                              max-height: 90%;
+                              object-fit: contain;
+                              border-radius: 8px;
+                              box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                            ">
+                          `;
+                          modal.onclick = () => document.body.removeChild(modal);
+                          document.body.appendChild(modal);
+                        }}
+                        title="Clicca per ingrandire"
+                      />
+                      {selectedContractDetails.customer?.idBackUrl && (
+                        <img 
+                          src={selectedContractDetails.customer.idBackUrl} 
+                          alt="Carta d'identità retro"
+                          style={{
+                            width: '120px',
+                            height: '80px',
+                            objectFit: 'cover',
+                            borderRadius: '8px',
+                            border: '2px solid #e5e7eb',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                          }}
+                          onClick={() => {
+                            // Mostra immagine in grande
+                            const modal = document.createElement('div');
+                            modal.style.cssText = `
+                              position: fixed;
+                              top: 0;
+                              left: 0;
+                              width: 100%;
+                              height: 100%;
+                              background: rgba(0,0,0,0.8);
+                              display: flex;
+                              align-items: center;
+                              justify-content: center;
+                              z-index: 1000;
+                              cursor: pointer;
+                            `;
+                            modal.innerHTML = `
+                              <img src="${selectedContractDetails.customer.idBackUrl}" alt="Carta d'identità retro" style="
+                                max-width: 90%;
+                                max-height: 90%;
+                                object-fit: contain;
+                                border-radius: 8px;
+                                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                              ">
+                            `;
+                            modal.onclick = () => document.body.removeChild(modal);
+                            document.body.appendChild(modal);
+                          }}
+                          title="Clicca per ingrandire"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                  <strong>ID Contratto:</strong> {selectedContractDetails._id}
+                </div>
+              </div>
+
+              {/* Stato e Date */}
+              <div style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: '20px',
+                border: '2px solid #e2e8f0'
+              }}>
+                <h3 style={{
+                  margin: '0 0 16px 0',
+                  color: '#1e293b',
+                  fontSize: '1.2rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  📅 Stato e Date
+                </h3>
+                <div style={{
+                  display: 'inline-block',
+                  padding: '8px 16px',
+                  background: getStatusColor(selectedContractDetails.status),
+                  color: 'white',
+                  borderRadius: '20px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  marginBottom: '12px'
+                }}>
+                  {getStatusLabel(selectedContractDetails.status)}
+                </div>
+                <div style={{ fontSize: '14px', marginBottom: '6px' }}>
+                  <strong>Inizio:</strong> {formatDate(selectedContractDetails.startAt)}
+                </div>
+                {selectedContractDetails.endAt && (
+                  <div style={{ fontSize: '14px', marginBottom: '6px' }}>
+                    <strong>Fine:</strong> {formatDate(selectedContractDetails.endAt)}
+                  </div>
+                )}
+                {selectedContractDetails.actualStartAt && (
+                  <div style={{ fontSize: '14px', color: '#059669' }}>
+                    <strong>Attivato il:</strong> {formatDate(selectedContractDetails.actualStartAt)}
+                  </div>
+                )}
+              </div>
+
+              {/* Items */}
+              <div style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: '20px',
+                border: '2px solid #e2e8f0',
+                gridColumn: 'span 2'
+              }}>
+                <h3 style={{
+                  margin: '0 0 16px 0',
+                  color: '#1e293b',
+                  fontSize: '1.2rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  📦 Articoli ({selectedContractDetails.items?.length || 0})
+                </h3>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                  gap: '12px'
+                }}>
+                  {selectedContractDetails.items?.map((item, index) => (
+                    <div key={index} style={{
+                      background: 'white',
+                      borderRadius: '8px',
+                      padding: '16px',
+                      border: '1px solid #d1d5db',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}>
+                      {/* Foto dell'articolo */}
+                      <div style={{
+                        width: '60px',
+                        height: '60px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: '2px solid #e5e7eb',
+                        flexShrink: 0
+                      }}>
+                        {item.photoUrl ? (
+                          <img 
+                            src={item.photoUrl} 
+                            alt={item.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => {
+                              // Mostra immagine ingrandita
+                              const modal = document.createElement('div');
+                              modal.style.cssText = `
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                background: rgba(0,0,0,0.8);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                z-index: 1000;
+                                cursor: pointer;
+                              `;
+                              modal.innerHTML = `
+                                <img src="${item.photoUrl}" alt="${item.name}" style="
+                                  max-width: 90%;
+                                  max-height: 90%;
+                                  object-fit: contain;
+                                  border-radius: 8px;
+                                  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                                ">
+                              `;
+                              modal.onclick = () => document.body.removeChild(modal);
+                              document.body.appendChild(modal);
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: '100%',
+                            height: '100%',
+                            background: item.kind === 'bike' ? '#dbeafe' : '#fef3c7',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '24px'
+                          }}>
+                            {item.kind === 'bike' ? '🚲' : '🎒'}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                          {item.name}
+                        </div>
+                        {item.barcode && (
+                          <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                            Barcode: {item.barcode}
+                          </div>
+                        )}
+                        {item.insurance && (
+                          <div style={{ fontSize: '12px', color: '#059669', fontWeight: '600' }}>
+                            🛡️ Assicurato (€{item.insuranceFlat || 5})
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Pulsanti azione per ogni item */}
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {item.kind === 'bike' && selectedContractDetails.status !== 'completed' && selectedContractDetails.status !== 'cancelled' && (
+                          <button
+                            onClick={() => openSwapBikeModal(selectedContractDetails, item)}
+                            style={{
+                              padding: '4px 8px',
+                              background: '#f59e0b',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            🔄
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pagamenti */}
+              <div style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: '20px',
+                border: '2px solid #e2e8f0'
+              }}>
+                <h3 style={{
+                  margin: '0 0 16px 0',
+                  color: '#1e293b',
+                  fontSize: '1.2rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  💳 Pagamento
+                </h3>
+                <div style={{ fontSize: '14px', marginBottom: '8px' }}>
+                  <strong>Metodo:</strong> {selectedContractDetails.paymentMethod || 'Non specificato'}
+                </div>
+                
+                {/* Prezzo finale */}
+                {selectedContractDetails.finalAmount !== undefined && selectedContractDetails.finalAmount !== null && (
+                  <div style={{
+                    fontSize: '18px',
+                    fontWeight: '700',
+                    color: '#1f2937',
+                    marginBottom: '12px',
+                    padding: '12px',
+                    background: '#f9fafb',
+                    borderRadius: '8px',
+                    border: '2px solid #10b981',
+                    textAlign: 'center'
+                  }}>
+                    💰 TOTALE DA PAGARE: €{selectedContractDetails.finalAmount.toFixed(2)}
+                  </div>
+                )}
+                
+                <div style={{
+                  fontSize: '14px',
+                  color: selectedContractDetails.paymentCompleted ? '#059669' : '#dc2626',
+                  fontWeight: '600',
+                  marginBottom: '8px'
+                }}>
+                  {selectedContractDetails.paymentCompleted ? '✅ Pagato' : '❌ Non pagato'}
+                </div>
+                {selectedContractDetails.paymentLink && (
+                  <div style={{ fontSize: '14px', marginBottom: '8px' }}>
+                    <strong>Link:</strong> 
+                    <a 
+                      href={selectedContractDetails.paymentLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ color: '#3b82f6', marginLeft: '8px' }}
+                    >
+                      🔗 Apri
+                    </a>
+                  </div>
+                )}
+                {selectedContractDetails.paymentNotes && (
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    <strong>Note:</strong> {selectedContractDetails.paymentNotes}
+                  </div>
+                )}
+              </div>
+
+              {/* Note */}
+              {selectedContractDetails.notes && (
+                <div style={{
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  border: '2px solid #e2e8f0'
+                }}>
+                  <h3 style={{
+                    margin: '0 0 16px 0',
+                    color: '#1e293b',
+                    fontSize: '1.2rem',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    📝 Note
+                  </h3>
+                  <div style={{ fontSize: '14px', color: '#374151' }}>
+                    {selectedContractDetails.notes}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Azioni nella modale */}
+            <div style={{
+              marginTop: '32px',
+              paddingTop: '20px',
+              borderTop: '2px solid #e5e7eb',
+              display: 'flex',
+              gap: '12px',
+              flexWrap: 'wrap',
+              justifyContent: 'center'
+            }}>
+              {/* Attiva Contratto se prenotato */}
+              {selectedContractDetails.status === 'reserved' && (
+                <button
+                  onClick={() => {
+                    activateReservedContract(selectedContractDetails._id)
+                    setShowDetailsModal(false)
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                  }}
+                >
+                  🚀 ATTIVA CONTRATTO
+                </button>
+              )}
+
+              {/* Elimina Contratto */}
+              <button
+                onClick={() => {
+                  if (confirm('Sei sicuro di voler eliminare questo contratto?')) {
+                    deleteContract(selectedContractDetails._id)
+                    setShowDetailsModal(false)
+                  }
+                }}
+                style={{
+                  padding: '12px 24px',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                🗑️ Elimina Contratto
+              </button>
+
+              {/* Chiudi */}
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                style={{
+                  padding: '12px 24px',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                Chiudi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Restituzione Multipla */}
+      {showReturnModal && selectedContractForReturn && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '700px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <h2 style={{
+                margin: 0,
+                fontSize: '1.8rem',
+                fontWeight: '700',
+                color: '#1e293b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                📦 Restituzione Articoli
+              </h2>
+              <button
+                onClick={() => setShowReturnModal(false)}
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  fontWeight: 'bold'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '24px', color: '#6b7280' }}>
+              Seleziona gli articoli da restituire per il contratto di <strong>{selectedContractForReturn.customer?.name}</strong>
+            </div>
+
+            {/* Lista articoli */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+              {itemsToReturn.map((item, index) => (
+                <div key={index} style={{
+                  background: item.selected ? '#f0fdf4' : '#f8fafc',
+                  border: `2px solid ${item.selected ? '#16a34a' : '#e2e8f0'}`,
+                  borderRadius: '12px',
+                  padding: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }} onClick={() => toggleItemForReturn(item.refId)}>
+                  
+                  {/* Checkbox */}
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '6px',
+                    border: `2px solid ${item.selected ? '#16a34a' : '#d1d5db'}`,
+                    background: item.selected ? '#16a34a' : 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '14px'
+                  }}>
+                    {item.selected && '✓'}
+                  </div>
+
+                  {/* Foto */}
+                  <div style={{
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    border: '2px solid #e5e7eb',
+                    flexShrink: 0
+                  }}>
+                    {item.photoUrl ? (
+                      <img 
+                        src={item.photoUrl} 
+                        alt={item.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        background: item.kind === 'bike' ? '#dbeafe' : '#fef3c7',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '20px'
+                      }}>
+                        {item.kind === 'bike' ? '🚲' : '🎒'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info articolo */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                      {item.name}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                      {item.kind === 'bike' ? '🚲 Bici' : '🎒 Accessorio'} • {item.barcode}
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  <div style={{
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    background: item.selected ? '#dcfce7' : '#f3f4f6',
+                    color: item.selected ? '#16a34a' : '#6b7280',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}>
+                    {item.selected ? 'Da restituire' : 'Mantieni'}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pulsanti */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setItemsToReturn(prev => prev.map(item => ({ ...item, selected: true })))}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#f3f4f6',
+                    color: '#374151',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Seleziona Tutti
+                </button>
+                <button
+                  onClick={() => setItemsToReturn(prev => prev.map(item => ({ ...item, selected: false })))}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#f3f4f6',
+                    color: '#374151',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Deseleziona Tutti
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={() => setShowReturnModal(false)}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={processMultipleReturns}
+                  disabled={itemsToReturn.filter(item => item.selected).length === 0}
+                  style={{
+                    padding: '12px 24px',
+                    background: itemsToReturn.filter(item => item.selected).length > 0 ? '#16a34a' : '#9ca3af',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: itemsToReturn.filter(item => item.selected).length > 0 ? 'pointer' : 'not-allowed',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}
+                >
+                  📦 Restituisci ({itemsToReturn.filter(item => item.selected).length})
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Riepilogo Contratto */}
+      {showSummaryModal && selectedContractSummary && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '800px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <h2 style={{
+                margin: 0,
+                fontSize: '1.8rem',
+                fontWeight: '700',
+                color: '#1e293b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                📊 Riepilogo Contratto
+              </h2>
+              <button
+                onClick={() => setShowSummaryModal(false)}
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  fontWeight: 'bold'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Info Contratto */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '20px',
+              marginBottom: '24px'
+            }}>
+              <div style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: '16px',
+                border: '2px solid #e2e8f0'
+              }}>
+                <h3 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '1.1rem' }}>
+                  👤 Cliente
+                </h3>
+                <div><strong>Nome:</strong> {selectedContractSummary.contract.customer?.name}</div>
+                <div><strong>Telefono:</strong> {selectedContractSummary.contract.customer?.phone}</div>
+              </div>
+
+              <div style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: '16px',
+                border: '2px solid #e2e8f0'
+              }}>
+                <h3 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '1.1rem' }}>
+                  📅 Periodo
+                </h3>
+                <div><strong>Inizio:</strong> {formatDate(selectedContractSummary.summary.startDate)}</div>
+                <div><strong>Fine:</strong> {formatDate(selectedContractSummary.summary.endDate)}</div>
+                <div style={{ 
+                  marginTop: '8px', 
+                  padding: '4px 8px', 
+                  background: selectedContractSummary.summary.isFromReservation ? '#dbeafe' : '#fef3c7',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: '600'
+                }}>
+                  {selectedContractSummary.summary.isFromReservation ? '📋 Da Prenotazione' : '🆕 Nuovo Contratto'}
+                </div>
+              </div>
+            </div>
+
+            {/* Articoli */}
+            <div style={{
+              background: '#f8fafc',
+              borderRadius: '12px',
+              padding: '20px',
+              border: '2px solid #e2e8f0',
+              marginBottom: '24px'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', color: '#1e293b', fontSize: '1.2rem' }}>
+                📦 Articoli
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {selectedContractSummary.summary.items.map((item, index) => (
+                  <div key={index} style={{
+                    background: 'white',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    border: '1px solid #d1d5db',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                        {item.kind === 'bike' ? '🚲' : item.kind === 'accessory' ? '🎒' : '🛡️'} {item.name}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                        {item.pricingType === 'orario' && `€${item.priceHourly}/h × ${item.duration}h`}
+                        {item.pricingType === 'giornaliero' && `€${item.priceDaily}/g × ${item.duration}g`}
+                        {item.pricingType === 'forfait' && `€${item.priceDaily} forfait`}
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: '700', fontSize: '16px', color: '#059669' }}>
+                      €{item.subtotal.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Totali */}
+            <div style={{
+              background: '#f8fafc',
+              borderRadius: '12px',
+              padding: '20px',
+              border: '2px solid #e2e8f0',
+              marginBottom: '24px'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', color: '#1e293b', fontSize: '1.2rem' }}>
+                💰 Totali
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Subtotale:</span>
+                  <span>€{selectedContractSummary.summary.total.toFixed(2)}</span>
+                </div>
+
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between',
+                  paddingTop: '8px',
+                  borderTop: '2px solid #e5e7eb',
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  color: '#059669'
+                }}>
+                  <span>TOTALE:</span>
+                  <span>€{selectedContractSummary.summary.finalTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Stato Pagamento */}
+            <div style={{
+              background: selectedContractSummary.summary.alreadyPaid ? '#dcfce7' : '#fef3c7',
+              borderRadius: '12px',
+              padding: '16px',
+              border: `2px solid ${selectedContractSummary.summary.alreadyPaid ? '#16a34a' : '#f59e0b'}`,
+              marginBottom: '24px',
+              textAlign: 'center'
+            }}>
+              <div style={{ 
+                fontSize: '18px', 
+                fontWeight: '700',
+                color: selectedContractSummary.summary.alreadyPaid ? '#16a34a' : '#f59e0b',
+                marginBottom: '8px'
+              }}>
+                {selectedContractSummary.summary.alreadyPaid ? '✅ PAGATO' : '⏳ DA PAGARE'}
+              </div>
+              <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                {selectedContractSummary.summary.paymentMethod && `Metodo: ${selectedContractSummary.summary.paymentMethod}`}
+                {selectedContractSummary.summary.isFromReservation && ' • Prenotazione già saldata'}
+              </div>
+            </div>
+
+            {/* Pulsanti */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={() => setShowSummaryModal(false)}
+                style={{
+                  padding: '12px 24px',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                Chiudi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pagamento */}
+      {showPaymentModal && selectedContractForPayment && (
+        <PaymentModal
+          contract={selectedContractForPayment}
+          onPaymentComplete={() => {
+            setShowPaymentModal(false);
+            setSelectedContractForPayment(null);
+            loadContracts(); // Ricarica i contratti
+          }}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedContractForPayment(null);
+          }}
+        />
+      )}
+
+      {/* Modal Modifica Prezzo */}
+      {showPriceEditModal && selectedItemForPriceEdit && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <h2 style={{
+                margin: 0,
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                color: '#1f2937'
+              }}>
+                💰 Modifica Prezzo
+              </h2>
+              <button
+                onClick={() => setShowPriceEditModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 12px 0', color: '#374151' }}>
+                {selectedItemForPriceEdit?.kind === 'bike' ? '🚲' : '🎒'} {selectedItemForPriceEdit?.name}
+              </h3>
+              <p style={{ margin: '0 0 16px 0', color: '#6b7280', fontSize: '14px' }}>
+                Barcode: {selectedItemForPriceEdit?.barcode}
+              </p>
+              
+              <div style={{
+                background: '#f9fafb',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '16px'
+              }}>
+                <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                  <div>Prezzo attuale orario: €{selectedItemForPriceEdit?.priceHourly || 0}</div>
+                  <div>Prezzo attuale giornaliero: €{selectedItemForPriceEdit?.priceDaily || 0}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                color: '#374151'
+              }}>
+                💰 Nuovo Prezzo Orario (€)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={newPriceHourly}
+                onChange={(e) => setNewPriceHourly(e.target.value)}
+                placeholder={selectedItemForPriceEdit?.priceHourly?.toString() || '0.00'}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '2px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                color: '#374151'
+              }}>
+                📅 Nuovo Prezzo Giornaliero (€)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={newPriceDaily}
+                onChange={(e) => setNewPriceDaily(e.target.value)}
+                placeholder={selectedItemForPriceEdit?.priceDaily?.toString() || '0.00'}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '2px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
+
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={() => setShowPriceEditModal(false)}
+                style={{
+                  padding: '12px 24px',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={updateItemPrice}
+                disabled={!newPriceHourly && !newPriceDaily}
+                style={{
+                  padding: '12px 24px',
+                  background: (!newPriceHourly && !newPriceDaily) ? '#9ca3af' : '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: (!newPriceHourly && !newPriceDaily) ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                💰 Aggiorna Prezzo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
