@@ -10,7 +10,7 @@ export default defineConfig({
     // https: true, // Decommentare per HTTPS locale (richiede certificati)
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'https://rentabike-backend-1.onrender.com',
         changeOrigin: true,
         secure: false,
       }
