@@ -26,7 +26,7 @@ export default function ContractManagement({ contract, onUpdate, onClose }) {
   const loadModificationHistory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/contracts/${contract._id}/modifications`, {
+      const response = await fetch(`/api/contracts/${contract._id}/modifications`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -43,7 +43,7 @@ export default function ContractManagement({ contract, onUpdate, onClose }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/contracts/${contract._id}`, {
+      const response = await fetch(`/api/contracts/${contract._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -75,7 +75,7 @@ export default function ContractManagement({ contract, onUpdate, onClose }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/contracts/${contract._id}/cancel`, {
+      const response = await fetch(`/api/contracts/${contract._id}/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ export default function ContractManagement({ contract, onUpdate, onClose }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/contracts/${contract._id}/complete-payment`, {
+      const response = await fetch(`/api/contracts/${contract._id}/complete-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -144,7 +144,7 @@ export default function ContractManagement({ contract, onUpdate, onClose }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/contracts/${contract._id}`, {
+      const response = await fetch(`/api/contracts/${contract._id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

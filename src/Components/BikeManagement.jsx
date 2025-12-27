@@ -23,17 +23,17 @@ const BikeManagement = () => {
       const token = localStorage.getItem('token');
       
       // Fetch bici
-      const bikesResponse = await fetch('http://localhost:4000/api/bikes', {
+      const bikesResponse = await fetch('/api/bikes', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const bikesData = await bikesResponse.json();
       
       // Fetch contratti attivi per vedere quali bici sono in uso
       const [contractsInUse, contractsReserved] = await Promise.all([
-        fetch('http://localhost:4000/api/contracts?status=in-use', {
+        fetch('/api/contracts?status=in-use', {
           headers: { 'Authorization': `Bearer ${token}` }
         }).then(res => res.json()),
-        fetch('http://localhost:4000/api/contracts?status=reserved', {
+        fetch('/api/contracts?status=reserved', {
           headers: { 'Authorization': `Bearer ${token}` }
         }).then(res => res.json())
       ]);
@@ -41,7 +41,7 @@ const BikeManagement = () => {
       const contractsData = [...contractsInUse, ...contractsReserved];
       
       // Fetch locations
-      const locationsResponse = await fetch('http://localhost:4000/api/locations', {
+      const locationsResponse = await fetch('/api/locations', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const locationsData = await locationsResponse.json();

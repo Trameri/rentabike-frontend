@@ -1,14 +1,13 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import LocationLogo from '../Components/LocationLogo.jsx'
-import { getApiUrl } from '../config/environment.js'
+import { getBackendAppUrl } from '../config/environment.js'
+import { api } from '../services/api.js'
 
 export default function LoginBeautiful(){
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
 
   async function handleSubmit(e){
     e.preventDefault()
@@ -16,21 +15,39 @@ export default function LoginBeautiful(){
     setLoading(true)
     
     try{
-      const response = await fetch(getApiUrl('/api/auth/login'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ username, password })
-      })
-      
-      const data = await response.json()
-      
-      if (response.ok) {
-        localStorage.setItem('token', data.token)
-        navigate('/dashboard')
+      // Prova multipli path per massima compatibilità con backend (con o senza prefisso /api)
+      const candidates = ['/api/auth/login']
+      let success = null
+      let lastError = null
+
+      for (const path of candidates) {
+        try {
+          const res = await api.post(path, { username, password }, { withCredentials: true })
+          success = res
+          break
+        } catch (err) {
+          lastError = err
+          const status = err.response?.status
+          // Ritenta con il prossimo path solo se 404/405 (not found/method) o errori di rete
+          if (!status || status === 404 || status === 405) {
+            continue
+          } else {
+            break
+          }
+        }
+      }
+
+      if (success) {
+        const data = success.data
+        if (data && data.token) {
+          localStorage.setItem('token', data.token)
+        }
+        window.location.replace(getBackendAppUrl('/'))
       } else {
-        setError(data.error || 'Errore di login')
+        const status = lastError?.response?.status
+        const data = lastError?.response?.data
+        const message = (data && (data.error || data.message)) || (status ? `Errore di login (status ${status})` : 'Server non raggiungibile')
+        setError(message)
       }
     }catch(err){
       console.error('Errore:', err)

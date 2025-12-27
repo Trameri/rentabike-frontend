@@ -1,7 +1,8 @@
 // Configurazione ambiente per il frontend
 export const config = {
   // URL del backend
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000',
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://rentabike-backend-1.onrender.com',
+  BACKEND_APP_URL: import.meta.env.VITE_BACKEND_APP_URL || 'https://rentabike-backend-1.onrender.com',
   
   // Configurazione upload
   UPLOAD: {
@@ -68,7 +69,15 @@ export const config = {
 
 // Utility per ottenere configurazioni specifiche
 export const getApiUrl = (endpoint = '') => {
-  return `${config.API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`
+  const base = config.API_BASE_URL.replace(/\/$/, '')
+  const ep = endpoint.startsWith('/api') ? endpoint : `/api${endpoint.startsWith('/') ? '' : '/'}${endpoint}`
+  return `${base}${ep}`
+}
+
+export const getBackendAppUrl = (path = '') => {
+  const base = config.BACKEND_APP_URL
+  if (!path) return base
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }
 
 export const isFeatureEnabled = (feature) => {

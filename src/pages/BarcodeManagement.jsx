@@ -17,12 +17,12 @@ export default function BarcodeManagement() {
       const token = localStorage.getItem('token');
       
       // Carica bici
-      const bikesResponse = await fetch('http://localhost:4000/api/bikes', {
+      const bikesResponse = await fetch('/api/bikes', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
       // Carica accessori
-      const accessoriesResponse = await fetch('http://localhost:4000/api/accessories', {
+      const accessoriesResponse = await fetch('/api/accessories', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -47,7 +47,7 @@ export default function BarcodeManagement() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/barcode/regenerate/${type}/${id}`, {
+      const response = await fetch(`/api/barcode/regenerate/${type}/${id}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -69,7 +69,7 @@ export default function BarcodeManagement() {
   const downloadBarcode = async (type, id) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/barcode/generate/${type}/${id}?width=400&height=100`, {
+      const response = await fetch(`/api/barcode/generate/${type}/${id}?width=400&height=100`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -111,7 +111,7 @@ export default function BarcodeManagement() {
         return { type, id };
       });
 
-      const response = await fetch('http://localhost:4000/api/barcode/generate-batch', {
+      const response = await fetch('/api/barcode/generate-batch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

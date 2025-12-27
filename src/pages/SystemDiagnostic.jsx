@@ -280,7 +280,7 @@ export default function SystemDiagnostic(){
             <div><strong>Ruolo:</strong> {user.role}</div>
             <div><strong>Location:</strong> {user.location?.name || 'N/A'}</div>
             <div><strong>Frontend:</strong> http://localhost:5173</div>
-            <div><strong>Backend:</strong> http://localhost:4000</div>
+            <div><strong>Backend:</strong> {window.location.origin}/api → https://rentabike-backend-1.onrender.com</div>
             <div><strong>Timestamp:</strong> {new Date().toLocaleString()}</div>
           </div>
         </div>

@@ -1,26 +1,18 @@
 import axios from 'axios';
 
-// Auto-detect dell'URL del backend basato sull'hostname
-function getBackendURL() {
-  // Se è definita una variabile d'ambiente, usala
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
-  }
-  
-  // Auto-detect basato sull'hostname
-  const hostname = window.location.hostname;
-  
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:4000';
-  } else {
-    return window.location.origin;
-  }
-}
+// URL base API centralizzato: prima da VITE_API_BASE_URL, altrimenti fallback fisso
+// Se USE_VERCEL_PROXY è true, usa il proxy /api del dominio Vercel per evitare CORS/rete
+// Strategia: usa SEMPRE base URL assoluta verso Render per evitare errori di connessione/proxy.
+// L'endpoint corretto è https://rentabike-backend-1.onrender.com e tutte le rotte devono includere /api
+const ABSOLUTE_BACKEND = import.meta.env.VITE_API_BASE_URL || 'https://rentabike-backend-1.onrender.com';
+const USE_VERCEL_PROXY = import.meta.env.VITE_USE_VERCEL_PROXY === 'true';
 
-const baseURL = getBackendURL();
-console.log('🌐 Backend URL configurato:', baseURL);
+// Normalizza la base: rimuove eventuale trailing slash
+const normalizeBase = (url) => url.endsWith('/') ? url.slice(0, -1) : url;
+const BASE = USE_VERCEL_PROXY ? '' : normalizeBase(ABSOLUTE_BACKEND);
+console.log('🌐 Backend URL configurato:', USE_VERCEL_PROXY ? 'Proxy Vercel (/api)' : BASE);
 
-export const api = axios.create({ baseURL });
+export const api = axios.create({ baseURL: BASE });
 
 export function setToken(t){
   localStorage.setItem('token', t);
@@ -44,6 +36,13 @@ getToken();
 // Interceptor per debug delle richieste
 api.interceptors.request.use(
   (config) => {
+    // Modifica solo percorsi locali
+    const path = config.url || '';
+    if (!/^https?:\/\//i.test(path)) {
+      // Normalizza aggiungendo /api solo se manca completamente
+      const shouldAddApi = !path.startsWith('/api') && !path.startsWith('api/');
+      config.url = shouldAddApi ? `/api${path.startsWith('/') ? '' : '/'}${path}` : path;
+    }
     console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
     return config;
   },
