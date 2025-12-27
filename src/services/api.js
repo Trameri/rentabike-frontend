@@ -1,13 +1,15 @@
 import axios from 'axios';
 
-// URL base API centralizzato: usa SEMPRE base URL assoluta verso Render
+// URL base API centralizzato: prima da VITE_API_BASE_URL, altrimenti fallback fisso
+// Se USE_VERCEL_PROXY è true, usa il proxy /api del dominio Vercel per evitare CORS/rete
 // L'endpoint corretto è https://rentabike-backend-1.onrender.com e tutte le rotte devono includere /api
 const ABSOLUTE_BACKEND = import.meta.env.VITE_API_BASE_URL || 'https://rentabike-backend-1.onrender.com';
+const USE_VERCEL_PROXY = import.meta.env.VITE_USE_VERCEL_PROXY === 'true';
 
 // Normalizza la base: rimuove eventuale trailing slash
 const normalizeBase = (url) => url.endsWith('/') ? url.slice(0, -1) : url;
-const BASE = normalizeBase(ABSOLUTE_BACKEND);
-console.log('🌐 Backend URL configurato:', BASE);
+const BASE = USE_VERCEL_PROXY ? '' : normalizeBase(ABSOLUTE_BACKEND);
+console.log('🌐 Backend URL configurato:', USE_VERCEL_PROXY ? 'Proxy Vercel (/api)' : BASE);
 
 export const api = axios.create({ baseURL: BASE });
 
