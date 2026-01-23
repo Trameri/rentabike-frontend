@@ -5,7 +5,6 @@ const WebcamWithPreview = ({ onCapture, label = "Scatta Foto", type = "front" })
   const [capturedImage, setCapturedImage] = useState(null)
   const [error, setError] = useState(null)
   const videoRef = useRef(null)
-  const previewRef = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
 
@@ -19,47 +18,35 @@ const WebcamWithPreview = ({ onCapture, label = "Scatta Foto", type = "front" })
 
   const startCamera = async () => {
     setError(null)
-    
+
     try {
-      console.log('🎥 Avvio camera con anteprima...')
-      
+      console.log('🎥 Avvio camera...')
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 }
+          height: { ideal: 720, min: 480 },
+          facingMode: type === 'selfie' ? 'user' : 'environment'
         },
         audio: false
       })
-      
+
       console.log('✅ Stream ottenuto:', stream)
       streamRef.current = stream
-      
-      // Assegna lo stream a ENTRAMBI i video elements
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        console.log('📺 Stream assegnato al video principale')
+        videoRef.current.play().catch(e => {
+          console.log('Errore play video:', e.message)
+          setError('Errore nell\'avvio del video')
+        })
       }
-      
-      if (previewRef.current) {
-        previewRef.current.srcObject = stream
-        console.log('🔍 Stream assegnato all\'anteprima')
-      }
-      
+
       setIsActive(true)
-      
-      // Forza il play su entrambi i video
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.play().catch(e => console.log('Play video principale:', e.message))
-        }
-        if (previewRef.current) {
-          previewRef.current.play().catch(e => console.log('Play anteprima:', e.message))
-        }
-      }, 500)
-      
+
     } catch (err) {
       console.error('❌ Errore camera:', err)
-      setError(`Errore: ${err.message}`)
+      setError(`Errore fotocamera: ${err.message}`)
     }
   }
 
@@ -70,9 +57,6 @@ const WebcamWithPreview = ({ onCapture, label = "Scatta Foto", type = "front" })
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null
-    }
-    if (previewRef.current) {
-      previewRef.current.srcObject = null
     }
     setIsActive(false)
   }
@@ -189,120 +173,89 @@ const WebcamWithPreview = ({ onCapture, label = "Scatta Foto", type = "front" })
       {/* Camera attiva con anteprima */}
       {isActive && !error && (
         <div>
-          <p style={{ 
-            fontSize: '14px', 
-            color: '#10b981', 
+          <p style={{
+            fontSize: '14px',
+            color: '#10b981',
             marginBottom: '12px',
             fontWeight: '600'
           }}>
-            📹 Camera attiva - Usa l'anteprima per centrare il documento
+            📹 Camera attiva - Centra il documento nel riquadro
           </p>
-          
-          {/* Layout con video principale e anteprima - SPAZIO FISSO */}
+
+          {/* Video con overlay guida */}
           <div style={{
+            position: 'relative',
+            border: '3px solid #10b981',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            backgroundColor: '#000',
+            width: '100%',
+            maxWidth: '400px',
+            height: '300px',
+            margin: '0 auto 20px auto',
             display: 'flex',
-            justifyContent: 'center',
             alignItems: 'center',
-            marginBottom: '20px',
-            padding: '20px',
-            background: '#f8fafc',
-            borderRadius: '12px'
+            justifyContent: 'center'
           }}>
-            
-            {/* Video principale (nascosto, usato solo per cattura) */}
-            <div style={{ display: 'none' }}>
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                style={{
-                  width: '640px',
-                  height: '480px'
-                }}
-              />
-            </div>
-            
-            {/* Anteprima grande e visibile con spazio fisso */}
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'block',
+                objectFit: 'cover'
+              }}
+              onLoadedMetadata={() => {
+                console.log('📹 Video metadata caricati')
+              }}
+            />
+
+            {/* Overlay guida per documento */}
             <div style={{
-              position: 'relative',
-              border: '3px solid #10b981',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              backgroundColor: '#000',
-              width: '420px',
-              height: '320px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              border: '3px dashed #fff',
+              borderRadius: '8px',
+              width: '80%',
+              height: '60%',
+              pointerEvents: 'none',
+              boxShadow: '0 0 0 2000px rgba(0,0,0,0.3)'
             }}>
-              <video
-                ref={previewRef}
-                autoPlay
-                muted
-                playsInline
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'block',
-                  objectFit: 'cover',
-                  backgroundColor: '#000'
-                }}
-                onLoadedMetadata={() => {
-                  console.log('🔍 Anteprima metadata caricati')
-                }}
-                onTimeUpdate={(e) => {
-                  if (!e.target.hasLoggedPreview) {
-                    console.log('🔍 ANTEPRIMA ATTIVA!')
-                    e.target.hasLoggedPreview = true
-                  }
-                }}
-              />
-              
-              {/* Overlay guida per documento */}
               <div style={{
                 position: 'absolute',
-                top: '50%',
+                top: '-35px',
                 left: '50%',
-                transform: 'translate(-50%, -50%)',
-                border: '3px dashed #fff',
-                borderRadius: '8px',
-                width: '80%',
-                height: '60%',
-                pointerEvents: 'none',
-                boxShadow: '0 0 0 2000px rgba(0,0,0,0.3)'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-35px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  color: '#000',
-                  padding: '6px 12px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  whiteSpace: 'nowrap'
-                }}>
-                  📄 Centra il documento qui
-                </div>
-              </div>
-              
-              {/* Indicatore di stato */}
-              <div style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: 'rgba(16, 185, 129, 0.9)',
-                color: 'white',
-                padding: '4px 8px',
+                transform: 'translateX(-50%)',
+                background: 'rgba(255, 255, 255, 0.9)',
+                color: '#000',
+                padding: '6px 12px',
                 borderRadius: '4px',
                 fontSize: '12px',
-                fontWeight: '600'
+                fontWeight: '600',
+                whiteSpace: 'nowrap'
               }}>
-                🔴 LIVE
+                📄 Centra il documento qui
               </div>
+            </div>
+
+            {/* Indicatore di stato */}
+            <div style={{
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              background: 'rgba(16, 185, 129, 0.9)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}>
+              🔴 LIVE
             </div>
           </div>
           

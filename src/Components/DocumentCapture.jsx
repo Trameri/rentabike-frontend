@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import UniversalImageCapture from './UniversalImageCapture.jsx'
+import WebcamCapture from './WebcamCapture.jsx'
 
 const DocumentCapture = ({ onCapture, label = "Scatta Foto Documento", type = "front" }) => {
   const [capturedImage, setCapturedImage] = useState(null)
@@ -11,7 +11,7 @@ const DocumentCapture = ({ onCapture, label = "Scatta Foto Documento", type = "f
 
   return (
     <div>
-      <UniversalImageCapture
+      <WebcamCapture
         onCapture={handleImageCapture}
         label={label}
         type={type}
