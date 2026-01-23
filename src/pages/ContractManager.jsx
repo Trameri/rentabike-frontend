@@ -52,11 +52,59 @@ export default function ContractManager(){
   const [showWebcamModal, setShowWebcamModal] = useState(false)
   const [selectedContractForPhoto, setSelectedContractForPhoto] = useState(null)
   const [photoType, setPhotoType] = useState('') // 'front' o 'back'
+  const [webcamStream, setWebcamStream] = useState(null)
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
 
   const { showSuccess, showError, showWarning } = useNotifications()
 
+  // Funzioni per gestire la webcam
+  const startWebcam = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'environment' // Usa camera posteriore se disponibile
+        } 
+      })
+      setWebcamStream(stream)
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+    } catch (error) {
+      console.error('Errore accesso webcam:', error)
+      showError('Impossibile accedere alla webcam')
+    }
+  }
 
-  const handleTakePhoto = async (photoData) => {
+  const stopWebcam = () => {
+    if (webcamStream) {
+      webcamStream.getTracks().forEach(track => track.stop())
+      setWebcamStream(null)
+    }
+  }
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return null
+
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    const context = canvas.getContext('2d')
+
+    // Imposta dimensioni canvas uguali al video
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+
+    // Disegna il frame corrente del video sul canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    // Converte in base64
+    return canvas.toDataURL('image/jpeg', 0.8)
+  }
+
+  const handleTakePhoto = async () => {
+    const photoData = capturePhoto()
     if (!photoData) {
       showError('Errore durante la cattura della foto')
       return
@@ -72,15 +120,15 @@ export default function ContractManager(){
       }
 
       await api.put(`/api/contracts/${selectedContractForPhoto._id}`, updateData)
-
+      
       showSuccess(`Foto documento ${photoType === 'front' ? 'fronte' : 'retro'} aggiornata con successo`)
-
+      
       // Ricarica i contratti per vedere la nuova foto
       loadContracts()
-
+      
       // Chiudi il modal
       handleCloseWebcam()
-
+      
     } catch (error) {
       console.error('Errore salvataggio foto:', error)
       showError('Errore durante il salvataggio della foto')
@@ -2552,24 +2600,34 @@ export default function ContractManager(){
             background: 'white',
             borderRadius: '16px',
             padding: '24px',
-            maxWidth: '600px',
-            width: '90%',
+            maxWidth: '90vw',
             maxHeight: '90vh',
             overflow: 'auto'
           }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: '600' }}>
               📷 {photoType === 'front' ? 'Foto Fronte Documento' : 'Foto Retro Documento'}
             </h3>
+            
+            <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                style={{
+                  width: '100%',
+                  maxWidth: '640px',
+                  height: 'auto',
+                  borderRadius: '8px',
+                  border: '2px solid #e5e7eb'
+                }}
+              />
+              <canvas
+                ref={canvasRef}
+                style={{ display: 'none' }}
+              />
+            </div>
 
-            <WebcamCapture
-              onCapture={(imageData) => {
-                handleTakePhoto(imageData)
-              }}
-              label={`Documento ${photoType === 'front' ? 'Fronte' : 'Retro'}`}
-              type={photoType}
-            />
-
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button
                 onClick={handleCloseWebcam}
                 style={{
@@ -2584,6 +2642,22 @@ export default function ContractManager(){
                 }}
               >
                 ❌ Annulla
+              </button>
+              <button
+                onClick={handleTakePhoto}
+                disabled={!webcamStream}
+                style={{
+                  padding: '12px 24px',
+                  background: webcamStream ? '#10b981' : '#9ca3af',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: webcamStream ? 'pointer' : 'not-allowed',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                📸 Scatta Foto
               </button>
             </div>
           </div>
