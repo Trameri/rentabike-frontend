@@ -60,22 +60,29 @@ export default function ContractManager(){
 
   // Funzioni per gestire la webcam
   const startWebcam = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'environment' // Usa camera posteriore se disponibile
-        } 
-      })
-      setWebcamStream(stream)
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
+    const constraintsList = [
+      { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' } },
+      { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } },
+      { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+      { video: true }
+    ]
+
+    for (const constraints of constraintsList) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        setWebcamStream(stream)
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+        return // Success, exit
+      } catch (error) {
+        console.warn('Tentativo fallito con constraints:', constraints, error)
       }
-    } catch (error) {
-      console.error('Errore accesso webcam:', error)
-      showError('Impossibile accedere alla webcam')
     }
+
+    // If all attempts fail, show error but allow to continue (bypass)
+    console.error('Impossibile accedere alla webcam con tutti i tentativi')
+    showError('Impossibile accedere alla webcam. Verifica i permessi del browser.')
   }
 
   const stopWebcam = () => {

@@ -8,29 +8,36 @@ const WebcamCapture = ({ onCapture, label = "Scatta Foto Documento", type = "fro
   const canvasRef = useRef(null)
 
   const startCamera = async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'environment' // Usa camera posteriore se disponibile
-        } 
-      })
-      
-      setStream(mediaStream)
-      setIsActive(true)
-      
-      // Aspetta che il componente sia montato prima di assegnare lo stream
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream
-          videoRef.current.play().catch(e => console.log('Errore play video:', e))
-        }
-      }, 100)
-    } catch (err) {
-      console.error('Errore accesso webcam:', err)
-      alert('Impossibile accedere alla webcam. Verifica i permessi del browser.')
+    const constraintsList = [
+      { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' } },
+      { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } },
+      { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+      { video: true }
+    ]
+
+    for (const constraints of constraintsList) {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
+
+        setStream(mediaStream)
+        setIsActive(true)
+
+        // Aspetta che il componente sia montato prima di assegnare lo stream
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream
+            videoRef.current.play().catch(e => console.log('Errore play video:', e))
+          }
+        }, 100)
+        return // Success, exit
+      } catch (err) {
+        console.warn('Tentativo fallito con constraints:', constraints, err)
+      }
     }
+
+    // If all attempts fail
+    console.error('Impossibile accedere alla webcam con tutti i tentativi')
+    alert('Impossibile accedere alla webcam. Verifica i permessi del browser.')
   }
 
   const stopCamera = () => {
