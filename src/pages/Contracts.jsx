@@ -1158,8 +1158,56 @@ export default function Contracts(){
           <label><input type="checkbox" checked={reservationPrepaid} onChange={e=>setPrepaid(e.target.checked)} /> Prenotazione già pagata</label>
         </div>
         <textarea placeholder="Note" value={notes} onChange={e=>setNotes(e.target.value)} style={{width:'100%', height:80, marginTop:8}} />
-        <div style={{marginTop:8}}>
-          <button onClick={createContract} disabled={items.length===0}>Crea contratto</button>
+
+        {/* Sezione Finalizza Contratto */}
+        <div style={{marginTop:16, padding:16, background:'#f0f9ff', borderRadius:12, border:'2px solid #0ea5e9'}}>
+          <h4 style={{margin:'0 0 12px 0', color:'#0c4a6e'}}>🎯 Finalizza Contratto</h4>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', fontSize:'14px'}}>
+            <div>
+              <strong>Cliente:</strong><br />
+              {customer.name || 'Non specificato'}
+            </div>
+            <div>
+              <strong>Telefono:</strong><br />
+              {customer.phone || 'Non specificato'}
+            </div>
+            <div>
+              <strong>Articoli selezionati:</strong><br />
+              {items.length} {items.length === 1 ? 'articolo' : 'articoli'}
+            </div>
+            <div>
+              <strong>Tipo contratto:</strong><br />
+              {status === 'reserved' ? 'Prenotazione' : 'In uso immediato'}
+            </div>
+            <div>
+              <strong>Pagamento:</strong><br />
+              {reservationPrepaid ? 'Già pagato (link)' : (paymentMethod ? paymentMethod : 'Da definire')}
+            </div>
+            <div>
+              <strong>Note:</strong><br />
+              {notes || 'Nessuna'}
+            </div>
+          </div>
+
+          <div style={{marginTop:16}}>
+            <button
+              onClick={createContract}
+              disabled={items.length===0}
+              style={{
+                padding:'12px 24px',
+                background: items.length > 0 ? '#10b981' : '#9ca3af',
+                color:'white',
+                border:'none',
+                borderRadius:'8px',
+                fontSize:'16px',
+                fontWeight:'600',
+                cursor: items.length > 0 ? 'pointer' : 'not-allowed'
+              }}
+            >
+              ✅ Crea Contratto
+            </button>
+          </div>
         </div>
       </section>
 
