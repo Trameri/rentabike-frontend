@@ -126,7 +126,7 @@ export default function ContractManager(){
         updateData['customer.idBackUrl'] = photoData
       }
 
-      await api.put(`/api/contracts/${selectedContractForPhoto._id}`, updateData)
+      await api.patch(`/api/contracts/${selectedContractForPhoto._id}`, updateData)
       
       showSuccess(`Foto documento ${photoType === 'front' ? 'fronte' : 'retro'} aggiornata con successo`)
       
