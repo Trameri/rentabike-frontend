@@ -453,8 +453,8 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
           </div>
         </div>
 
-        {/* Metodo Pagamento - nascosto per prenotazioni */}
-        {contract.status !== 'reserved' && (
+        {/* Metodo Pagamento - nascosto per prenotazioni già pagate */}
+        {contract.status !== 'reserved' && !contract.wasReserved && !contract.isReservation && (
           <div style={{ marginBottom: '20px' }}>
             <label style={{
               display: 'block',
