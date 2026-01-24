@@ -1137,29 +1137,127 @@ export default function Contracts(){
         )}
         
         <div style={{display:'flex', gap:8, alignItems:'center'}}>
-          <label>Assicurazione flat €</label>
-          <input type="number" value={insuranceFlat} onChange={e=>setIns(Number(e.target.value)||0)} style={{width:120}} />
-          <label>Stato</label>
-          <select value={status} onChange={e=>setStatus(e.target.value)}>
-            <option value="in-use">In uso</option>
-            <option value="reserved">Prenotata</option>
-          </select>
-          {!reservationPrepaid && (
-            <>
-              <label>Pagamento</label>
-              <select value={paymentMethod||''} onChange={e=>setPaymentMethod(e.target.value||null)}>
-                <option value="">Seleziona...</option>
-                <option value="cash">Contanti</option>
-                <option value="card">Carta</option>
-                <option value="link">Link</option>
-              </select>
-            </>
-          )}
-          <label><input type="checkbox" checked={reservationPrepaid} onChange={e=>setPrepaid(e.target.checked)} /> Prenotazione già pagata</label>
-        </div>
-        <textarea placeholder="Note" value={notes} onChange={e=>setNotes(e.target.value)} style={{width:'100%', height:80, marginTop:8}} />
-        <div style={{marginTop:8}}>
-          <button onClick={createContract} disabled={items.length===0}>Crea contratto</button>
+          {/* Sezione Finalizza Contratto */}
+          <div style={{marginTop:16, padding:16, background:'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', borderRadius:12, border:'2px solid #0ea5e9'}}>
+            <h4 style={{margin:'0 0 16px 0', color:'#0c4a6e', fontSize:'18px'}}>🎯 Finalizza Contratto</h4>
+
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', marginBottom:'16px'}}>
+              <div>
+                <label style={{display:'block', fontWeight:'600', color:'#374151', marginBottom:'4px'}}>Assicurazione Flat (€)</label>
+                <input
+                  type="number"
+                  value={insuranceFlat}
+                  onChange={e=>setIns(Number(e.target.value)||0)}
+                  style={{
+                    width:'100%',
+                    padding:'8px 12px',
+                    border:'2px solid #d1d5db',
+                    borderRadius:'6px',
+                    fontSize:'14px'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{display:'block', fontWeight:'600', color:'#374151', marginBottom:'4px'}}>Stato Contratto</label>
+                <select
+                  value={status}
+                  onChange={e=>setStatus(e.target.value)}
+                  style={{
+                    width:'100%',
+                    padding:'8px 12px',
+                    border:'2px solid #d1d5db',
+                    borderRadius:'6px',
+                    fontSize:'14px',
+                    background:'white'
+                  }}
+                >
+                  <option value="in-use">🚴 In uso immediato</option>
+                  <option value="reserved">📅 Prenotazione</option>
+                </select>
+              </div>
+
+              {!reservationPrepaid && (
+                <div>
+                  <label style={{display:'block', fontWeight:'600', color:'#374151', marginBottom:'4px'}}>Metodo Pagamento</label>
+                  <select
+                    value={paymentMethod||''}
+                    onChange={e=>setPaymentMethod(e.target.value||null)}
+                    style={{
+                      width:'100%',
+                      padding:'8px 12px',
+                      border:'2px solid #d1d5db',
+                      borderRadius:'6px',
+                      fontSize:'14px',
+                      background:'white'
+                    }}
+                  >
+                    <option value="">Seleziona...</option>
+                    <option value="cash">💵 Contanti</option>
+                    <option value="card">💳 Carta/Bancomat</option>
+                    <option value="link">🔗 Link pagamento</option>
+                  </select>
+                </div>
+              )}
+
+              <div style={{gridColumn:'span 2'}}>
+                <label style={{
+                  display:'flex',
+                  alignItems:'center',
+                  fontWeight:'600',
+                  color:'#374151',
+                  cursor:'pointer'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={reservationPrepaid}
+                    onChange={e=>setPrepaid(e.target.checked)}
+                    style={{marginRight:'8px'}}
+                  />
+                  📋 Prenotazione già pagata (pagamento a distanza)
+                </label>
+              </div>
+            </div>
+
+            <div style={{marginBottom:'16px'}}>
+              <label style={{display:'block', fontWeight:'600', color:'#374151', marginBottom:'4px'}}>📝 Note Contratto</label>
+              <textarea
+                placeholder="Aggiungi note specifiche per questo contratto..."
+                value={notes}
+                onChange={e=>setNotes(e.target.value)}
+                style={{
+                  width:'100%',
+                  height:'80px',
+                  padding:'12px',
+                  border:'2px solid #d1d5db',
+                  borderRadius:'6px',
+                  fontSize:'14px',
+                  resize:'vertical'
+                }}
+              />
+            </div>
+
+            <div style={{textAlign:'center'}}>
+              <button
+                onClick={createContract}
+                disabled={items.length===0}
+                style={{
+                  padding:'14px 32px',
+                  background: items.length > 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#9ca3af',
+                  color:'white',
+                  border:'none',
+                  borderRadius:'8px',
+                  fontSize:'16px',
+                  fontWeight:'700',
+                  cursor: items.length > 0 ? 'pointer' : 'not-allowed',
+                  boxShadow: items.length > 0 ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none',
+                  transition:'all 0.2s'
+                }}
+              >
+                {items.length === 0 ? '❌ Seleziona articoli' : '✅ Crea Contratto'}
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
