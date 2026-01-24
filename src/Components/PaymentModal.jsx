@@ -65,14 +65,21 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
       const priceHourly = parseFloat(item.priceHourly) || 0;
       const priceDaily = parseFloat(item.priceDaily) || 0;
 
+      // Durata individuale per item
+      const itemEndTime = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
+      const itemStartTime = new Date(contract.startAt || contract.createdAt);
+      const itemDurationMs = itemEndTime - itemStartTime;
+      const itemHours = Math.floor(itemDurationMs / (1000 * 60 * 60));
+      const itemDays = Math.floor(itemHours / 24);
+
       let itemPrice = 0;
       if (isReservation) {
         // LOGICA PRENOTAZIONI: Tariffa sommativa di tutte le tariffe giornaliere (BLOCCATA)
-        itemPrice = priceDaily * duration.days;
+        itemPrice = priceDaily * itemDays;
       } else {
         // LOGICA CONTRATTI NUOVI: Inizia oraria, si blocca quando raggiunge giornaliera
-        const hourlyTotal = priceHourly * duration.hours;
-        const dailyTotal = priceDaily * duration.days;
+        const hourlyTotal = priceHourly * itemHours;
+        const dailyTotal = priceDaily * itemDays;
 
         if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
           // Quando il costo orario raggiunge o supera quello giornaliero, si blocca sulla tariffa giornaliera
@@ -324,27 +331,34 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
             const isReservation = contract.status === 'reserved' || contract.isReservation;
             const priceHourly = parseFloat(item.priceHourly) || 0;
             const priceDaily = parseFloat(item.priceDaily) || 0;
-            const duration = calculateDuration();
+            // Durata individuale per item: da startAt a returnedAt se restituito, altrimenti a endAt contratto
+            const itemEndTime = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
+            const itemStartTime = new Date(contract.startAt || contract.createdAt);
+            const itemDurationMs = itemEndTime - itemStartTime;
+            const itemHours = Math.floor(itemDurationMs / (1000 * 60 * 60));
+            const itemMinutes = Math.floor((itemDurationMs % (1000 * 60 * 60)) / (1000 * 60));
+            const itemSeconds = Math.floor((itemDurationMs % (1000 * 60)) / 1000);
+            const itemDays = Math.floor(itemHours / 24);
 
             let pricingLogic = '';
             let timeDetail = '';
 
             if (isReservation) {
               pricingLogic = '🔒 Prenotazione - Tariffa giornaliera bloccata';
-              timeDetail = `${duration.days}g ${duration.hours % 24}h ${duration.minutes}m ${duration.seconds}s`;
+              timeDetail = `${itemDays}g ${itemHours % 24}h ${itemMinutes}m ${itemSeconds}s`;
             } else {
-              const hourlyTotal = priceHourly * duration.hours;
-              const dailyTotal = priceDaily * duration.days;
+              const hourlyTotal = priceHourly * itemHours;
+              const dailyTotal = priceDaily * itemDays;
 
               if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
                 pricingLogic = '⚡ Bloccato su tariffa giornaliera';
-                timeDetail = `${duration.days}g ${duration.hours % 24}h ${duration.minutes}m ${duration.seconds}s`;
+                timeDetail = `${itemDays}g ${itemHours % 24}h ${itemMinutes}m ${itemSeconds}s`;
               } else if (priceHourly > 0) {
                 pricingLogic = '⏰ Tariffa oraria attiva';
-                timeDetail = `${duration.hours}h ${duration.minutes}m ${duration.seconds}s`;
+                timeDetail = `${itemHours}h ${itemMinutes}m ${itemSeconds}s`;
               } else {
                 pricingLogic = '📅 Solo tariffa giornaliera';
-                timeDetail = `${duration.days}g ${duration.hours % 24}h ${duration.minutes}m ${duration.seconds}s`;
+                timeDetail = `${itemDays}g ${itemHours % 24}h ${itemMinutes}m ${itemSeconds}s`;
               }
             }
 
