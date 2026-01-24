@@ -13,6 +13,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     total: 0
   });
   const [itemPrices, setItemPrices] = useState({});
+  const [itemInsurances, setItemInsurances] = useState({});
 
   useEffect(() => {
     if (contract) {
@@ -33,12 +34,16 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
         total: total
       });
       setFinalAmount(total.toFixed(2));
-      // Inizializza itemPrices con il totale distribuito
+      // Inizializza itemPrices con il totale distribuito (prezzi base)
       const prices = {};
+      const insurances = {};
       contract.items.forEach((item, index) => {
-        prices[index] = (total / contract.items.length).toFixed(2);
+        const itemInsurance = item.insurance && item.insuranceFlat ? parseFloat(item.insuranceFlat) : 0;
+        insurances[index] = itemInsurance.toFixed(2);
+        prices[index] = ((total - itemInsurance) / contract.items.length).toFixed(2);
       });
       setItemPrices(prices);
+      setItemInsurances(insurances);
       return;
     }
 
@@ -49,6 +54,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     let subtotal = 0;
     let insurance = 0;
     const prices = {};
+    const insurances = {};
 
     contract.items.forEach((item, index) => {
       const priceHourly = parseFloat(item.priceHourly) || 0;
@@ -78,9 +84,9 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
       prices[index] = itemPrice.toFixed(2);
       subtotal += itemPrice;
 
-      if (item.insurance && item.insuranceFlat) {
-        insurance += parseFloat(item.insuranceFlat);
-      }
+      const itemInsurance = item.insurance && item.insuranceFlat ? parseFloat(item.insuranceFlat) : 0;
+      insurances[index] = itemInsurance.toFixed(2);
+      insurance += itemInsurance;
     });
 
     // Assicurazione flat del contratto
@@ -91,6 +97,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     const total = subtotal + insurance;
 
     setItemPrices(prices);
+    setItemInsurances(insurances);
     setPaymentDetails({
       subtotal: Math.round(subtotal * 100) / 100,
       insurance: Math.round(insurance * 100) / 100,
@@ -105,18 +112,20 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     const updatedPrices = { ...itemPrices, [index]: newPrice };
     setItemPrices(updatedPrices);
 
-    // Ricalcola totale
+    // Ricalcola totale con prezzi base + assicurazioni fisse
     let newSubtotal = 0;
-    Object.values(updatedPrices).forEach(price => {
-      newSubtotal += parseFloat(price) || 0;
+    let totalInsurance = 0;
+    Object.keys(updatedPrices).forEach(idx => {
+      newSubtotal += parseFloat(updatedPrices[idx]) || 0;
+      totalInsurance += parseFloat(itemInsurances[idx]) || 0;
     });
 
-    const insurance = paymentDetails.insurance;
-    const newTotal = newSubtotal + insurance;
+    const newTotal = newSubtotal + totalInsurance;
 
     setPaymentDetails(prev => ({
       ...prev,
       subtotal: Math.round(newSubtotal * 100) / 100,
+      insurance: Math.round(totalInsurance * 100) / 100,
       total: Math.round(newTotal * 100) / 100
     }));
 
@@ -334,47 +343,60 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
                 marginBottom: '8px',
                 border: '1px solid #fde047'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: '600', color: '#1f2937', fontSize: '16px' }}>
-                      {item.kind === 'bike' ? '🚴' : '🎒'} {item.name}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                      {pricingLogic} • {timeDetail}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                      Tariffa: €{priceHourly > 0 ? `${priceHourly}/h` : ''} {priceHourly > 0 && priceDaily > 0 ? '•' : ''} €{priceDaily > 0 ? `${priceDaily}/g` : ''}
-                    </div>
-                    {item.barcode && (
-                      <div style={{ fontSize: '10px', color: '#9ca3af', fontFamily: 'monospace' }}>
-                        Barcode: {item.barcode}
-                      </div>
-                    )}
-                    {item.insurance && (
-                      <div style={{ fontSize: '12px', color: '#059669' }}>
-                        🛡️ Assicurato (+€{item.insuranceFlat})
-                      </div>
-                    )}
+                <div style={{ marginBottom: '8px' }}>
+                  <div style={{ fontWeight: '600', color: '#1f2937', fontSize: '16px' }}>
+                    {item.kind === 'bike' ? '🚴' : '🎒'} {item.name}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
-                      Prezzo (€):
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={itemPrices[index] || '0.00'}
-                      onChange={(e) => updateItemPrice(index, e.target.value)}
-                      style={{
-                        width: '80px',
-                        padding: '4px 8px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        textAlign: 'right'
-                      }}
-                    />
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                    {pricingLogic} • Durata: {timeDetail}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                    Tariffa: €{priceHourly > 0 ? `${priceHourly}/h` : ''} {priceHourly > 0 && priceDaily > 0 ? '•' : ''} €{priceDaily > 0 ? `${priceDaily}/g` : ''}
+                  </div>
+                  {item.barcode && (
+                    <div style={{ fontSize: '10px', color: '#9ca3af', fontFamily: 'monospace' }}>
+                      Barcode: {item.barcode}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <div>
+                          <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                            Prezzo Base (€):
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={itemPrices[index] || '0.00'}
+                            onChange={(e) => updateItemPrice(index, e.target.value)}
+                            style={{
+                              width: '80px',
+                              padding: '4px 8px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '4px',
+                              fontSize: '14px',
+                              textAlign: 'right',
+                              marginLeft: '4px'
+                            }}
+                          />
+                        </div>
+                        {itemInsurances[index] && parseFloat(itemInsurances[index]) > 0 && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#059669' }}>
+                              🛡️ Assicurazione: €{itemInsurances[index]}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Totale Item:</div>
+                      <div style={{ fontWeight: '600', color: '#059669' }}>
+                        €{(parseFloat(itemPrices[index] || 0) + parseFloat(itemInsurances[index] || 0)).toFixed(2)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -441,10 +463,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
             }}
           >
             <option value="cash">💵 Contanti</option>
-            <option value="card">💳 Carta di Credito/Debito</option>
-            <option value="bank">🏦 Bonifico Bancario</option>
-            <option value="paypal">🅿️ PayPal</option>
-            <option value="other">🔄 Altro</option>
+            <option value="card">💳 Bancomat</option>
           </select>
         </div>
 
