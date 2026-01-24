@@ -53,8 +53,10 @@ export default function ContractManager(){
   const [selectedContractForPhoto, setSelectedContractForPhoto] = useState(null)
   const [photoType, setPhotoType] = useState('') // 'front' o 'back'
   const [webcamStream, setWebcamStream] = useState(null)
+  const [uploadedFile, setUploadedFile] = useState(null)
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   const { showSuccess, showError, showWarning } = useNotifications()
 
@@ -80,9 +82,11 @@ export default function ContractManager(){
       }
     }
 
-    // If all attempts fail, show error but allow to continue (bypass)
+    // If all attempts fail, bypass and allow file upload instead
     console.error('Impossibile accedere alla webcam con tutti i tentativi')
-    showError('Impossibile accedere alla webcam. Verifica i permessi del browser.')
+    // Do not show error, allow to continue with file upload
+    setWebcamStream(null) // Ensure no stream
+    // The modal will still open, allowing file upload as fallback
   }
 
   const stopWebcam = () => {
@@ -110,8 +114,29 @@ export default function ContractManager(){
     return canvas.toDataURL('image/jpeg', 0.8)
   }
 
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setUploadedFile(e.target.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleTakePhoto = async () => {
-    const photoData = capturePhoto()
+    let photoData
+
+    if (webcamStream) {
+      photoData = capturePhoto()
+    } else if (uploadedFile) {
+      photoData = uploadedFile
+    } else {
+      showError('Nessuna foto disponibile. Carica un file o usa la webcam.')
+      return
+    }
+
     if (!photoData) {
       showError('Errore durante la cattura della foto')
       return
@@ -127,15 +152,15 @@ export default function ContractManager(){
       }
 
       await api.put(`/api/contracts/${selectedContractForPhoto._id}`, updateData)
-      
+
       showSuccess(`Foto documento ${photoType === 'front' ? 'fronte' : 'retro'} aggiornata con successo`)
-      
+
       // Ricarica i contratti per vedere la nuova foto
       loadContracts()
-      
+
       // Chiudi il modal
       handleCloseWebcam()
-      
+
     } catch (error) {
       console.error('Errore salvataggio foto:', error)
       showError('Errore durante il salvataggio della foto')
@@ -147,6 +172,7 @@ export default function ContractManager(){
     setShowWebcamModal(false)
     setSelectedContractForPhoto(null)
     setPhotoType('')
+    setUploadedFile(null)
   }
 
   const openWebcamModal = (contract, type) => {
@@ -2616,22 +2642,56 @@ export default function ContractManager(){
             </h3>
             
             <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                style={{
-                  width: '100%',
-                  maxWidth: '640px',
-                  height: 'auto',
-                  borderRadius: '8px',
-                  border: '2px solid #e5e7eb'
-                }}
-              />
-              <canvas
-                ref={canvasRef}
-                style={{ display: 'none' }}
-              />
+              {webcamStream ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    style={{
+                      width: '100%',
+                      maxWidth: '640px',
+                      height: 'auto',
+                      borderRadius: '8px',
+                      border: '2px solid #e5e7eb'
+                    }}
+                  />
+                  <canvas
+                    ref={canvasRef}
+                    style={{ display: 'none' }}
+                  />
+                </>
+              ) : (
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    ref={fileInputRef}
+                    style={{
+                      marginBottom: '16px',
+                      padding: '8px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      width: '100%',
+                      maxWidth: '300px'
+                    }}
+                  />
+                  {uploadedFile && (
+                    <img
+                      src={uploadedFile}
+                      alt="Preview"
+                      style={{
+                        width: '100%',
+                        maxWidth: '640px',
+                        height: 'auto',
+                        borderRadius: '8px',
+                        border: '2px solid #e5e7eb'
+                      }}
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
@@ -2652,19 +2712,19 @@ export default function ContractManager(){
               </button>
               <button
                 onClick={handleTakePhoto}
-                disabled={!webcamStream}
+                disabled={!webcamStream && !uploadedFile}
                 style={{
                   padding: '12px 24px',
-                  background: webcamStream ? '#10b981' : '#9ca3af',
+                  background: (webcamStream || uploadedFile) ? '#10b981' : '#9ca3af',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
-                  cursor: webcamStream ? 'pointer' : 'not-allowed',
+                  cursor: (webcamStream || uploadedFile) ? 'pointer' : 'not-allowed',
                   fontSize: '16px',
                   fontWeight: '600'
                 }}
               >
-                📸 Scatta Foto
+                {webcamStream ? '📸 Scatta Foto' : '💾 Salva Foto'}
               </button>
             </div>
           </div>
