@@ -121,12 +121,14 @@ export default function ContractManager(){
       // Aggiorna il contratto con la nuova foto
       const updateData = {}
       if (photoType === 'front') {
+        updateData['documentPhotos.idFront'] = photoData
         updateData['customer.idFrontUrl'] = photoData
       } else if (photoType === 'back') {
+        updateData['documentPhotos.idBack'] = photoData
         updateData['customer.idBackUrl'] = photoData
       }
 
-      await api.patch(`/api/contracts/${selectedContractForPhoto._id}`, updateData)
+      await api.put(`/api/contracts/${selectedContractForPhoto._id}`, updateData)
       
       showSuccess(`Foto documento ${photoType === 'front' ? 'fronte' : 'retro'} aggiornata con successo`)
       
