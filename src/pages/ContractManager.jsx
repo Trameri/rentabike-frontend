@@ -62,31 +62,17 @@ export default function ContractManager(){
 
   // Funzioni per gestire la webcam
   const startWebcam = async () => {
-    const constraintsList = [
-      { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' } },
-      { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } },
-      { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
-      { video: true }
-    ]
-
-    for (const constraints of constraintsList) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints)
-        setWebcamStream(stream)
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-        }
-        return // Success, exit
-      } catch (error) {
-        console.warn('Tentativo fallito con constraints:', constraints, error)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      setWebcamStream(stream)
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
       }
+    } catch (error) {
+      console.error('Errore accesso webcam:', error)
+      // Bypass: do not show error, allow file upload
+      setWebcamStream(null)
     }
-
-    // If all attempts fail, bypass and allow file upload instead
-    console.error('Impossibile accedere alla webcam con tutti i tentativi')
-    // Do not show error, allow to continue with file upload
-    setWebcamStream(null) // Ensure no stream
-    // The modal will still open, allowing file upload as fallback
   }
 
   const stopWebcam = () => {
@@ -2642,42 +2628,49 @@ export default function ContractManager(){
             </h3>
             
             <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-              {webcamStream ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    style={{
-                      width: '100%',
-                      maxWidth: '640px',
-                      height: 'auto',
-                      borderRadius: '8px',
-                      border: '2px solid #e5e7eb'
-                    }}
-                  />
-                  <canvas
-                    ref={canvasRef}
-                    style={{ display: 'none' }}
-                  />
-                </>
-              ) : (
-                <div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    ref={fileInputRef}
-                    style={{
-                      marginBottom: '16px',
-                      padding: '8px',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
-                      width: '100%',
-                      maxWidth: '300px'
-                    }}
-                  />
-                  {uploadedFile && (
+              {!webcamStream && (
+                <p style={{ margin: '0 0 16px 0', color: '#ef4444', fontWeight: '600' }}>
+                  ⚠️ Fotocamera non disponibile - usa il file upload sotto
+                </p>
+              )}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                style={{
+                  width: '100%',
+                  maxWidth: '640px',
+                  height: 'auto',
+                  borderRadius: '8px',
+                  border: '2px solid #e5e7eb'
+                }}
+              />
+              <canvas
+                ref={canvasRef}
+                style={{ display: 'none' }}
+              />
+              <div style={{ marginTop: '16px' }}>
+                <p style={{ margin: '0 0 8px 0', color: '#6b7280', fontSize: '14px' }}>
+                  Oppure carica un'immagine dal dispositivo:
+                </p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  ref={fileInputRef}
+                  style={{
+                    padding: '8px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    width: '100%',
+                    maxWidth: '300px'
+                  }}
+                />
+                {uploadedFile && (
+                  <div style={{ marginTop: '16px' }}>
+                    <p style={{ margin: '0 0 8px 0', color: '#6b7280', fontSize: '14px' }}>
+                      Anteprima immagine caricata:
+                    </p>
                     <img
                       src={uploadedFile}
                       alt="Preview"
@@ -2689,9 +2682,9 @@ export default function ContractManager(){
                         border: '2px solid #e5e7eb'
                       }}
                     />
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
