@@ -1035,6 +1035,21 @@ export default function ContractManager(){
                   📞 {contract.customer?.phone || 'Telefono non specificato'}
                 </div>
 
+                {/* PAGAMENTO */}
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{
+                    display: 'inline-block',
+                    padding: '4px 8px',
+                    background: contract.paymentCompleted ? '#dcfce7' : (contract.status === 'reserved' ? '#fef3c7' : '#fee2e2'),
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: contract.paymentCompleted ? '#166534' : (contract.status === 'reserved' ? '#92400e' : '#dc2626')
+                  }}>
+                    💳 {contract.status === 'reserved' ? 'Già pagato tramite link' : (contract.paymentCompleted ? 'Pagato' : 'Non pagato')}
+                  </div>
+                </div>
+
                 {/* FOTO DOCUMENTI - SEMPRE VISIBILE */}
                 <div style={{ marginBottom: '16px' }}>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#374151' }}>

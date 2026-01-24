@@ -1177,45 +1177,35 @@ export default function Contracts(){
                 </select>
               </div>
 
-              {!reservationPrepaid && (
-                <div>
-                  <label style={{display:'block', fontWeight:'600', color:'#374151', marginBottom:'4px'}}>Metodo Pagamento</label>
-                  <select
-                    value={paymentMethod||''}
-                    onChange={e=>setPaymentMethod(e.target.value||null)}
-                    style={{
-                      width:'100%',
-                      padding:'8px 12px',
-                      border:'2px solid #d1d5db',
-                      borderRadius:'6px',
-                      fontSize:'14px',
-                      background:'white'
-                    }}
-                  >
-                    <option value="">Seleziona...</option>
-                    <option value="cash">💵 Contanti</option>
-                    <option value="card">💳 Carta/Bancomat</option>
-                    <option value="link">🔗 Link pagamento</option>
-                  </select>
-                </div>
-              )}
-
               <div style={{gridColumn:'span 2'}}>
-                <label style={{
-                  display:'flex',
-                  alignItems:'center',
+                <div style={{marginBottom:'12px'}}>
+                  <label style={{
+                    display:'flex',
+                    alignItems:'center',
+                    fontWeight:'600',
+                    color:'#374151',
+                    cursor:'pointer'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={reservationPrepaid}
+                      onChange={e=>setPrepaid(e.target.checked)}
+                      style={{marginRight:'8px'}}
+                    />
+                    📋 Prenotazione già pagata (pagamento a distanza)
+                  </label>
+                </div>
+
+                <div style={{
+                  padding:'8px 12px',
+                  background: reservationPrepaid ? '#dcfce7' : '#fef3c7',
+                  borderRadius:'6px',
+                  border: `2px solid ${reservationPrepaid ? '#16a34a' : '#f59e0b'}`,
                   fontWeight:'600',
-                  color:'#374151',
-                  cursor:'pointer'
+                  color: reservationPrepaid ? '#166534' : '#92400e'
                 }}>
-                  <input
-                    type="checkbox"
-                    checked={reservationPrepaid}
-                    onChange={e=>setPrepaid(e.target.checked)}
-                    style={{marginRight:'8px'}}
-                  />
-                  📋 Prenotazione già pagata (pagamento a distanza)
-                </label>
+                  💳 Pagamento: {reservationPrepaid ? 'Già pagato tramite link' : 'Da definire alla consegna'}
+                </div>
               </div>
             </div>
 
