@@ -12,6 +12,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     adjustments: 0,
     total: 0
   });
+  const [itemPrices, setItemPrices] = useState({});
 
   useEffect(() => {
     if (contract) {
@@ -32,39 +33,50 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
         total: total
       });
       setFinalAmount(total.toFixed(2));
+      // Inizializza itemPrices con il totale distribuito
+      const prices = {};
+      contract.items.forEach((item, index) => {
+        prices[index] = (total / contract.items.length).toFixed(2);
+      });
+      setItemPrices(prices);
       return;
     }
 
     // Altrimenti calcola con la NUOVA LOGICA TARIFFE
     const duration = calculateDuration();
     const isReservation = contract.status === 'reserved' || contract.isReservation;
-    
+
     let subtotal = 0;
     let insurance = 0;
+    const prices = {};
 
-    contract.items.forEach(item => {
+    contract.items.forEach((item, index) => {
       const priceHourly = parseFloat(item.priceHourly) || 0;
       const priceDaily = parseFloat(item.priceDaily) || 0;
-      
+
+      let itemPrice = 0;
       if (isReservation) {
         // LOGICA PRENOTAZIONI: Tariffa sommativa di tutte le tariffe giornaliere (BLOCCATA)
-        subtotal += priceDaily * duration.days;
+        itemPrice = priceDaily * duration.days;
       } else {
         // LOGICA CONTRATTI NUOVI: Inizia oraria, si blocca quando raggiunge giornaliera
         const hourlyTotal = priceHourly * duration.hours;
         const dailyTotal = priceDaily * duration.days;
-        
+
         if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
           // Quando il costo orario raggiunge o supera quello giornaliero, si blocca sulla tariffa giornaliera
-          subtotal += dailyTotal;
+          itemPrice = dailyTotal;
         } else if (priceHourly > 0) {
           // Continua con tariffa oraria
-          subtotal += hourlyTotal;
+          itemPrice = hourlyTotal;
         } else {
           // Fallback su tariffa giornaliera se non c'è oraria
-          subtotal += dailyTotal;
+          itemPrice = dailyTotal;
         }
       }
+
+      prices[index] = itemPrice.toFixed(2);
+      subtotal += itemPrice;
 
       if (item.insurance && item.insuranceFlat) {
         insurance += parseFloat(item.insuranceFlat);
@@ -78,6 +90,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
 
     const total = subtotal + insurance;
 
+    setItemPrices(prices);
     setPaymentDetails({
       subtotal: Math.round(subtotal * 100) / 100,
       insurance: Math.round(insurance * 100) / 100,
@@ -86,6 +99,28 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     });
 
     setFinalAmount(total.toFixed(2));
+  };
+
+  const updateItemPrice = (index, newPrice) => {
+    const updatedPrices = { ...itemPrices, [index]: newPrice };
+    setItemPrices(updatedPrices);
+
+    // Ricalcola totale
+    let newSubtotal = 0;
+    Object.values(updatedPrices).forEach(price => {
+      newSubtotal += parseFloat(price) || 0;
+    });
+
+    const insurance = paymentDetails.insurance;
+    const newTotal = newSubtotal + insurance;
+
+    setPaymentDetails(prev => ({
+      ...prev,
+      subtotal: Math.round(newSubtotal * 100) / 100,
+      total: Math.round(newTotal * 100) / 100
+    }));
+
+    setFinalAmount(newTotal.toFixed(2));
   };
 
   const calculateDuration = () => {
@@ -262,67 +297,84 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
           borderRadius: '12px',
           marginBottom: '20px'
         }}>
-          <h3 style={{ margin: '0 0 12px 0', color: '#374151' }}>🚲 Articoli Noleggiati</h3>
+          <h3 style={{ margin: '0 0 12px 0', color: '#374151' }}>🚲 Dettagli Articoli Noleggiati</h3>
           {contract.items.map((item, index) => {
             const isReservation = contract.status === 'reserved' || contract.isReservation;
             const priceHourly = parseFloat(item.priceHourly) || 0;
             const priceDaily = parseFloat(item.priceDaily) || 0;
             const duration = calculateDuration();
-            
-            let appliedPrice = 0;
+
             let pricingLogic = '';
-            
+            let timeDetail = '';
+
             if (isReservation) {
-              appliedPrice = priceDaily * duration.days;
               pricingLogic = '🔒 Prenotazione - Tariffa giornaliera bloccata';
+              timeDetail = `${duration.days} giorni`;
             } else {
               const hourlyTotal = priceHourly * duration.hours;
               const dailyTotal = priceDaily * duration.days;
-              
+
               if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
-                appliedPrice = dailyTotal;
                 pricingLogic = '⚡ Bloccato su tariffa giornaliera';
+                timeDetail = `${duration.days} giorni`;
               } else if (priceHourly > 0) {
-                appliedPrice = hourlyTotal;
                 pricingLogic = '⏰ Tariffa oraria attiva';
+                timeDetail = `${duration.hours} ore`;
               } else {
-                appliedPrice = dailyTotal;
                 pricingLogic = '📅 Solo tariffa giornaliera';
+                timeDetail = `${duration.days} giorni`;
               }
             }
-            
+
             return (
               <div key={index} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 0',
-                borderBottom: index < contract.items.length - 1 ? '1px solid #fde047' : 'none'
+                background: '#ffffff',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '8px',
+                border: '1px solid #fde047'
               }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '600' }}>
-                    {item.kind === 'bike' ? '🚲' : '🎒'} {item.name}
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    {item.barcode} • €{item.priceHourly}/h • €{item.priceDaily}/g
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', color: '#1f2937', fontSize: '16px' }}>
+                      {item.kind === 'bike' ? '🚴' : '🎒'} {item.name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                      {pricingLogic} • {timeDetail}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      Tariffa: €{priceHourly > 0 ? `${priceHourly}/h` : ''} {priceHourly > 0 && priceDaily > 0 ? '•' : ''} €{priceDaily > 0 ? `${priceDaily}/g` : ''}
+                    </div>
+                    {item.barcode && (
+                      <div style={{ fontSize: '10px', color: '#9ca3af', fontFamily: 'monospace' }}>
+                        Barcode: {item.barcode}
+                      </div>
+                    )}
                     {item.insurance && (
-                      <span style={{ color: '#059669', marginLeft: '8px' }}>
+                      <div style={{ fontSize: '12px', color: '#059669' }}>
                         🛡️ Assicurato (+€{item.insuranceFlat})
-                      </span>
+                      </div>
                     )}
                   </div>
-                  <div style={{ 
-                    fontSize: '11px', 
-                    color: isReservation ? '#92400e' : '#1e40af',
-                    fontWeight: '500',
-                    marginTop: '2px'
-                  }}>
-                    {pricingLogic}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', marginLeft: '12px' }}>
-                  <div style={{ fontWeight: '600', color: '#059669' }}>
-                    €{appliedPrice.toFixed(2)}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                      Prezzo (€):
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={itemPrices[index] || '0.00'}
+                      onChange={(e) => updateItemPrice(index, e.target.value)}
+                      style={{
+                        width: '80px',
+                        padding: '4px 8px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        textAlign: 'right'
+                      }}
+                    />
                   </div>
                 </div>
               </div>
