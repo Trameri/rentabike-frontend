@@ -694,6 +694,13 @@ export default function ContractManager(){
     setShowImageModal(true)
   }
 
+  const downloadImage = (imageUrl, title) => {
+    const link = document.createElement('a')
+    link.href = imageUrl
+    link.download = `${title.replace(/[^a-z0-9]/gi, '_')}.jpg`
+    link.click()
+  }
+
   const updateCustomPrice = async () => {
     if (!selectedContractForPriceEdit) {
       showError('Nessun contratto selezionato')
@@ -1032,7 +1039,7 @@ export default function ContractManager(){
                       </div>
                       {(contract.customer?.idFrontUrl || contract.documentPhotos?.idFront) ? (
                         <>
-                          <img 
+                          <img
                             src={contract.customer?.idFrontUrl || contract.documentPhotos?.idFront}
                             alt="Documento fronte"
                             style={{
@@ -1044,7 +1051,7 @@ export default function ContractManager(){
                               cursor: 'pointer',
                               boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                             }}
-                            onClick={() => openImageModal(contract.customer?.idFrontUrl || contract.documentPhotos?.idFront, 'Documento d\'identità - Fronte')}
+                            onClick={() => downloadImage(contract.customer?.idFrontUrl || contract.documentPhotos?.idFront, 'Documento d\'identità - Fronte')}
                           />
                           <button
                             onClick={() => openWebcamModal(contract, 'front')}
@@ -1114,7 +1121,7 @@ export default function ContractManager(){
                       </div>
                       {(contract.customer?.idBackUrl || contract.documentPhotos?.idBack) ? (
                         <>
-                          <img 
+                          <img
                             src={contract.customer?.idBackUrl || contract.documentPhotos?.idBack}
                             alt="Documento retro"
                             style={{
@@ -1126,7 +1133,7 @@ export default function ContractManager(){
                               cursor: 'pointer',
                               boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                             }}
-                            onClick={() => openImageModal(contract.customer?.idBackUrl || contract.documentPhotos?.idBack, 'Documento d\'identità - Retro')}
+                            onClick={() => downloadImage(contract.customer?.idBackUrl || contract.documentPhotos?.idBack, 'Documento d\'identità - Retro')}
                           />
                           <button
                             onClick={() => openWebcamModal(contract, 'back')}
