@@ -68,6 +68,14 @@ export default function Contracts(){
   }
   useEffect(()=>{ load() }, [])
 
+  useEffect(() => {
+    if (reservationPrepaid) {
+      setPaymentMethod("link")
+    } else if (paymentMethod === "link") {
+      setPaymentMethod(null)
+    }
+  }, [reservationPrepaid])
+
   async function createContract(){
     try {
       // Calcola assicurazione totale dalle singole bici
