@@ -254,6 +254,11 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
           <div style={{ fontSize: '14px', color: '#6b7280' }}>
             📞 {contract.customer.phone}
           </div>
+          {contract.notes && (
+            <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '8px' }}>
+              📝 <strong>Note:</strong> {contract.notes}
+            </div>
+          )}
         </div>
 
         {/* Dettagli Noleggio */}

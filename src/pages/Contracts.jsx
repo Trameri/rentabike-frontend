@@ -1136,13 +1136,17 @@ export default function Contracts(){
             <option value="in-use">In uso</option>
             <option value="reserved">Prenotata</option>
           </select>
-          <label>Pagamento</label>
-          <select value={paymentMethod||''} onChange={e=>setPaymentMethod(e.target.value||null)}>
-            <option value="">Seleziona...</option>
-            <option value="cash">Contanti</option>
-            <option value="card">Carta</option>
-            <option value="link">Link</option>
-          </select>
+          {!reservationPrepaid && (
+            <>
+              <label>Pagamento</label>
+              <select value={paymentMethod||''} onChange={e=>setPaymentMethod(e.target.value||null)}>
+                <option value="">Seleziona...</option>
+                <option value="cash">Contanti</option>
+                <option value="card">Carta</option>
+                <option value="link">Link</option>
+              </select>
+            </>
+          )}
           <label><input type="checkbox" checked={reservationPrepaid} onChange={e=>setPrepaid(e.target.checked)} /> Prenotazione già pagata</label>
         </div>
         <textarea placeholder="Note" value={notes} onChange={e=>setNotes(e.target.value)} style={{width:'100%', height:80, marginTop:8}} />
