@@ -133,8 +133,10 @@ export default function ContractManager(){
       const updateData = {}
       if (photoType === 'front') {
         updateData['customer.idFrontUrl'] = photoData
+        updateData['documentPhotos.idFront'] = photoData
       } else if (photoType === 'back') {
         updateData['customer.idBackUrl'] = photoData
+        updateData['documentPhotos.idBack'] = photoData
       }
 
       await api.put(`/api/contracts/${selectedContractForPhoto._id}`, updateData)
