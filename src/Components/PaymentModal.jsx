@@ -453,32 +453,34 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
           </div>
         </div>
 
-        {/* Metodo Pagamento */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            marginBottom: '8px',
-            fontWeight: '600',
-            color: '#374151'
-          }}>
-            💳 Metodo di Pagamento
-          </label>
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '12px',
-              border: '2px solid #d1d5db',
-              borderRadius: '8px',
-              fontSize: '16px',
-              background: 'white'
-            }}
-          >
-            <option value="cash">💵 Contanti</option>
-            <option value="card">💳 Bancomat</option>
-          </select>
-        </div>
+        {/* Metodo Pagamento - nascosto per prenotazioni */}
+        {contract.status !== 'reserved' && (
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontWeight: '600',
+              color: '#374151'
+            }}>
+              💳 Metodo di Pagamento
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '2px solid #d1d5db',
+                borderRadius: '8px',
+                fontSize: '16px',
+                background: 'white'
+              }}
+            >
+              <option value="cash">💵 Contanti</option>
+              <option value="card">💳 Bancomat</option>
+            </select>
+          </div>
+        )}
 
         {/* Importo Finale */}
         <div style={{ marginBottom: '20px' }}>
