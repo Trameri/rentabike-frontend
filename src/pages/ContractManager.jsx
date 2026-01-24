@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { api } from '../services/api.js'
 import { useNotifications } from '../Components/NotificationSystem.jsx'
+import PaymentModal from '../Components/PaymentModal.jsx'
 
 export default function ContractManager(){
   const [contracts, setContracts] = useState([])
@@ -2726,6 +2727,22 @@ export default function ContractManager(){
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal per pagamento */}
+      {showPaymentModal && selectedContractForPayment && (
+        <PaymentModal
+          contract={selectedContractForPayment}
+          onPaymentComplete={() => {
+            setShowPaymentModal(false);
+            setSelectedContractForPayment(null);
+            loadContracts();
+          }}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedContractForPayment(null);
+          }}
+        />
       )}
       </div>
     </>
