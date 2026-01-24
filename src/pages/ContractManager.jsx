@@ -130,12 +130,14 @@ export default function ContractManager(){
 
     try {
       // Aggiorna il contratto con la nuova foto
-      const updateData = {}
+      const updateData = {
+        customer: { ...selectedContractForPhoto.customer }
+      }
       if (photoType === 'front') {
-        updateData['customer.idFrontUrl'] = photoData
+        updateData.customer.idFrontUrl = photoData
         updateData['documentPhotos.idFront'] = photoData
       } else if (photoType === 'back') {
-        updateData['customer.idBackUrl'] = photoData
+        updateData.customer.idBackUrl = photoData
         updateData['documentPhotos.idBack'] = photoData
       }
 
