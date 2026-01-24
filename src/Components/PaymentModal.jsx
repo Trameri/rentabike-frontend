@@ -37,10 +37,15 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
       // Inizializza itemPrices con il totale distribuito (prezzi base)
       const prices = {};
       const insurances = {};
+      let totalInsurances = 0;
       contract.items.forEach((item, index) => {
         const itemInsurance = item.insurance && item.insuranceFlat ? parseFloat(item.insuranceFlat) : 0;
         insurances[index] = itemInsurance.toFixed(2);
-        prices[index] = ((total - itemInsurance) / contract.items.length).toFixed(2);
+        totalInsurances += itemInsurance;
+      });
+      const baseTotal = total - totalInsurances;
+      contract.items.forEach((item, index) => {
+        prices[index] = (baseTotal / contract.items.length).toFixed(2);
       });
       setItemPrices(prices);
       setItemInsurances(insurances);
@@ -134,16 +139,19 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
 
   const calculateDuration = () => {
     if (!contract.startAt || !contract.endAt) {
-      return { hours: 1, days: 1 };
+      return { hours: 1, minutes: 0, seconds: 0, days: 1 };
     }
 
     const start = new Date(contract.startAt);
     const end = new Date(contract.endAt);
     const durationMs = end - start;
-    const hours = Math.ceil(durationMs / (1000 * 60 * 60));
-    const days = Math.ceil(hours / 24);
+    const totalSeconds = Math.floor(durationMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const days = Math.floor(hours / 24);
 
-    return { hours, days };
+    return { hours, minutes, seconds, days };
   };
 
   const handlePayment = async () => {
@@ -267,7 +275,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
             </div>
             <div>
               <strong>Durata:</strong><br />
-              {duration.hours}h ({duration.days} giorni)
+              {duration.hours}h {duration.minutes}m {duration.seconds}s ({duration.days} giorni)
             </div>
             <div>
               <strong>Stato:</strong><br />
@@ -318,20 +326,20 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
 
             if (isReservation) {
               pricingLogic = '🔒 Prenotazione - Tariffa giornaliera bloccata';
-              timeDetail = `${duration.days} giorni`;
+              timeDetail = `${duration.days}g ${duration.hours % 24}h ${duration.minutes}m ${duration.seconds}s`;
             } else {
               const hourlyTotal = priceHourly * duration.hours;
               const dailyTotal = priceDaily * duration.days;
 
               if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
                 pricingLogic = '⚡ Bloccato su tariffa giornaliera';
-                timeDetail = `${duration.days} giorni`;
+                timeDetail = `${duration.days}g ${duration.hours % 24}h ${duration.minutes}m ${duration.seconds}s`;
               } else if (priceHourly > 0) {
                 pricingLogic = '⏰ Tariffa oraria attiva';
-                timeDetail = `${duration.hours} ore`;
+                timeDetail = `${duration.hours}h ${duration.minutes}m ${duration.seconds}s`;
               } else {
                 pricingLogic = '📅 Solo tariffa giornaliera';
-                timeDetail = `${duration.days} giorni`;
+                timeDetail = `${duration.days}g ${duration.hours % 24}h ${duration.minutes}m ${duration.seconds}s`;
               }
             }
 
