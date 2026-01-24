@@ -1051,8 +1051,8 @@ export default function ContractManager(){
                       </div>
                       {(contract.customer?.idFrontUrl || contract.documentPhotos?.idFront) ? (
                         <>
-                          <img 
-                            src={contract.customer?.idFrontUrl || contract.documentPhotos?.idFront}
+                          <img
+                            src={`${contract.customer?.idFrontUrl || contract.documentPhotos?.idFront}?t=${Date.now()}`}
                             alt="Documento fronte"
                             style={{
                               width: '100px',
@@ -1063,7 +1063,7 @@ export default function ContractManager(){
                               cursor: 'pointer',
                               boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                             }}
-                            onClick={() => openImageModal(contract.customer?.idFrontUrl || contract.documentPhotos?.idFront, 'Documento d\'identità - Fronte')}
+                            onClick={() => openImageModal(`${contract.customer?.idFrontUrl || contract.documentPhotos?.idFront}?t=${Date.now()}`, 'Documento d\'identità - Fronte')}
                           />
                           <button
                             onClick={() => openWebcamModal(contract, 'front')}
@@ -1133,8 +1133,8 @@ export default function ContractManager(){
                       </div>
                       {(contract.customer?.idBackUrl || contract.documentPhotos?.idBack) ? (
                         <>
-                          <img 
-                            src={contract.customer?.idBackUrl || contract.documentPhotos?.idBack}
+                          <img
+                            src={`${contract.customer?.idBackUrl || contract.documentPhotos?.idBack}?t=${Date.now()}`}
                             alt="Documento retro"
                             style={{
                               width: '100px',
@@ -1145,7 +1145,7 @@ export default function ContractManager(){
                               cursor: 'pointer',
                               boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                             }}
-                            onClick={() => openImageModal(contract.customer?.idBackUrl || contract.documentPhotos?.idBack, 'Documento d\'identità - Retro')}
+                            onClick={() => openImageModal(`${contract.customer?.idBackUrl || contract.documentPhotos?.idBack}?t=${Date.now()}`, 'Documento d\'identità - Retro')}
                           />
                           <button
                             onClick={() => openWebcamModal(contract, 'back')}
