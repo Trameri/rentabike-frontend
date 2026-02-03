@@ -10,7 +10,8 @@ export default defineConfig({
     // https: true, // Decommentare per HTTPS locale (richiede certificati)
     proxy: {
       '/api': {
-        target: 'https://rentabikefrontend.vercel.app/: true,
+        target: 'https://rentabikefrontend.vercel.app/',
+        changeOrigin: true,
         secure: false,
       }
     }
