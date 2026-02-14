@@ -16,8 +16,16 @@ export default function LoginFinal(){
     
     try{
       const response = await api.post('/api/auth/login', { username, password })
-      setToken(response.data.token)
-      nav('/dashboard')
+      
+      if (response.data.success && response.data.redirectUrl) {
+        // Salva il token
+        setToken(response.data.token)
+        // Reindirizza al frontend
+        window.location.href = response.data.redirectUrl
+      } else {
+        // Gestisci errore dal backend
+        setErr(response.data.error || 'Credenziali non valide')
+      }
     }catch(e){
       setErr(e.response?.data?.error || 'Credenziali non valide')
     } finally {

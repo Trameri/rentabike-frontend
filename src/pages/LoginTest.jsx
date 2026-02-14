@@ -22,9 +22,11 @@ export default function LoginTest(){
       
       const data = await response.json()
       
-      if (response.ok) {
+      if (data.success && data.redirectUrl) {
+        // Salva il token
         localStorage.setItem('token', data.token)
-        navigate('/dashboard')
+        // Reindirizza al frontend
+        window.location.href = data.redirectUrl
       } else {
         setError(data.error || 'Errore di login')
       }
