@@ -21,13 +21,19 @@ export default function LoginTest(){
       })
       
       const data = await response.json()
+      console.log('Risposta login:', data)
       
+      // Nuovo formato: success + redirectUrl
       if (data.success && data.redirectUrl) {
-        // Salva il token
         localStorage.setItem('token', data.token)
-        // Reindirizza al frontend
         window.location.href = data.redirectUrl
-      } else {
+      } 
+      // Formato vecchio: solo token (per retrocompatibilità)
+      else if (data.token && !data.success) {
+        localStorage.setItem('token', data.token)
+        navigate('/dashboard')
+      }
+      else {
         setError(data.error || 'Errore di login')
       }
     }catch(err){

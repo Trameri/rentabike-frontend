@@ -14,14 +14,19 @@ export default function Login(){
     setErr('');
     try {
       const { data } = await api.post('/api/auth/login', { username, password });
+      console.log('Risposta login:', data);
       
+      // Nuovo formato: success + redirectUrl
       if (data.success && data.redirectUrl) {
-        // Salva il token
         setToken(data.token);
-        // Reindirizza al frontend
         window.location.href = data.redirectUrl;
-      } else {
-        // Gestisci errore dal backend
+      } 
+      // Formato vecchio: solo token (per retrocompatibilità)
+      else if (data.token && !data.success) {
+        setToken(data.token);
+        nav('/dashboard');
+      }
+      else {
         setErr(data.error || 'Credenziali non valide');
       }
     } catch(e) {

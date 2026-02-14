@@ -39,13 +39,19 @@ export default function LoginBeautiful(){
 
       if (success) {
         const data = success.data
+        console.log('Risposta login:', data)
+        
+        // Nuovo formato: success + redirectUrl
         if (data.success && data.redirectUrl) {
-          // Salva il token
           localStorage.setItem('token', data.token)
-          // Reindirizza al frontend usando redirectUrl dal backend
           window.location.href = data.redirectUrl
-        } else {
-          // Gestisci errore dal backend
+        } 
+        // Formato vecchio: solo token (per retrocompatibilità)
+        else if (data.token && !data.success) {
+          localStorage.setItem('token', data.token)
+          window.location.replace(getBackendAppUrl('/'))
+        }
+        else {
           const message = data?.error || 'Credenziali non valide'
           setError(message)
         }

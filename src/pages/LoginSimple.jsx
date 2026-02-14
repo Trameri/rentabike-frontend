@@ -18,15 +18,21 @@ export default function LoginSimple(){
       console.log('Tentativo login con:', { username, password })
       const response = await api.post('/api/auth/login', { username, password })
       console.log('Risposta login:', response.data)
+      const data = response.data
       
-      if (response.data.success && response.data.redirectUrl) {
-        // Salva il token
-        setToken(response.data.token)
-        // Reindirizza al frontend
-        window.location.href = response.data.redirectUrl
-      } else {
-        // Gestisci errore dal backend
-        setError(response.data.error || 'Credenziali non valide')
+      // Nuovo formato: success + redirectUrl
+      if (data.success && data.redirectUrl) {
+        setToken(data.token)
+        window.location.href = data.redirectUrl
+      } 
+      // Formato vecchio: solo token (per retrocompatibilità)
+      else if (data.token && !data.success) {
+        setToken(data.token)
+        navigate('/dashboard')
+      }
+      else {
+        // Gestisci errore
+        setError(data.error || 'Credenziali non valide')
       }
     }catch(err){
       console.error('Errore login:', err)

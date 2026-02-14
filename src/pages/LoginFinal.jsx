@@ -16,15 +16,21 @@ export default function LoginFinal(){
     
     try{
       const response = await api.post('/api/auth/login', { username, password })
+      const data = response.data
+      console.log('Risposta login:', data)
       
-      if (response.data.success && response.data.redirectUrl) {
-        // Salva il token
-        setToken(response.data.token)
-        // Reindirizza al frontend
-        window.location.href = response.data.redirectUrl
-      } else {
-        // Gestisci errore dal backend
-        setErr(response.data.error || 'Credenziali non valide')
+      // Nuovo formato: success + redirectUrl
+      if (data.success && data.redirectUrl) {
+        setToken(data.token)
+        window.location.href = data.redirectUrl
+      } 
+      // Formato vecchio: solo token (per retrocompatibilità)
+      else if (data.token && !data.success) {
+        setToken(data.token)
+        nav('/dashboard')
+      }
+      else {
+        setErr(data.error || 'Credenziali non valide')
       }
     }catch(e){
       setErr(e.response?.data?.error || 'Credenziali non valide')
