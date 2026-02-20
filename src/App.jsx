@@ -37,21 +37,9 @@ import { getToken, setToken, clearToken, api } from './services/api.js'
 function Layout({ children }){
   const nav = useNavigate();
   const [user, setUser] = useState(null);
-  const logout = async () => {
-    try {
-      // Chiama l'endpoint logout del backend (non bloccante)
-      api.post('/logout', {}, { 
-        withCredentials: true,
-        credentials: 'include'
-      }).catch(err => console.error('Logout API error:', err));
-    } catch (err) {
-      console.error('Errore durante il logout:', err);
-    } finally {
-      // Pulisci lo stato frontend PRIMA del redirect
-      clearToken();
-      // Reindirizza alla pagina di login
-      window.location.href = '/';
-    }
+  const logout = ()=>{ 
+    clearToken(); 
+    window.location.href = '/';
   }
 
   useEffect(() => {
