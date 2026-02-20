@@ -39,18 +39,18 @@ function Layout({ children }){
   const [user, setUser] = useState(null);
   const logout = async () => {
     try {
-      // Chiama l'endpoint logout del backend
-      await api.post('/logout', {}, { 
+      // Chiama l'endpoint logout del backend (non bloccante)
+      api.post('/logout', {}, { 
         withCredentials: true,
         credentials: 'include'
-      });
+      }).catch(err => console.error('Logout API error:', err));
     } catch (err) {
       console.error('Errore durante il logout:', err);
     } finally {
-      // Pulisci lo stato frontend
+      // Pulisci lo stato frontend PRIMA del redirect
       clearToken();
-      // Reindirizza alla pagina di login usando window.location per garantire il redirect
-      window.location.replace('/');
+      // Reindirizza alla pagina di login con reload forzato
+      window.location.href = '/';
     }
   }
 
