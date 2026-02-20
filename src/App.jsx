@@ -37,10 +37,7 @@ import { getToken, setToken, clearToken, api } from './services/api.js'
 function Layout({ children }){
   const nav = useNavigate();
   const [user, setUser] = useState(null);
-  const logout = ()=>{ 
-    clearToken(); 
-    window.location.href = '/';
-  }
+  const logout = ()=>{ clearToken(); nav('/'); }
 
   useEffect(() => {
     (async () => {
