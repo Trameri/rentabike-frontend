@@ -18,22 +18,8 @@ export default function LoginSimple(){
       console.log('Tentativo login con:', { username, password })
       const response = await api.post('/api/auth/login', { username, password })
       console.log('Risposta login:', response.data)
-      const data = response.data
-      
-      // Nuovo formato: success + redirectUrl
-      if (data.success && data.redirectUrl) {
-        setToken(data.token)
-        window.location.href = data.redirectUrl
-      } 
-      // Formato vecchio: solo token (per retrocompatibilità)
-      else if (data.token && !data.success) {
-        setToken(data.token)
-        navigate('/dashboard')
-      }
-      else {
-        // Gestisci errore
-        setError(data.error || 'Credenziali non valide')
-      }
+      setToken(response.data.token)
+      navigate('/dashboard')
     }catch(err){
       console.error('Errore login:', err)
       setError(err.response?.data?.error || 'Errore di connessione')

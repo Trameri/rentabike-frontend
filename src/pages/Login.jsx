@@ -14,21 +14,8 @@ export default function Login(){
     setErr('');
     try {
       const { data } = await api.post('/api/auth/login', { username, password });
-      console.log('Risposta login:', data);
-      
-      // Nuovo formato: success + redirectUrl
-      if (data.success && data.redirectUrl) {
-        setToken(data.token);
-        window.location.href = data.redirectUrl;
-      } 
-      // Formato vecchio: solo token (per retrocompatibilità)
-      else if (data.token && !data.success) {
-        setToken(data.token);
-        nav('/dashboard');
-      }
-      else {
-        setErr(data.error || 'Credenziali non valide');
-      }
+      setToken(data.token);
+      nav('/dashboard');
     } catch(e) {
       setErr(e.response?.data?.error || 'Credenziali non valide');
     }
