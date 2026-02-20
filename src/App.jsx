@@ -49,9 +49,8 @@ function Layout({ children }){
     } finally {
       // Pulisci lo stato frontend PRIMA del redirect
       clearToken();
-      // Reindirizza alla pagina di login con reload forzato
-      window.location.replace('/');
-      window.location.reload();
+      // Reindirizza alla pagina di login
+      window.location.href = '/';
     }
   }
 
