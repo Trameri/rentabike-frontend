@@ -15,6 +15,10 @@ export default function Login(){
     try {
       const { data } = await api.post('/api/auth/login', { username, password });
       setToken(data.token);
+      
+      // Forza update dello stato global (senza refresh pagina)
+      window.dispatchEvent(new Event('token-update'));
+      
       nav('/dashboard');
     } catch(e) {
       setErr(e.response?.data?.error || 'Credenziali non valide');
