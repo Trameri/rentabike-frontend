@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
-import Login from './pages/Login.jsx'
+import Login from './pages/LoginBeautiful.jsx'
 import LocationLogo from './Components/LocationLogo.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Bikes from './pages/Bikes.jsx'
@@ -34,33 +34,18 @@ import { AuthProvider } from './context/AuthContext.jsx'
 
 import { getToken, setToken, clearToken, api } from './services/api.js'
 
-function Layout({ children, onLogout }){
+function Layout({ children }){
   const nav = useNavigate();
   const [user, setUser] = useState(null);
-  
-  // Resetta lo stato user quando logout viene chiamato
-  const logout = ()=>{ 
-    clearToken(); 
-    setUser(null); // Resetta lo stato locale
-    onLogout(); // Aggiorna lo stato nel genitore
-    nav('/'); 
-  }
+  const logout = ()=>{ clearToken(); nav('/'); }
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      // Se non c'è token, non cercare l'utente
-      setUser(null);
-      return;
-    }
-    
     (async () => {
       try {
         const response = await api('/auth/me');
         setUser(response.user);
       } catch (err) {
         console.error('Errore nel recupero utente:', err);
-        setUser(null);
       }
     })();
   }, []);
@@ -242,79 +227,48 @@ function Layout({ children, onLogout }){
   )
 }
 
-function DashboardRoutes() {
-  return (
-    <>
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/bikes" element={<Bikes />} />
-      <Route path="/bike-management" element={<BikeManagement />} />
-      <Route path="/accessories" element={<Accessories />} />
-      <Route path="/contracts" element={<Contracts />} />
-      <Route path="/contracts-test" element={<ContractsTest />} />
-      <Route path="/contracts-simple" element={<ContractsSimplified />} />
-      <Route path="/bike-swap" element={<BikeSwapManager />} />
-      <Route path="/system-diagnostic" element={<SystemDiagnostic />} />
-      <Route path="/contract-manager" element={<ContractManager />} />
-      <Route path="/barcodes" element={<BarcodeManagement />} />
-      <Route path="/barcode-test" element={<BarcodeTest />} />
-      <Route path="/history" element={<ContractHistory />} />
-      <Route path="/reports" element={<Reports />} />
-      <Route path="/bike-roi-stats" element={<BikeROIStats />} />
-      <Route path="/bike-roi-debug" element={<BikeROIDebug />} />
-      <Route path="/excel-export" element={<ExcelExport />} />
-      <Route path="/daily-report" element={<DailyReport />} />
-      <Route path="/users" element={<UserManagement />} />
-      <Route path="/webcam-test" element={<WebcamTest />} />
-      <Route path="/webcam-test-optimized" element={<WebcamTestOptimized />} />
-      <Route path="/logo-test" element={<LogoTest />} />
-      <Route path="/contracts-optimized" element={<ContractsOptimized />} />
-      <Route path="/system-status" element={<SystemStatus />} />
-      <Route path="/bikes-optimized" element={<BikesOptimized />} />
-      <Route path="/pricing-test" element={<PricingLogicTest />} />
-      <Route path="*" element={<Dashboard />} />
-    </>
-  );
-}
-
 export default function App(){
-  // Usa useState per reagire ai cambiamenti del token
-  const [token, setTokenState] = useState(getToken());
-
-  // Funzione per aggiornare il token (chiamata dopo login)
-  const handleLogin = () => {
-    const newToken = getToken();
-    setTokenState(newToken);
-  };
-
-  // Funzione di logout che aggiorna lo stato
-  const handleLogout = () => {
-    clearToken();
-    setTokenState(null);
-  };
-
-  // Ascolta eventi di update del token (es. da Login.jsx)
-  useEffect(() => {
-    const handleTokenUpdate = () => {
-      setTokenState(getToken());
-    };
-    window.addEventListener('token-update', handleTokenUpdate);
-    return () => window.removeEventListener('token-update', handleTokenUpdate);
-  }, []);
-
+  const token = getToken();
   return (
     <AuthProvider>
       <NotificationProvider>
-        {!token ? (
-          <Routes>
-            <Route path="/*" element={<Login />} />
-          </Routes>
-        ) : (
-          <Layout onLogout={handleLogout}>
+        <Routes>
+        {!token && <Route path="/*" element={<Login />} />}
+        {token && (
+          <Route path="/*" element={<Layout>
             <Routes>
-              <DashboardRoutes />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/bikes" element={<Bikes />} />
+              <Route path="/bike-management" element={<BikeManagement />} />
+              <Route path="/accessories" element={<Accessories />} />
+              <Route path="/contracts" element={<Contracts />} />
+              <Route path="/contracts-test" element={<ContractsTest />} />
+              <Route path="/contracts-simple" element={<ContractsSimplified />} />
+              <Route path="/bike-swap" element={<BikeSwapManager />} />
+              <Route path="/system-diagnostic" element={<SystemDiagnostic />} />
+              <Route path="/contract-manager" element={<ContractManager />} />
+              <Route path="/barcodes" element={<BarcodeManagement />} />
+              <Route path="/barcode-test" element={<BarcodeTest />} />
+
+              <Route path="/history" element={<ContractHistory />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/bike-roi-stats" element={<BikeROIStats />} />
+              <Route path="/bike-roi-debug" element={<BikeROIDebug />} />
+              <Route path="/excel-export" element={<ExcelExport />} />
+              <Route path="/daily-report" element={<DailyReport />} />
+              <Route path="/users" element={<UserManagement />} />
+              <Route path="/webcam-test" element={<WebcamTest />} />
+              <Route path="/webcam-test-optimized" element={<WebcamTestOptimized />} />
+              <Route path="/logo-test" element={<LogoTest />} />
+              <Route path="/contracts-optimized" element={<ContractsOptimized />} />
+              <Route path="/system-status" element={<SystemStatus />} />
+              <Route path="/bikes-optimized" element={<BikesOptimized />} />
+              <Route path="/pricing-test" element={<PricingLogicTest />} />
+              <Route path="*" element={<Dashboard />} />
             </Routes>
-          </Layout>
+          </Layout>} />
         )}
+        </Routes>
       </NotificationProvider>
     </AuthProvider>
   )

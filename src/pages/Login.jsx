@@ -14,12 +14,18 @@ export default function Login(){
     setErr('');
     try {
       const { data } = await api.post('/api/auth/login', { username, password });
-      setToken(data.token);
       
-      // Forza update dello stato global (senza refresh pagina)
-      window.dispatchEvent(new Event('token-update'));
-      
-      nav('/dashboard');
+      if (data.success && data.redirectUrl) {
+        // Salva il token
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        // Reindirizza al frontend usando redirectUrl dal backend
+        window.location.href = data.redirectUrl;
+      } else if (data.token) {
+        // Fallback per compatibilità con risposta precedente
+        setToken(data.token);
+        nav('/dashboard');
+      }
     } catch(e) {
       setErr(e.response?.data?.error || 'Credenziali non valide');
     }
