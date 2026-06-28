@@ -248,19 +248,20 @@ export default function ContractsBeautiful(){
         reservationPrepaid,
         startAt: payloadStartAt,
         endAt: payloadEndAt,
+        ...(isReservation && reservationDate ? { reservationDate } : {}),
         calculatedPrice: calculatedPrice,
         totalInsurance: totalInsurance,
-        // Nuovi campi per i pagamenti
         paymentLink: paymentLink || null,
         paymentNotes: paymentNotes || null,
         isReservation: isReservation
       }
       
-      console.log('CREAZIONE CONTRATTO - Payload:', payload)
-      if (isReservation) {
-        console.log('📅 Prenotazione per data:', reservationDate, '| startAt:', payloadStartAt, '| endAt:', payloadEndAt)
-      }
+      console.log('📤 PAYLOAD CONTRATTO:', JSON.stringify(payload, null, 2))
       const { data } = await api.post('/api/contracts', payload)
+      console.log('📥 RISPOSTA CONTRATTO:', JSON.stringify(data, null, 2))
+      if (isReservation && !(data.startAt || data.reservationDate)) {
+        console.warn('⚠️ Prenotazione creata ma senza data di inizio salvata dal backend')
+      }
       
       const statusMessage = isReservation ? 'prenotato' : 'creato';
       alert(`✅ Contratto ${statusMessage} con successo!\nID: ${data._id}\nAssicurazione totale: €${totalInsurance}`)

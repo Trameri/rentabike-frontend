@@ -71,20 +71,33 @@ export default function ContractManager(){
     const dayEnd = dateUtils.endOfDay(date)
     
     return contracts.filter(contract => {
-      const start = new Date(contract.startAt || contract.createdAt)
-      const end = contract.endAt ? new Date(contract.endAt) : null
-      
       if (contract.status === 'reserved') {
-        if (!end) {
-          return dateUtils.isSameDay(start, date)
-        }
-        return start <= dayEnd && end >= dayStart
+        const rawStart = contract.startAt || contract.reservationDate || contract.createdAt
+        if (!rawStart) return false
+        const start = new Date(rawStart)
+        const end = contract.endAt ? new Date(contract.endAt) : null
+        return start <= dayEnd && (!end || end >= dayStart)
       }
       
+      const start = new Date(contract.startAt || contract.createdAt)
+      const end = contract.endAt ? new Date(contract.endAt) : null
       const isInRange = start <= dayEnd && (!end || end >= dayStart)
       return isInRange
     })
   }
+
+  useEffect(() => {
+    const reserved = contracts.filter(c => c.status === 'reserved')
+    if (reserved.length > 0) {
+      console.log('📅 Contratti prenotati:', reserved.map(c => ({
+        id: c._id,
+        startAt: c.startAt,
+        endAt: c.endAt,
+        reservationDate: c.reservationDate,
+        createdAt: c.createdAt
+      })))
+    }
+  }, [contracts])
 
   const filteredContracts = getDayContracts(selectedDate).filter(c => {
     const matchesStatus = filter === 'all' || c.status === filter
