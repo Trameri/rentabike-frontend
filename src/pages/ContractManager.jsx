@@ -72,11 +72,10 @@ export default function ContractManager(){
     
     return contracts.filter(contract => {
       if (contract.status === 'reserved') {
-        const rawStart = contract.startAt || contract.reservationDate || contract.createdAt
-        if (!rawStart) return false
-        const start = new Date(rawStart)
-        const end = contract.endAt ? new Date(contract.endAt) : null
-        return start <= dayEnd && (!end || end >= dayStart)
+        const rawDate = contract.reservationDate || contract.startAt || contract.createdAt
+        if (!rawDate) return false
+        const contractDate = dateUtils.startOfDay(new Date(rawDate))
+        return dateUtils.isSameDay(contractDate, date)
       }
       
       const start = new Date(contract.startAt || contract.createdAt)
