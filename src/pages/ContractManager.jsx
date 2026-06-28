@@ -8,6 +8,7 @@ export default function ContractManager(){
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
   
   // Stati per modifica contratto
   const [showEditModal, setShowEditModal] = useState(false)
@@ -878,7 +879,16 @@ export default function ContractManager(){
     }
   }
 
-  const filteredContracts = getDayContracts(selectedDate).filter(c => filter === 'all' || c.status === filter)
+  const filteredContracts = getDayContracts(selectedDate).filter(c => {
+    const matchesStatus = filter === 'all' || c.status === filter
+    if (!matchesStatus) return false
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.trim().toLowerCase()
+    const name = (c.customer?.name || '').toLowerCase()
+    const phone = (c.customer?.phone || '').toLowerCase()
+    const itemsText = (c.items || []).map(i => `${i.name || ''} ${i.barcode || ''}`.toLowerCase()).join(' ')
+    return name.includes(q) || phone.includes(q) || itemsText.includes(q)
+  })
 
   return (
     <>
@@ -1153,6 +1163,64 @@ export default function ContractManager(){
           {filteredContracts.length} contratti
         </span>
       </h2>
+
+      {/* Barra di ricerca globale */}
+      <div style={{
+        background: 'white',
+        borderRadius: '16px',
+        padding: '20px',
+        marginBottom: '24px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        border: '2px solid #e5e7eb'
+      }}>
+        <label style={{
+          display: 'block',
+          marginBottom: '8px',
+          fontWeight: '700',
+          color: '#1e293b',
+          fontSize: '16px'
+        }}>
+          🔍 Cerca Contratto...
+        </label>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Inserisci nome cliente, modello bici, targa o barcode..."
+          style={{
+            width: '100%',
+            padding: '14px 18px',
+            border: '2px solid #e5e7eb',
+            borderRadius: '12px',
+            fontSize: '16px',
+            boxSizing: 'border-box',
+            transition: 'border-color 0.2s ease',
+            outline: 'none',
+            background: '#fafafa'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = '#3b82f6'
+            e.target.style.background = '#ffffff'
+            e.target.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.1)'
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = '#e5e7eb'
+            e.target.style.background = '#fafafa'
+            e.target.style.boxShadow = 'none'
+          }}
+        />
+        {searchQuery.trim() && (
+          <div style={{
+            marginTop: '8px',
+            fontSize: '13px',
+            color: '#6b7280',
+            fontWeight: '500'
+          }}>
+            {filteredContracts.length} risultato/i per "{searchQuery.trim()}"
+          </div>
+        )}
+      </div>
+
       <div style={{ display: 'grid', gap: '16px' }}>
         {filteredContracts.map(contract => (
           <div key={contract._id} style={{
