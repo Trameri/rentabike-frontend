@@ -46,6 +46,24 @@ export default function ContractsBeautiful(){
   const [paymentLink, setPaymentLink] = useState('')
   const [paymentNotes, setPaymentNotes] = useState('')
   const [isReservation, setIsReservation] = useState(false)
+  const [quickBarcode, setQuickBarcode] = useState('')
+
+  const playBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 1200
+      osc.type = 'sine'
+      gain.gain.value = 0.3
+      osc.start()
+      setTimeout(() => osc.stop(), 150)
+    } catch (e) {
+      console.error('Audio non supportato', e)
+    }
+  }
 
   useEffect(()=>{
     const token = localStorage.getItem('token')
@@ -82,22 +100,15 @@ export default function ContractsBeautiful(){
           barcode: bike.barcode,
           priceHourly: bike.priceHourly,
           priceDaily: bike.priceDaily,
-          originalPriceHourly: bike.priceHourly, // Salva prezzo originale
-          originalPriceDaily: bike.priceDaily,   // Salva prezzo originale
-          photo: bike.photoUrl, // Usa photoUrl dal database
+          originalPriceHourly: bike.priceHourly,
+          originalPriceDaily: bike.priceDaily,
+          photo: bike.photoUrl,
           insurance: false,
           insuranceFlat: 0
         }])
         
-        // Feedback visivo e sonoro
-        try {
-          // Suono di conferma (se supportato dal browser)
-          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
-          audio.volume = 0.3;
-          audio.play().catch(() => {}); // Ignora errori audio
-        } catch (e) {}
+        playBeep()
         
-        // Notifica visiva migliorata
         const notification = document.createElement('div');
         notification.innerHTML = `
           <div style="
@@ -158,6 +169,7 @@ export default function ContractsBeautiful(){
             originalPriceDaily: accessory.priceDaily,   // Salva prezzo originale
             photo: accessory.photoUrl // Usa photoUrl dal database
           }])
+          playBeep()
           alert(`✅ Accessorio aggiunto: ${accessory.name}`)
         } else {
           alert('❌ Accessorio non trovato o non disponibile')
@@ -167,6 +179,30 @@ export default function ContractsBeautiful(){
       }
     }
     setLoading(false)
+  }
+
+  const handleQuickBarcodeInput = (e) => {
+    const value = e.target.value
+    if (value.endsWith('*')) {
+      const cleanBarcode = value.slice(0, -1).trim()
+      if (cleanBarcode) {
+        setLoading(true)
+        setTimeout(() => {
+          handleBarcodeScanned(cleanBarcode)
+          setQuickBarcode('')
+        }, 50)
+      }
+      return
+    }
+    setQuickBarcode(value)
+  }
+
+  const handleQuickBarcodeSubmit = (e) => {
+    e.preventDefault()
+    if (quickBarcode.trim()) {
+      handleBarcodeScanned(quickBarcode.trim())
+      setQuickBarcode('')
+    }
   }
 
   // Funzione per creare contratto aggiornata
@@ -599,6 +635,49 @@ export default function ContractsBeautiful(){
               
               <BarcodeScannerSimple onScan={handleBarcodeScanned} />
               
+              {/* Inserimento rapido barcode */}
+              <form onSubmit={handleQuickBarcodeSubmit} style={{
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+                marginTop: '16px'
+              }}>
+                <input
+                  type="text"
+                  value={quickBarcode}
+                  onChange={handleQuickBarcodeInput}
+                  placeholder="🔫 Scansiona con pistola (termina con *) o digita barcode"
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    border: '2px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'monospace',
+                    background: 'white',
+                    transition: 'all 0.3s ease'
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={!quickBarcode.trim() || loading}
+                  style={{
+                    padding: '12px 24px',
+                    background: quickBarcode.trim() ? 
+                      'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#d1d5db',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: quickBarcode.trim() ? 'pointer' : 'not-allowed',
+                    fontSize: '14px',
+                    fontWeight: '600'
+                  }}
+                >
+                  {loading ? '⏳' : '➕ Aggiungi'}
+                </button>
+              </form>
+
               {/* Lista articoli */}
               {items.length > 0 && (
                 <div style={{ marginTop: '20px' }}>
