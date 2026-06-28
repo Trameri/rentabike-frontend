@@ -9,6 +9,8 @@ export default function ContractManager(){
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [viewMode, setViewMode] = useState('week')
+  const [viewDate, setViewDate] = useState(new Date())
   
   // Stati per modifica contratto
   const [showEditModal, setShowEditModal] = useState(false)
@@ -82,6 +84,80 @@ export default function ContractManager(){
       const isInRange = start <= dayEnd && (!end || end >= dayStart)
       return isInRange
     })
+  }
+
+  const filteredContracts = getDayContracts(selectedDate).filter(c => {
+    const matchesStatus = filter === 'all' || c.status === filter
+    if (!matchesStatus) return false
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.trim().toLowerCase()
+    const name = (c.customer?.name || '').toLowerCase()
+    const phone = (c.customer?.phone || '').toLowerCase()
+    const itemsText = (c.items || []).map(i => `${i.name || ''} ${i.barcode || ''}`.toLowerCase()).join(' ')
+    return name.includes(q) || phone.includes(q) || itemsText.includes(q)
+  })
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(dateUtils.startOfDay(date))
+    setViewDate(date)
+  }
+
+  const navigateView = (direction) => {
+    const newDate = new Date(viewDate)
+    if (viewMode === 'week') {
+      newDate.setDate(newDate.getDate() + (direction * 7))
+    } else if (viewMode === 'month') {
+      newDate.setMonth(newDate.getMonth() + direction)
+    } else {
+      newDate.setFullYear(newDate.getFullYear() + direction)
+    }
+    setViewDate(newDate)
+  }
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear()
+    const month = date.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const daysInMonth = lastDay.getDate()
+    const startDayOfWeek = firstDay.getDay()
+    const days = []
+    for (let i = 0; i < startDayOfWeek; i++) days.push(null)
+    for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i))
+    return days
+  }
+
+  const getMonthName = (date) => date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
+
+  const weekDays = Array.from({length: 7}, (_, i) => {
+    const d = new Date(viewDate)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1) + i
+    const result = new Date(d.setDate(diff))
+    result.setHours(0, 0, 0, 0)
+    return result
+  })
+
+  const getMonthContractCount = (year, month) => {
+    return contracts.filter(contract => {
+      const start = new Date(contract.startAt || contract.createdAt)
+      return start.getFullYear() === year && start.getMonth() === month
+    }).length
+  }
+
+  const getStartOfWeek = (date) => {
+    const d = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    d.setDate(diff)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+
+const getEndOfWeek = (date) => {
+    const d = new Date(getStartOfWeek(date))
+    d.setDate(d.getDate() + 6)
+    return d
   }
 
   const { showSuccess, showError, showWarning } = useNotifications()
@@ -886,17 +962,6 @@ export default function ContractManager(){
     }
   }
 
-  const filteredContracts = getDayContracts(selectedDate).filter(c => {
-    const matchesStatus = filter === 'all' || c.status === filter
-    if (!matchesStatus) return false
-    if (!searchQuery.trim()) return true
-    const q = searchQuery.trim().toLowerCase()
-    const name = (c.customer?.name || '').toLowerCase()
-    const phone = (c.customer?.phone || '').toLowerCase()
-    const itemsText = (c.items || []).map(i => `${i.name || ''} ${i.barcode || ''}`.toLowerCase()).join(' ')
-    return name.includes(q) || phone.includes(q) || itemsText.includes(q)
-  })
-
   return (
     <>
       <style>
@@ -1029,116 +1094,325 @@ export default function ContractManager(){
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '16px'
+          marginBottom: '16px',
+          flexWrap: 'wrap',
+          gap: '12px'
         }}>
           <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: '#1e293b' }}>
             📅 Calendario Contratti
           </h3>
-          <div style={{
-            fontSize: '14px',
-            color: '#6b7280',
-            fontWeight: '500'
-          }}>
-            {selectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-          </div>
-        </div>
-        
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          overflowX: 'auto',
-          padding: '8px 4px',
-          scrollBehavior: 'smooth',
-          alignItems: 'center'
-        }}>
-          {timelineDays.map(day => {
-            const isToday = dateUtils.isSameDay(day, new Date())
-            const isSelected = dateUtils.isSameDay(day, selectedDate)
-            const dayContracts = getDayContracts(day)
-            
-            return (
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '4px' }}>
               <button
-                key={day.toISOString()}
-                onClick={() => setSelectedDate(dateUtils.startOfDay(day))}
+                onClick={() => navigateView(-1)}
                 style={{
-                  minWidth: '80px',
-                  padding: '12px 8px',
-                  background: isSelected 
-                    ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' 
-                    : isToday 
-                      ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'
-                      : '#f8fafc',
-                  color: isSelected ? 'white' : isToday ? '#92400e' : '#374151',
-                  border: isSelected 
-                    ? '3px solid #1e40af' 
-                    : isToday 
-                      ? '2px solid #f59e0b'
-                      : '2px solid #e5e7eb',
-                  borderRadius: '12px',
+                  padding: '6px 12px',
+                  background: '#f3f4f6',
+                  color: '#374151',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '8px',
                   cursor: 'pointer',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '4px',
-                  transition: 'all 0.2s ease',
-                  position: 'relative',
-                  boxShadow: isSelected 
-                    ? '0 4px 12px rgba(59, 130, 246, 0.3)' 
-                    : '0 1px 3px rgba(0,0,0,0.1)',
-                  transform: isSelected ? 'scale(1.05)' : 'scale(1)'
+                  fontSize: '16px',
+                  fontWeight: '600'
                 }}
               >
-                <div style={{
-                  fontSize: '10px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  opacity: 0.8
-                }}>
-                  {dateUtils.getDayName(day, true)}
-                </div>
-                <div style={{
-                  fontSize: '18px',
-                  fontWeight: '800'
-                }}>
-                  {day.getDate()}
-                </div>
-                <div style={{
-                  fontSize: '10px',
-                  opacity: 0.7
-                }}>
-                  {dateUtils.getMonthName(day, true)}
-                </div>
-                
-                {isToday && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '-10px',
-                    right: '-8px',
-                    fontSize: '18px',
-                    animation: 'bikeBounce 1s ease-in-out infinite'
-                  }}>
-                    🚲
-                  </div>
-                )}
-                
-                {dayContracts.length > 0 && (
-                  <div style={{
-                    marginTop: '4px',
-                    padding: '2px 6px',
-                    background: isSelected ? 'rgba(255,255,255,0.3)' : '#e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '10px',
-                    fontWeight: '700'
-                  }}>
-                    {dayContracts.length}
-                  </div>
-                )}
+                ◀
               </button>
-            )
-          })}
+              <button
+                onClick={() => navigateView(1)}
+                style={{
+                  padding: '6px 12px',
+                  background: '#f3f4f6',
+                  color: '#374151',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                ▶
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {['week', 'month', 'year'].map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  style={{
+                    padding: '6px 16px',
+                    background: viewMode === mode ? '#3b82f6' : '#f3f4f6',
+                    color: viewMode === mode ? 'white' : '#374151',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600'
+                  }}
+                >
+                  {mode === 'week' ? 'Settimana' : mode === 'month' ? 'Mese' : 'Anno'}
+                </button>
+              ))}
+            </div>
+            
+            <div style={{
+              fontSize: '14px',
+              color: '#6b7280',
+              fontWeight: '500'
+            }}>
+              {viewMode === 'week' 
+                ? `${getStartOfWeek(viewDate).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })} - ${getEndOfWeek(viewDate).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                : viewMode === 'month' 
+                  ? getMonthName(viewDate)
+                  : viewDate.getFullYear()
+              }
+            </div>
+          </div>
         </div>
+
+        {/* Vista Settimana */}
+        {viewMode === 'week' && (
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            overflowX: 'auto',
+            padding: '8px 4px',
+            scrollBehavior: 'smooth',
+            alignItems: 'center'
+          }}>
+            {weekDays.map(day => {
+              const isToday = dateUtils.isSameDay(day, new Date())
+              const isSelected = dateUtils.isSameDay(day, selectedDate)
+              const dayContracts = getDayContracts(day)
+              
+              return (
+                <button
+                  key={day.toISOString()}
+                  onClick={() => handleDateSelect(day)}
+                  style={{
+                    minWidth: '80px',
+                    padding: '12px 8px',
+                    background: isSelected 
+                      ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' 
+                      : isToday 
+                        ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'
+                        : '#f8fafc',
+                    color: isSelected ? 'white' : isToday ? '#92400e' : '#374151',
+                    border: isSelected 
+                      ? '3px solid #1e40af' 
+                      : isToday 
+                        ? '2px solid #f59e0b'
+                        : '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s ease',
+                    position: 'relative',
+                    boxShadow: isSelected 
+                      ? '0 4px 12px rgba(59, 130, 246, 0.3)' 
+                      : '0 1px 3px rgba(0,0,0,0.1)',
+                    transform: isSelected ? 'scale(1.05)' : 'scale(1)'
+                  }}
+                >
+                  <div style={{
+                    fontSize: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    opacity: 0.8
+                  }}>
+                    {dateUtils.getDayName(day, true)}
+                  </div>
+                  <div style={{
+                    fontSize: '18px',
+                    fontWeight: '800'
+                  }}>
+                    {day.getDate()}
+                  </div>
+                  <div style={{
+                    fontSize: '10px',
+                    opacity: 0.7
+                  }}>
+                    {dateUtils.getMonthName(day, true)}
+                  </div>
+                  
+                  {isToday && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '-10px',
+                      right: '-8px',
+                      fontSize: '18px',
+                      animation: 'bikeBounce 1s ease-in-out infinite'
+                    }}>
+                      🚲
+                    </div>
+                  )}
+                  
+                  {dayContracts.length > 0 && (
+                    <div style={{
+                      marginTop: '4px',
+                      padding: '2px 6px',
+                      background: isSelected ? 'rgba(255,255,255,0.3)' : '#e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '10px',
+                      fontWeight: '700'
+                    }}>
+                      {dayContracts.length}
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Vista Mese */}
+        {viewMode === 'month' && (
+          <div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              gap: '4px',
+              marginBottom: '8px'
+            }}>
+              {['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'].map(dayName => (
+                <div key={dayName} style={{
+                  padding: '8px 4px',
+                  textAlign: 'center',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: '#6b7280',
+                  background: '#f8fafc',
+                  borderRadius: '6px'
+                }}>
+                  {dayName}
+                </div>
+              ))}
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              gap: '4px'
+            }}>
+              {getDaysInMonth(viewDate).map((day, idx) => {
+                if (!day) {
+                  return <div key={`empty-${idx}`} style={{ padding: '8px', minHeight: '60px' }}></div>
+                }
+                
+                const isToday = dateUtils.isSameDay(day, new Date())
+                const isSelected = dateUtils.isSameDay(day, selectedDate)
+                const dayContracts = getDayContracts(day)
+                
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => handleDateSelect(day)}
+                    style={{
+                      padding: '12px 8px',
+                      minHeight: '60px',
+                      background: isSelected 
+                        ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' 
+                        : isToday 
+                          ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'
+                          : '#f8fafc',
+                      color: isSelected ? 'white' : isToday ? '#92400e' : '#374151',
+                      border: isSelected 
+                        ? '2px solid #1e40af' 
+                        : isToday 
+                          ? '2px solid #f59e0b'
+                          : '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px'
+                    }}
+                  >
+                    <div style={{ fontSize: '14px', fontWeight: '700' }}>
+                      {day.getDate()}
+                    </div>
+                    {dayContracts.length > 0 && (
+                      <div style={{
+                        padding: '2px 6px',
+                        background: isSelected ? 'rgba(255,255,255,0.3)' : '#e5e7eb',
+                        borderRadius: '8px',
+                        fontSize: '10px',
+                        fontWeight: '700'
+                      }}>
+                        {dayContracts.length}
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Vista Anno */}
+        {viewMode === 'year' && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '12px'
+          }}>
+            {['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'].map((monthName, monthIdx) => {
+              const monthContracts = getMonthContractCount(viewDate.getFullYear(), monthIdx)
+              const monthDate = new Date(viewDate.getFullYear(), monthIdx, 1)
+              
+              return (
+                <button
+                  key={monthIdx}
+                  onClick={() => {
+                    setViewMode('month')
+                    setViewDate(monthDate)
+                  }}
+                  style={{
+                    padding: '20px 12px',
+                    minHeight: '80px',
+                    background: '#f8fafc',
+                    color: '#374151',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <div style={{ fontSize: '16px', fontWeight: '700' }}>
+                    {monthName}
+                  </div>
+                  {monthContracts > 0 && (
+                    <div style={{
+                      padding: '4px 12px',
+                      background: '#3b82f6',
+                      color: 'white',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: '700'
+                    }}>
+                      {monthContracts}
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
         
         <div style={{
           marginTop: '12px',
