@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import LocationLogo from '../Components/LocationLogo.jsx'
 import { api } from '../services/api.js'
 import { jwtDecode } from 'jwt-decode'
@@ -7,7 +6,6 @@ import { useAuth } from '../context/AuthContext.jsx'
 
 export default function LoginBeautiful(){
   const { login } = useAuth();
-  const navigate = useNavigate();
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -53,7 +51,7 @@ export default function LoginBeautiful(){
             }
           }
           login(data.token, userData)
-          navigate('/dashboard')
+          window.location.replace('/dashboard')
         } else {
           setError('Risposta del server non valida')
         }
