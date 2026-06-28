@@ -19,9 +19,7 @@ export default function ContractsBeautiful(){
   const [customer, setCustomer] = useState({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' })
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState('in-use')
-  const [paymentMethod, setPaymentMethod] = useState(null)
   const [insuranceFlat, setIns] = useState(0)
-  const [reservationPrepaid, setPrepaid] = useState(false)
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
@@ -41,10 +39,6 @@ export default function ContractsBeautiful(){
   // Stati per modifica prezzi
   const [editingPrices, setEditingPrices] = useState({})
   
-  // Stati per la sezione pagamenti
-  const [showPaymentSection, setShowPaymentSection] = useState(false)
-  const [paymentLink, setPaymentLink] = useState('')
-  const [paymentNotes, setPaymentNotes] = useState('')
   const [isReservation, setIsReservation] = useState(false)
   const [quickBarcode, setQuickBarcode] = useState('')
   const audioCtxRef = useRef(null)
@@ -244,15 +238,11 @@ export default function ContractsBeautiful(){
         })),
         notes, 
         status: isReservation ? 'reserved' : 'in-use', 
-        paymentMethod, 
-        reservationPrepaid,
         startAt: payloadStartAt,
         endAt: payloadEndAt,
         ...(isReservation && reservationDate ? { reservationDate } : {}),
         calculatedPrice: calculatedPrice,
         totalInsurance: totalInsurance,
-        paymentLink: paymentLink || null,
-        paymentNotes: paymentNotes || null,
         isReservation: isReservation
       }
       
@@ -271,16 +261,11 @@ export default function ContractsBeautiful(){
       setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
       setNotes(''); 
       setStatus('in-use'); 
-      setPaymentMethod(null); 
-      setPrepaid(false);
       setStartDate(new Date().toISOString().slice(0, 16)); 
       setEndDate(''); 
       setReservationDate('');
       setCalculatedPrice(null);
       setCurrentStep(1);
-      setShowPaymentSection(false);
-      setPaymentLink('');
-      setPaymentNotes('');
       setIsReservation(false);
       
     } catch (error) {
@@ -1003,150 +988,6 @@ export default function ContractsBeautiful(){
               </h3>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Sezione Pagamenti Opzionale */}
-                <div style={{
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  background: '#f9fafb'
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '12px'
-                  }}>
-                    <label style={{
-                      fontWeight: '600',
-                      color: '#374151',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      💳 Gestione Pagamenti (Opzionale)
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPaymentSection(!showPaymentSection)}
-                      style={{
-                        background: showPaymentSection ? '#10b981' : '#6b7280',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {showPaymentSection ? '✓ Attiva' : '+ Aggiungi'}
-                    </button>
-                  </div>
-
-                  {showPaymentSection && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-                      {/* Link pagamento */}
-                      <div>
-                        <label style={{
-                          display: 'block',
-                          marginBottom: '6px',
-                          fontWeight: '500',
-                          color: '#374151'
-                        }}>
-                          🔗 Link Pagamento
-                        </label>
-                        <input
-                          type="url"
-                          value={paymentLink}
-                          onChange={(e) => setPaymentLink(e.target.value)}
-                          placeholder="https://esempio.com/pagamento/..."
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                      </div>
-
-                      {/* Note pagamento */}
-                      <div>
-                        <label style={{
-                          display: 'block',
-                          marginBottom: '6px',
-                          fontWeight: '500',
-                          color: '#374151'
-                        }}>
-                          📝 Note Pagamento
-                        </label>
-                        <textarea
-                          value={paymentNotes}
-                          onChange={(e) => setPaymentNotes(e.target.value)}
-                          placeholder="Istruzioni per il pagamento, importo, scadenza..."
-                          rows={2}
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            boxSizing: 'border-box',
-                            resize: 'vertical'
-                          }}
-                        />
-                      </div>
-
-                      {/* Metodo di pagamento */}
-                      <div>
-                        <label style={{
-                          display: 'block',
-                          marginBottom: '6px',
-                          fontWeight: '500',
-                          color: '#374151'
-                        }}>
-                          💰 Metodo di Pagamento
-                        </label>
-                        <select
-                          value={paymentMethod || ''}
-                          onChange={(e) => setPaymentMethod(e.target.value || null)}
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            boxSizing: 'border-box'
-                          }}
-                        >
-                          <option value="">Seleziona metodo...</option>
-                          <option value="cash">Contanti</option>
-                          <option value="card">Carta</option>
-                          <option value="bank_transfer">Bonifico</option>
-                          <option value="paypal">PayPal</option>
-                          <option value="stripe">Stripe</option>
-                          <option value="other">Altro</option>
-                        </select>
-                      </div>
-
-                      {isReservation && (
-                        <div style={{
-                          background: '#fef3c7',
-                          border: '1px solid #f59e0b',
-                          borderRadius: '8px',
-                          padding: '12px',
-                          fontSize: '14px',
-                          color: '#92400e'
-                        }}>
-                          ⚠️ <strong>Modalità Prenotazione:</strong> Il contratto verrà creato con stato "Prenotato". 
-                          Potrai attivarlo dalla pagina "Gestisci Contratti" quando il cliente arriva.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
                 <div>
                   <label style={{
                     display: 'block',
