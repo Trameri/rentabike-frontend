@@ -1,9 +1,13 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import LocationLogo from '../Components/LocationLogo.jsx'
-import { getBackendAppUrl } from '../config/environment.js'
 import { api } from '../services/api.js'
+import { jwtDecode } from 'jwt-decode'
+import { useAuth } from '../context/AuthContext.jsx'
 
 export default function LoginBeautiful(){
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -40,9 +44,19 @@ export default function LoginBeautiful(){
       if (success) {
         const data = success.data
         if (data && data.token) {
-          localStorage.setItem('token', data.token)
+          let userData = data.user
+          if (!userData) {
+            try {
+              userData = jwtDecode(data.token)
+            } catch (e) {
+              userData = { username }
+            }
+          }
+          login(data.token, userData)
+          navigate('/dashboard')
+        } else {
+          setError('Risposta del server non valida')
         }
-        window.location.replace(getBackendAppUrl('/'))
       } else {
         const status = lastError?.response?.status
         const data = lastError?.response?.data
