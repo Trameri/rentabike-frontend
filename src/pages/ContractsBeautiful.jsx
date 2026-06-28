@@ -35,6 +35,7 @@ export default function ContractsBeautiful(){
   const [showQuickSwap, setShowQuickSwap] = useState(false)
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 16))
   const [endDate, setEndDate] = useState('')
+  const [reservationDate, setReservationDate] = useState('')
   const [calculatedPrice, setCalculatedPrice] = useState(null)
   
   // Stati per modifica prezzi
@@ -172,22 +173,26 @@ export default function ContractsBeautiful(){
   async function createContract(){
     try {
       if (isReservation) {
-        if (!startDate || !endDate) {
-          alert('❌ Inserisci data inizio e fine per la prenotazione')
-          return
-        }
-        if (new Date(endDate) <= new Date(startDate)) {
-          alert('❌ La data di fine deve essere successiva alla data di inizio')
+        if (!reservationDate) {
+          alert('❌ Inserisci la data di prenotazione')
           return
         }
       }
 
-        // Calcola assicurazione totale dalle singole bici
-        const totalInsurance = items.reduce((sum, item) => {
-          return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
-        }, 0);
-        
-        const payload = {
+      // Calcola assicurazione totale dalle singole bici
+      const totalInsurance = items.reduce((sum, item) => {
+        return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
+      }, 0);
+      
+      let payloadStartAt = startDate
+      let payloadEndAt = endDate || null
+      
+      if (isReservation && reservationDate) {
+        payloadStartAt = `${reservationDate}T00:00:00`
+        payloadEndAt = `${reservationDate}T23:59:59`
+      }
+      
+      const payload = {
         customer, 
         items: items.map(it => ({ 
           ...it, 
@@ -195,11 +200,11 @@ export default function ContractsBeautiful(){
           insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
         })),
         notes, 
-        status: isReservation ? 'reserved' : status, 
+        status: isReservation ? 'reserved' : 'in-use', 
         paymentMethod, 
         reservationPrepaid,
-        startAt: startDate,
-        endAt: endDate || null,
+        startAt: payloadStartAt,
+        endAt: payloadEndAt,
         calculatedPrice: calculatedPrice,
         totalInsurance: totalInsurance,
         // Nuovi campi per i pagamenti
@@ -223,6 +228,7 @@ export default function ContractsBeautiful(){
       setPrepaid(false);
       setStartDate(new Date().toISOString().slice(0, 16)); 
       setEndDate(''); 
+      setReservationDate('');
       setCalculatedPrice(null);
       setCurrentStep(1);
       setShowPaymentSection(false);
@@ -1139,66 +1145,43 @@ export default function ContractsBeautiful(){
 
                   {isReservation && (
                     <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: '12px',
-                      marginTop: '16px',
                       padding: '16px',
                       background: '#fef3c7',
                       borderRadius: '10px',
                       border: '1px solid #fcd34d'
                     }}>
-                      <div>
-                        <label style={{
-                          display: 'block',
-                          marginBottom: '6px',
-                          fontWeight: '600',
-                          color: '#92400e',
-                          fontSize: '13px'
-                        }}>
-                          📅 Data Inizio *
-                        </label>
-                        <input
-                          type="datetime-local"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          required={isReservation}
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: '2px solid #fcd34d',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            boxSizing: 'border-box',
-                            background: 'white'
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{
-                          display: 'block',
-                          marginBottom: '6px',
-                          fontWeight: '600',
-                          color: '#92400e',
-                          fontSize: '13px'
-                        }}>
-                          📅 Data Fine *
-                        </label>
-                        <input
-                          type="datetime-local"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          required={isReservation}
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: '2px solid #fcd34d',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            boxSizing: 'border-box',
-                            background: 'white'
-                          }}
-                        />
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        fontWeight: '600',
+                        color: '#92400e',
+                        fontSize: '14px'
+                      }}>
+                        📅 Data Prenotazione *
+                      </label>
+                      <input
+                        type="date"
+                        value={reservationDate}
+                        onChange={(e) => setReservationDate(e.target.value)}
+                        required={isReservation}
+                        min={new Date().toISOString().slice(0, 10)}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '2px solid #fcd34d',
+                          borderRadius: '8px',
+                          fontSize: '16px',
+                          boxSizing: 'border-box',
+                          background: 'white'
+                        }}
+                      />
+                      <div style={{
+                        marginTop: '8px',
+                        fontSize: '12px',
+                        color: '#92400e',
+                        opacity: 0.8
+                      }}>
+                        Il contratto sarà visibile solo nella data selezionata
                       </div>
                     </div>
                   )}
