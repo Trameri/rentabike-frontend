@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { api } from '../services/api.js'
 import DocumentCapture from '../Components/DocumentCapture.jsx'
 import BarcodeScannerSimple from '../Components/BarcodeScannerSimple.jsx'
@@ -47,19 +47,25 @@ export default function ContractsBeautiful(){
   const [paymentNotes, setPaymentNotes] = useState('')
   const [isReservation, setIsReservation] = useState(false)
   const [quickBarcode, setQuickBarcode] = useState('')
+  const audioCtxRef = useRef(null)
 
   const playBeep = () => {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      const ctx = audioCtxRef.current
+      if (ctx.state === 'suspended') ctx.resume()
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
       osc.connect(gain)
       gain.connect(ctx.destination)
       osc.frequency.value = 1200
       osc.type = 'sine'
-      gain.gain.value = 0.3
-      osc.start()
-      setTimeout(() => osc.stop(), 150)
+      gain.gain.setValueAtTime(0.4, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.2)
     } catch (e) {
       console.error('Audio non supportato', e)
     }
@@ -186,6 +192,7 @@ export default function ContractsBeautiful(){
     if (value.endsWith('*')) {
       const cleanBarcode = value.slice(0, -1).trim()
       if (cleanBarcode) {
+        playBeep()
         setLoading(true)
         setTimeout(() => {
           handleBarcodeScanned(cleanBarcode)
@@ -249,7 +256,10 @@ export default function ContractsBeautiful(){
         isReservation: isReservation
       }
       
-      console.log('Creazione contratto:', payload);
+      console.log('CREAZIONE CONTRATTO - Payload:', payload)
+      if (isReservation) {
+        console.log('📅 Prenotazione per data:', reservationDate, '| startAt:', payloadStartAt, '| endAt:', payloadEndAt)
+      }
       const { data } = await api.post('/api/contracts', payload)
       
       const statusMessage = isReservation ? 'prenotato' : 'creato';
@@ -1180,46 +1190,51 @@ export default function ContractsBeautiful(){
                     📋 Tipo di Contratto
                   </label>
                   <div style={{ display: 'flex', gap: '12px' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsReservation(false)
-                        setStartDate(new Date().toISOString().slice(0, 16))
-                        setEndDate('')
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '12px',
-                        background: !isReservation ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : '#f3f4f6',
-                        color: !isReservation ? 'white' : '#374151',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      🚴 Noleggio Immediato
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsReservation(true)}
-                      style={{
-                        flex: 1,
-                        padding: '12px',
-                        background: isReservation ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : '#f3f4f6',
-                        color: isReservation ? 'white' : '#374151',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      📅 Prenotazione Futura
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsReservation(false)
+                          setStartDate(new Date().toISOString().slice(0, 16))
+                          setEndDate('')
+                          setReservationDate('')
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          background: !isReservation ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : '#f3f4f6',
+                          color: !isReservation ? 'white' : '#374151',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        🚴 Noleggio Immediato
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsReservation(true)
+                          setStartDate('')
+                          setEndDate('')
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          background: isReservation ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : '#f3f4f6',
+                          color: isReservation ? 'white' : '#374151',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        📅 Prenotazione Futura
+                      </button>
                   </div>
 
                   {isReservation && (
