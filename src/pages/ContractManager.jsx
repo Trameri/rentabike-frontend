@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { api } from '../services/api.js'
 import { useNotifications } from '../Components/NotificationSystem.jsx'
+import dateUtils from '../utils/dateUtils.js'
 import PaymentModal from '../Components/PaymentModal.jsx'
 
 export default function ContractManager(){
@@ -58,6 +59,33 @@ export default function ContractManager(){
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new Date()))
+  const timelineDays = Array.from({length: 14}, (_, i) => dateUtils.addDays(new Date(), i - 7))
+
+  const getDayContracts = (date) => {
+    const dayStart = dateUtils.startOfDay(date)
+    const dayEnd = dateUtils.endOfDay(date)
+    const today = dateUtils.startOfDay(new Date())
+    
+    return contracts.filter(contract => {
+      const contractStart = new Date(contract.startAt || contract.createdAt)
+      const contractEnd = contract.endAt ? new Date(contract.endAt) : null
+      const contractStatus = contract.status
+      
+      if (dateUtils.isSameDay(date, today)) {
+        if (contractStatus !== 'in-use') return false
+      } else if (date > today) {
+        if (contractStatus !== 'reserved') return false
+      } else {
+        const wasActive = contractStart <= dayEnd && (!contractEnd || contractEnd >= dayStart || contractStatus === 'in-use')
+        const wasClosed = contractEnd && contractEnd <= dayEnd && ['returned', 'completed', 'cancelled'].includes(contractStatus)
+        if (!wasActive && !wasClosed) return false
+      }
+      
+      return true
+    })
+  }
 
   const { showSuccess, showError, showWarning } = useNotifications()
 
@@ -174,7 +202,7 @@ export default function ContractManager(){
 
   useEffect(() => {
     loadContracts()
-  }, [filter])
+  }, [])
 
   // Avvia webcam quando si apre il modal
   useEffect(() => {
@@ -223,8 +251,7 @@ export default function ContractManager(){
   const loadContracts = async () => {
     try {
       setLoading(true)
-      const params = filter !== 'all' ? { status: filter } : {}
-      const { data } = await api.get('/api/contracts', { params })
+      const { data } = await api.get('/api/contracts')
       
       // Carica le foto delle bici per ogni contratto
       const contractsWithPhotos = await Promise.all(
@@ -862,7 +889,7 @@ export default function ContractManager(){
     }
   }
 
-  const filteredContracts = contracts
+  const filteredContracts = getDayContracts(selectedDate).filter(c => filter === 'all' || c.status === filter)
 
   return (
     <>
@@ -871,6 +898,10 @@ export default function ContractManager(){
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+          }
+          @keyframes bikeBounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-6px); }
           }
         `}
       </style>
@@ -979,15 +1010,169 @@ export default function ContractManager(){
         ))}
       </div>
 
-      {/* Lista Contratti */}
+      {/* FILTRO GIORNALIERO - TIMELINE */}
+      <div style={{
+        background: 'white',
+        borderRadius: '16px',
+        padding: '20px',
+        marginBottom: '24px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        border: '2px solid #e5e7eb'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '16px'
+        }}>
+          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: '#1e293b' }}>
+            📅 Calendario Contratti
+          </h3>
+          <div style={{
+            fontSize: '14px',
+            color: '#6b7280',
+            fontWeight: '500'
+          }}>
+            {selectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+          </div>
+        </div>
+        
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          overflowX: 'auto',
+          padding: '8px 4px',
+          scrollBehavior: 'smooth',
+          alignItems: 'center'
+        }}>
+          {timelineDays.map(day => {
+            const isToday = dateUtils.isSameDay(day, new Date())
+            const isSelected = dateUtils.isSameDay(day, selectedDate)
+            const dayContracts = getDayContracts(day)
+            
+            return (
+              <button
+                key={day.toISOString()}
+                onClick={() => setSelectedDate(dateUtils.startOfDay(day))}
+                style={{
+                  minWidth: '80px',
+                  padding: '12px 8px',
+                  background: isSelected 
+                    ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' 
+                    : isToday 
+                      ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'
+                      : '#f8fafc',
+                  color: isSelected ? 'white' : isToday ? '#92400e' : '#374151',
+                  border: isSelected 
+                    ? '3px solid #1e40af' 
+                    : isToday 
+                      ? '2px solid #f59e0b'
+                      : '2px solid #e5e7eb',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.2s ease',
+                  position: 'relative',
+                  boxShadow: isSelected 
+                    ? '0 4px 12px rgba(59, 130, 246, 0.3)' 
+                    : '0 1px 3px rgba(0,0,0,0.1)',
+                  transform: isSelected ? 'scale(1.05)' : 'scale(1)'
+                }}
+              >
+                <div style={{
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  opacity: 0.8
+                }}>
+                  {dateUtils.getDayName(day, true)}
+                </div>
+                <div style={{
+                  fontSize: '18px',
+                  fontWeight: '800'
+                }}>
+                  {day.getDate()}
+                </div>
+                <div style={{
+                  fontSize: '10px',
+                  opacity: 0.7
+                }}>
+                  {dateUtils.getMonthName(day, true)}
+                </div>
+                
+                {isToday && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-10px',
+                    right: '-8px',
+                    fontSize: '18px',
+                    animation: 'bikeBounce 1s ease-in-out infinite'
+                  }}>
+                    🚲
+                  </div>
+                )}
+                
+                {dayContracts.length > 0 && (
+                  <div style={{
+                    marginTop: '4px',
+                    padding: '2px 6px',
+                    background: isSelected ? 'rgba(255,255,255,0.3)' : '#e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '10px',
+                    fontWeight: '700'
+                  }}>
+                    {dayContracts.length}
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        
+        <div style={{
+          marginTop: '12px',
+          display: 'flex',
+          gap: '16px',
+          justifyContent: 'center',
+          fontSize: '12px',
+          color: '#6b7280',
+          flexWrap: 'wrap'
+        }}>
+          <span>📁 {filteredContracts.length} contratti nel giorno selezionato</span>
+          <span>🚲 Oggi</span>
+          <span>📅 Passato</span>
+          <span>🔮 Futuro</span>
+        </div>
+      </div>
+
+      {/* 📁 I Faldoni */}
+      <h2 style={{ margin: '0 0 16px 0', fontSize: '1.5rem', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        📁 I Faldoni
+        <span style={{
+          fontSize: '14px',
+          fontWeight: '500',
+          color: '#6b7280',
+          background: '#f3f4f6',
+          padding: '4px 12px',
+          borderRadius: '20px'
+        }}>
+          {filteredContracts.length} contratti
+        </span>
+      </h2>
       <div style={{ display: 'grid', gap: '16px' }}>
         {filteredContracts.map(contract => (
           <div key={contract._id} style={{
-            background: 'white',
-            borderRadius: '16px',
+            background: '#fffbeb',
+            borderRadius: '4px',
             padding: '24px',
-            border: contract.validationErrors?.length > 0 ? '2px solid #f59e0b' : '2px solid #e5e7eb',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+            border: contract.validationErrors?.length > 0 ? '2px solid #f59e0b' : '2px solid #d6d3d1',
+            borderLeft: contract.validationErrors?.length > 0 ? '6px solid #f59e0b' : '6px solid #78716c',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05), 0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             position: 'relative'
           }}>
             {/* Indicatore errori di validazione */}
