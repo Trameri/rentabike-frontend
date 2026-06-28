@@ -66,24 +66,13 @@ export default function ContractManager(){
   const getDayContracts = (date) => {
     const dayStart = dateUtils.startOfDay(date)
     const dayEnd = dateUtils.endOfDay(date)
-    const today = dateUtils.startOfDay(new Date())
     
     return contracts.filter(contract => {
-      const contractStart = new Date(contract.startAt || contract.createdAt)
-      const contractEnd = contract.endAt ? new Date(contract.endAt) : null
-      const contractStatus = contract.status
+      const start = new Date(contract.startAt || contract.createdAt)
+      const end = contract.endAt ? new Date(contract.endAt) : null
       
-      if (dateUtils.isSameDay(date, today)) {
-        if (contractStatus !== 'in-use') return false
-      } else if (date > today) {
-        if (contractStatus !== 'reserved') return false
-      } else {
-        const wasActive = contractStart <= dayEnd && (!contractEnd || contractEnd >= dayStart || contractStatus === 'in-use')
-        const wasClosed = contractEnd && contractEnd <= dayEnd && ['returned', 'completed', 'cancelled'].includes(contractStatus)
-        if (!wasActive && !wasClosed) return false
-      }
-      
-      return true
+      const isInRange = start <= dayEnd && (!end || end >= dayStart)
+      return isInRange
     })
   }
 
