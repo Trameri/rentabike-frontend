@@ -72,6 +72,13 @@ export default function ContractManager(){
       const start = new Date(contract.startAt || contract.createdAt)
       const end = contract.endAt ? new Date(contract.endAt) : null
       
+      if (contract.status === 'reserved') {
+        if (!end) {
+          return dateUtils.isSameDay(start, date)
+        }
+        return start <= dayEnd && end >= dayStart
+      }
+      
       const isInRange = start <= dayEnd && (!end || end >= dayStart)
       return isInRange
     })
