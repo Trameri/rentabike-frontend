@@ -171,12 +171,23 @@ export default function ContractsBeautiful(){
   // Funzione per creare contratto aggiornata
   async function createContract(){
     try {
-      // Calcola assicurazione totale dalle singole bici
-      const totalInsurance = items.reduce((sum, item) => {
-        return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
-      }, 0);
-      
-      const payload = {
+      if (isReservation) {
+        if (!startDate || !endDate) {
+          alert('❌ Inserisci data inizio e fine per la prenotazione')
+          return
+        }
+        if (new Date(endDate) <= new Date(startDate)) {
+          alert('❌ La data di fine deve essere successiva alla data di inizio')
+          return
+        }
+      }
+
+        // Calcola assicurazione totale dalle singole bici
+        const totalInsurance = items.reduce((sum, item) => {
+          return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
+        }, 0);
+        
+        const payload = {
         customer, 
         items: items.map(it => ({ 
           ...it, 
@@ -937,31 +948,6 @@ export default function ContractsBeautiful(){
 
                   {showPaymentSection && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {/* Checkbox per prenotazione */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '12px',
-                        background: 'white',
-                        borderRadius: '8px',
-                        border: '1px solid #d1d5db'
-                      }}>
-                        <input
-                          type="checkbox"
-                          id="isReservation"
-                          checked={isReservation}
-                          onChange={(e) => setIsReservation(e.target.checked)}
-                          style={{ transform: 'scale(1.2)' }}
-                        />
-                        <label htmlFor="isReservation" style={{
-                          fontWeight: '500',
-                          color: '#374151',
-                          cursor: 'pointer'
-                        }}>
-                          📅 Crea come prenotazione (da attivare quando il cliente arriva)
-                        </label>
-                      </div>
 
                       {/* Link pagamento */}
                       <div>
@@ -1089,6 +1075,133 @@ export default function ContractsBeautiful(){
                       resize: 'vertical'
                     }}
                   />
+                </div>
+
+                {/* Selettore Tipo Contratto */}
+                <div style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  border: '2px solid #e5e7eb',
+                  marginBottom: '16px'
+                }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '10px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    fontSize: '14px'
+                  }}>
+                    📋 Tipo di Contratto
+                  </label>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsReservation(false)
+                        setStartDate(new Date().toISOString().slice(0, 16))
+                        setEndDate('')
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        background: !isReservation ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : '#f3f4f6',
+                        color: !isReservation ? 'white' : '#374151',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      🚴 Noleggio Immediato
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsReservation(true)}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        background: isReservation ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : '#f3f4f6',
+                        color: isReservation ? 'white' : '#374151',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      📅 Prenotazione Futura
+                    </button>
+                  </div>
+
+                  {isReservation && (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '12px',
+                      marginTop: '16px',
+                      padding: '16px',
+                      background: '#fef3c7',
+                      borderRadius: '10px',
+                      border: '1px solid #fcd34d'
+                    }}>
+                      <div>
+                        <label style={{
+                          display: 'block',
+                          marginBottom: '6px',
+                          fontWeight: '600',
+                          color: '#92400e',
+                          fontSize: '13px'
+                        }}>
+                          📅 Data Inizio *
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          required={isReservation}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            border: '2px solid #fcd34d',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            boxSizing: 'border-box',
+                            background: 'white'
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{
+                          display: 'block',
+                          marginBottom: '6px',
+                          fontWeight: '600',
+                          color: '#92400e',
+                          fontSize: '13px'
+                        }}>
+                          📅 Data Fine *
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          required={isReservation}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            border: '2px solid #fcd34d',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            boxSizing: 'border-box',
+                            background: 'white'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <button
