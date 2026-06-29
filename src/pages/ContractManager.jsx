@@ -65,9 +65,14 @@ export default function ContractManager(){
   const fileInputRef = useRef(null)
 
 const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new Date()))
-   const timelineDays = Array.from({length: 14}, (_, i) => dateUtils.addDays(new Date(), i - 7))
-   
-   const getDayContracts = (date) => {
+  const timelineDays = Array.from({length: 14}, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() + (i - 7))
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
+  
+  const getDayContracts = (date) => {
     const dayStart = dateUtils.startOfDay(date)
     const dayEnd = dateUtils.endOfDay(date)
     
@@ -92,7 +97,7 @@ const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new 
         return contractDateStr === targetDateStr
       }
       
-const start = new Date(contract.startAt || contract.createdAt)
+      const start = new Date(contract.startAt || contract.createdAt)
       const end = contract.endAt ? new Date(contract.endAt) : null
       const isInRange = start <= dayEnd && (!end || end >= dayStart)
       return isInRange
