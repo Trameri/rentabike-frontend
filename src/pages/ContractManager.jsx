@@ -66,25 +66,21 @@ export default function ContractManager(){
 
 // selectedDate and timelineDays use local dates for UI
   // The comparison in getDayContracts uses local dates to match user's timezone
-  // selectedDate uses UTC to match backend storage
-  // When user sees "today", we store UTC midnight of today
-  // This ensures today's contracts appear when user opens the manager
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const now = new Date()
-    // Store as UTC midnight of the current UTC day
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0))
-  })
+  // selectedDate uses local dates to match user's view
+  const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new Date()))
   const timelineDays = Array.from({length: 14}, (_, i) => {
-    const now = new Date()
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + (i - 7), 0, 0, 0, 0))
+    const d = new Date()
+    d.setDate(d.getDate() + (i - 7))
+    d.setHours(0, 0, 0, 0)
+    return d
   })
   
-  const getDayContracts = (date) => {
+const getDayContracts = (date) => {
     const dayStart = dateUtils.startOfDay(date)
     const dayEnd = dateUtils.endOfDay(date)
     
     // Extract LOCAL date in YYYY-MM-DD format for comparison
-    // Backend stores UTC, but we compare in user's timezone
+    // User sees contracts in their local timezone
     const targetDate = new Date(date)
     const year = targetDate.getFullYear()
     const month = String(targetDate.getMonth() + 1).padStart(2, '0')
@@ -95,7 +91,7 @@ export default function ContractManager(){
       if (contract.status === 'reserved') {
         const contractDate = contract.startAt || contract.reservationDate
         if (!contractDate) return false
-        // Convert backend UTC date to user's local date for comparison
+        // Convert backend UTC date to user's local date
         const contractDateObj = new Date(contractDate)
         const contractYear = contractDateObj.getFullYear()
         const contractMonth = String(contractDateObj.getMonth() + 1).padStart(2, '0')
@@ -103,6 +99,13 @@ export default function ContractManager(){
         const contractDateStr = `${contractYear}-${contractMonth}-${contractDay}`
         return contractDateStr === targetDateStr
       }
+      
+      const start = new Date(contract.startAt || contract.createdAt)
+      const end = contract.endAt ? new Date(contract.endAt) : null
+      const isInRange = start <= dayEnd && (!end || end >= dayStart)
+      return isInRange
+    })
+  }
       
       const start = new Date(contract.startAt || contract.createdAt)
       const end = contract.endAt ? new Date(contract.endAt) : null
@@ -1224,10 +1227,10 @@ const getEndOfWeek = (date) => {
             scrollBehavior: 'smooth',
             alignItems: 'center'
           }}>
-            {weekDays.map(day => {
-              const isToday = dateUtils.isSameDay(day, new Date())
-              const isSelected = dateUtils.isSameDay(day, selectedDate)
-              const dayContracts = getDayContracts(day)
+{weekDays.map(day => {
+               const isToday = dateUtils.isSameDay(day, dateUtils.startOfDay(new Date()))
+               const isSelected = dateUtils.isSameDay(day, selectedDate)
+               const dayContracts = getDayContracts(day)
               
               return (
                 <button
