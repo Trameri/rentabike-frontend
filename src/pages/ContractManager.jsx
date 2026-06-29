@@ -73,8 +73,9 @@ export default function ContractManager(){
     
     return contracts.filter(contract => {
       if (contract.status === 'reserved') {
-        if (!contract.startAt) return false
-        const contractMoment = moment(contract.startAt)
+        const contractDate = contract.startAt || contract.reservationDate
+        if (!contractDate) return false
+        const contractMoment = moment(contractDate)
         return contractMoment.isSame(moment(date), 'day')
       }
       
