@@ -3,6 +3,7 @@ import { api } from '../services/api.js'
 import { useNotifications } from '../Components/NotificationSystem.jsx'
 import dateUtils from '../utils/dateUtils.js'
 import PaymentModal from '../Components/PaymentModal.jsx'
+import moment from 'moment'
 
 export default function ContractManager(){
   const [contracts, setContracts] = useState([])
@@ -73,8 +74,8 @@ export default function ContractManager(){
     return contracts.filter(contract => {
       if (contract.status === 'reserved') {
         if (!contract.startAt) return false
-        const contractDate = dateUtils.startOfDay(new Date(contract.startAt))
-        return dateUtils.isSameDay(contractDate, date)
+        const contractMoment = moment(contract.startAt)
+        return contractMoment.isSame(moment(date), 'day')
       }
       
       const start = new Date(contract.startAt || contract.createdAt)
@@ -151,7 +152,8 @@ export default function ContractManager(){
 
   const getMonthContractCount = (year, month) => {
     return contracts.filter(contract => {
-      const start = new Date(contract.startAt || contract.createdAt)
+      const start = contract.startAt ? new Date(contract.startAt) : null
+      if (!start) return false
       return start.getFullYear() === year && start.getMonth() === month
     }).length
   }
