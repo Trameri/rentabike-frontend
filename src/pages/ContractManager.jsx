@@ -71,26 +71,26 @@ export default function ContractManager(){
     const dayStart = dateUtils.startOfDay(date)
     const dayEnd = dateUtils.endOfDay(date)
     
-    // Get the date string in local format for comparison
+    // Extract date in YYYY-MM-DD format for comparison
+    // The date parameter is a Date object. We need the LOCAL date string.
+    // toISOString() converts to UTC, which may shift the date.
+    // Use toLocaleDateString or manual extraction to get correct local date.
     const targetDate = new Date(date)
-    const targetDateStr = targetDate.toISOString().slice(0, 10)
+    const year = targetDate.getFullYear()
+    const month = String(targetDate.getMonth() + 1).padStart(2, '0')
+    const day = String(targetDate.getDate()).padStart(2, '0')
+    const targetDateStr = `${year}-${month}-${day}`
     
     return contracts.filter(contract => {
       if (contract.status === 'reserved') {
         const contractDate = contract.startAt || contract.reservationDate
         if (!contractDate) return false
-        // Parse the contract date and compare just the date part
-        // The date comes as ISO UTC but we need to compare in UTC terms
+        // Backend stores UTC dates, extract UTC date parts
         const contractDateObj = new Date(contractDate)
-        const contractDateStr = contractDateObj.toISOString().slice(0, 10)
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('🔍 Checking reserved contract:', { 
-            targetDateStr, 
-            contractDateStr,
-            startAt: contract.startAt,
-            reservationDate: contract.reservationDate
-          })
-        }
+        const contractYear = contractDateObj.getUTCFullYear()
+        const contractMonth = String(contractDateObj.getUTCMonth() + 1).padStart(2, '0')
+        const contractDay = String(contractDateObj.getUTCDate()).padStart(2, '0')
+        const contractDateStr = `${contractYear}-${contractMonth}-${contractDay}`
         return contractDateStr === targetDateStr
       }
       
