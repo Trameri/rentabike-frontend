@@ -13,7 +13,7 @@ import ContractClosure from '../Components/ContractClosure.jsx'
 import PaymentModal from '../Components/PaymentModal.jsx'
 import LocationLogo from '../Components/LocationLogo.jsx'
 import { jwtDecode } from 'jwt-decode'
-import { loadActiveContracts, isItemAvailableForDates } from '../utils/availabilityCheck.js'
+import { loadActiveContracts, isItemAvailableForDates, isItemAvailableForDatesWithFutureCheck } from '../utils/availabilityCheck.js'
 
 export default function Contracts(){
   const [bikes,setBikes] = useState([])
@@ -143,9 +143,9 @@ export default function Contracts(){
     }
 
     const itemId = item._id;
-    const isAvailable = isItemAvailableForDates(itemId, kind, startDate, endDate, contracts);
-    if (!isAvailable) {
-      alert('❌ Articolo non disponibile: esiste una prenotazione o contratto attivo per questo articolo nelle date selezionate');
+    const availability = isItemAvailableForDatesWithFutureCheck(itemId, kind, startDate, endDate, contracts);
+    if (!availability.available) {
+      alert('❌ Articolo non disponibile: ' + availability.reason);
       return;
     }
 
@@ -320,11 +320,11 @@ export default function Contracts(){
   const handleBarcodeScanned = async (barcode) => {
     try {
       const bikeResponse = await api.get(`/api/bikes/barcode/${barcode}`);
-      if (bikeResponse.data && bikeResponse.data.status === 'available') {
+      if (bikeResponse.data) {
         const bikeId = bikeResponse.data._id;
-        const isAvailable = isItemAvailableForDates(bikeId, 'bike', startDate, endDate, contracts);
-        if (!isAvailable) {
-          alert('❌ Bici non disponibile: esiste una prenotazione o contratto attivo per questo articolo nelle date selezionate');
+        const availability = isItemAvailableForDatesWithFutureCheck(bikeId, 'bike', startDate, endDate, contracts);
+        if (!availability.available) {
+          alert('❌ Bici non disponibile: ' + availability.reason);
           return;
         }
         addItem('bike', bikeResponse.data);
@@ -334,11 +334,11 @@ export default function Contracts(){
     } catch (error) {
       try {
         const accResponse = await api.get(`/api/accessories/barcode/${barcode}`);
-        if (accResponse.data && accResponse.data.status === 'available') {
+        if (accResponse.data) {
           const accId = accResponse.data._id;
-          const isAvailable = isItemAvailableForDates(accId, 'accessory', startDate, endDate, contracts);
-          if (!isAvailable) {
-            alert('❌ Accessorio non disponibile: esiste una prenotazione o contratto attivo per questo articolo nelle date selezionate');
+          const availability = isItemAvailableForDatesWithFutureCheck(accId, 'accessory', startDate, endDate, contracts);
+          if (!availability.available) {
+            alert('❌ Accessorio non disponibile: ' + availability.reason);
             return;
           }
           addItem('accessory', accResponse.data);
@@ -806,29 +806,37 @@ export default function Contracts(){
                   </div>
                 )}
                 
-                <div style={{textAlign: 'center'}}>
-                  <div style={{fontWeight:600, fontSize: '14px'}}>{b.name}</div>
-                  <div style={{fontSize:12, color: '#6b7280', fontFamily: 'monospace'}}>{b.barcode}</div>
-                </div>
-                
-                <button 
-                  onClick={()=>addItem('bike', b)} 
-                  disabled={b.status!=='available'}
-                  style={{
-                    padding: '6px 12px',
-                    backgroundColor: b.status === 'available' ? '#10b981' : '#9ca3af',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: b.status === 'available' ? 'pointer' : 'not-allowed',
-                    width: '100%'
-                  }}
-                >
-                  {b.status === 'available' ? '✅ Aggiungi' : '❌ Non disponibile'}
-                </button>
-              </div>
+<div style={{textAlign: 'center'}}>
+                   <div style={{fontWeight:600, fontSize: '14px'}}>{b.name}</div>
+                   <div style={{fontSize:12, color: '#6b7280', fontFamily: 'monospace'}}>{b.barcode}</div>
+                 </div>
+                 
+                 {/* Mostra stato disponibilità per le date selezionate */}
+                 {(() => {
+                   const availability = isItemAvailableForDatesWithFutureCheck(b._id, 'bike', startDate, endDate, contracts);
+                   const isAvailable = availability.available;
+                   
+                   return (
+                     <button 
+                       onClick={()=>addItem('bike', b)} 
+                       disabled={!isAvailable}
+                       style={{
+                         padding: '6px 12px',
+                         backgroundColor: isAvailable ? '#10b981' : '#9ca3af',
+                         color: 'white',
+                         border: 'none',
+                         borderRadius: '6px',
+                         fontSize: '12px',
+                         fontWeight: '600',
+                         cursor: isAvailable ? 'pointer' : 'not-allowed',
+                         width: '100%'
+                       }}
+                     >
+                       {isAvailable ? '✅ Aggiungi' : '❌ Non disponibile'}
+                     </button>
+                   );
+                 })()}
+               </div>
             ))}
           </div>
         </div>
@@ -904,28 +912,36 @@ export default function Contracts(){
                   </div>
                 )}
                 
-                <div style={{textAlign: 'center'}}>
-                  <div style={{fontWeight:600, fontSize: '14px'}}>{a.name}</div>
-                  <div style={{fontSize:12, color: '#6b7280', fontFamily: 'monospace'}}>{a.barcode}</div>
-                </div>
-                
-                <button 
-                  onClick={()=>addItem('accessory', a)} 
-                  disabled={a.status!=='available'}
-                  style={{
-                    padding: '6px 12px',
-                    backgroundColor: a.status === 'available' ? '#10b981' : '#9ca3af',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: a.status === 'available' ? 'pointer' : 'not-allowed',
-                    width: '100%'
-                  }}
-                >
-                  {a.status === 'available' ? '✅ Aggiungi' : '❌ Non disponibile'}
-                </button>
+<div style={{textAlign: 'center'}}>
+                   <div style={{fontWeight:600, fontSize: '14px'}}>{a.name}</div>
+                   <div style={{fontSize:12, color: '#6b7280', fontFamily: 'monospace'}}>{a.barcode}</div>
+                 </div>
+                 
+                 {/* Mostra stato disponibilità per le date selezionate */}
+                 {(() => {
+                   const availability = isItemAvailableForDatesWithFutureCheck(a._id, 'accessory', startDate, endDate, contracts);
+                   const isAvailable = availability.available;
+                   
+                   return (
+                     <button 
+                       onClick={()=>addItem('accessory', a)} 
+                       disabled={!isAvailable}
+                       style={{
+                         padding: '6px 12px',
+                         backgroundColor: isAvailable ? '#10b981' : '#9ca3af',
+                         color: 'white',
+                         border: 'none',
+                         borderRadius: '6px',
+                         fontSize: '12px',
+                         fontWeight: '600',
+                         cursor: isAvailable ? 'pointer' : 'not-allowed',
+                         width: '100%'
+                       }}
+                     >
+                       {isAvailable ? '✅ Aggiungi' : '❌ Non disponibile'}
+                     </button>
+                   );
+                 })()}
               </div>
             ))}
           </div>

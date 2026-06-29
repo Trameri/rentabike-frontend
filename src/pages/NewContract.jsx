@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api.js'
+import { loadActiveContracts, isItemAvailableForDatesWithFutureCheck } from '../utils/availabilityCheck.js'
 import DocumentCapture from '../components/DocumentCapture.jsx'
 import BarcodeScannerSimple from '../components/BarcodeScannerSimple.jsx'
 import BarcodeScanner from '../components/BarcodeScanner.jsx'
@@ -19,6 +20,7 @@ export default function NewContract(){
   const [reservationPrepaid, setPrepaid] = useState(false)
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [contracts, setContracts] = useState([])
   
   // Stati per i componenti
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
@@ -35,8 +37,19 @@ export default function NewContract(){
   const [paymentLink, setPaymentLink] = useState('')
   const [paymentNotes, setPaymentNotes] = useState('')
   const [isReservation, setIsReservation] = useState(false)
-
+  
+  // Carica i contratti per verificare disponibilità
+  const loadContracts = async () => {
+    try {
+      const data = await loadActiveContracts();
+      setContracts(data);
+    } catch (error) {
+      console.error('Errore caricamento contratti:', error);
+    }
+  }
+  
   useEffect(()=>{
+    loadContracts();
     const token = localStorage.getItem('token')
     if(token) {
       try {
@@ -54,9 +67,10 @@ export default function NewContract(){
       // Cerca prima nelle bici
       let response = await api.get(`/api/bikes/barcode/${barcode}`)
       if (response.data) {
-        if (response.data.status === 'available') {
-          const bike = response.data
-          
+        const bike = response.data;
+        const availability = isItemAvailableForDatesWithFutureCheck(bike._id, 'bike', startDate, endDate, contracts);
+        
+        if (availability.available) {
           // Controlla se è già presente
           const exists = items.find(i => i.id === bike._id && i.kind === 'bike');
           if (exists) {
@@ -78,7 +92,7 @@ export default function NewContract(){
           }])
           alert(`✅ Bici aggiunta: ${bike.name}`)
         } else {
-          alert(`❌ Bici non disponibile (stato: ${response.data.status})`)
+          alert(`❌ Bici non disponibile: ${availability.reason}`)
         }
         setLoading(false)
         return
@@ -88,9 +102,10 @@ export default function NewContract(){
       try {
         let response = await api.get(`/api/accessories/barcode/${barcode}`)
         if (response.data) {
-          if (response.data.status === 'available') {
-            const accessory = response.data
-            
+          const accessory = response.data;
+          const availability = isItemAvailableForDatesWithFutureCheck(accessory._id, 'accessory', startDate, endDate, contracts);
+          
+          if (availability.available) {
             // Controlla se è già presente
             const exists = items.find(i => i.id === accessory._id && i.kind === 'accessory');
             if (exists) {
@@ -110,7 +125,7 @@ export default function NewContract(){
             }])
             alert(`✅ Accessorio aggiunto: ${accessory.name}`)
           } else {
-            alert(`❌ Accessorio non disponibile (stato: ${response.data.status})`)
+            alert(`❌ Accessorio non disponibile: ${availability.reason}`)
           }
         } else {
           alert('❌ Accessorio non trovato o non disponibile')
@@ -118,6 +133,8 @@ export default function NewContract(){
       } catch (accessoryError) {
         alert('❌ Codice a barre non trovato')
       }
+    } finally {
+      setLoading(false);
     }
   }
 

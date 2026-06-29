@@ -56,16 +56,31 @@ const BikeManagement = () => {
     }
   };
 
-  // Funzione per ottenere informazioni sul contratto per una bici
-  const getBikeContractInfo = (bikeId) => {
+// Funzione per ottenere informazioni sul contratto per una bici (controlla anche prenotazioni future)
+   const getBikeContractInfo = (bikeId) => {
     const now = new Date();
     const contract = contracts.find(c => 
       c.items.some(item => item.kind === 'bike' && item.refId === bikeId) &&
-      (c.status === 'in-use' || (c.status === 'reserved' && c.startAt && new Date(c.startAt) <= now && (!c.endAt || now <= new Date(c.endAt))))
+      (c.status === 'in-use' || c.status === 'reserved')
     );
     
     if (contract) {
       const bikeItem = contract.items.find(item => item.kind === 'bike' && item.refId === bikeId);
+      
+      // Se è una prenotazione, mostra informazioni ma la bici è disponibile fuori dal periodo
+      if (contract.status === 'reserved') {
+        const startAt = new Date(contract.startAt);
+        // La bici è prenotata ma non ancora in uso - mostriamo comunque le info
+        return {
+          contract,
+          customer: contract.customer,
+          startDate: contract.startAt,
+          expectedReturn: contract.expectedReturnAt,
+          item: bikeItem,
+          isFutureReservation: true
+        };
+      }
+      
       return {
         contract,
         customer: contract.customer,
@@ -76,11 +91,55 @@ const BikeManagement = () => {
     }
     return null;
   };
+  
+  // Funzione per ottenere lo stato reale della bici in base ai contratti
+  const getBikeRealStatus = (bike) => {
+    const contractInfo = getBikeContractInfo(bike._id);
+    if (!contractInfo) return bike.status; // Nessun contratto, usa lo stato salvato
+    
+    // Se è una prenotazione, la bici è disponibile fuori dal periodo della prenotazione
+    if (contractInfo.isFutureReservation) {
+      const now = new Date();
+      const startAt = new Date(contractInfo.contract.startAt || contractInfo.contract.createdAt);
+      let endAt = contractInfo.contract.endAt ? new Date(contractInfo.contract.endAt) : null;
+      
+      const startOfDay = new Date(startAt);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const nowDay = new Date(now);
+      nowDay.setHours(0, 0, 0, 0);
+      
+      // Se non c'è endAt, la prenotazione è solo per un giorno
+      if (!endAt) {
+        if (nowDay >= startOfDay) {
+          return contractInfo.contract.status;
+        }
+        return 'available';
+      }
+      
+      // Con endAt, la bici è riservata fino alla data di fine
+      const endOfDay = new Date(endAt);
+      endOfDay.setHours(0, 0, 0, 0);
+      
+      // La bici è riservata se oggi è nel periodo della prenotazione
+      if (nowDay >= startOfDay && nowDay <= endOfDay) {
+        return contractInfo.contract.status;
+      }
+      
+      // Altrimenti la bici è disponibile
+      return 'available';
+    }
+    
+    return contractInfo.contract.status;
+  };
 
-  // Filtra le bici
+// Filtra le bici
   const filteredBikes = bikes.filter(bike => {
+    // Get real status based on contracts
+    const realStatus = getBikeRealStatus(bike);
+    
     // Filtro per stato
-    if (filter !== 'all' && bike.status !== filter) return false;
+    if (filter !== 'all' && realStatus !== filter) return false;
     
     // Filtro per location (solo per superadmin)
     if (user?.role === 'superadmin' && selectedLocation !== 'all' && bike.location !== selectedLocation) return false;
@@ -97,14 +156,14 @@ const BikeManagement = () => {
     
     return true;
   });
-
-  // Statistiche
+  
+  // Statistiche - usa lo stato reale
   const stats = {
     total: bikes.length,
-    available: bikes.filter(b => b.status === 'available').length,
-    inUse: bikes.filter(b => b.status === 'in-use').length,
-    reserved: bikes.filter(b => b.status === 'reserved').length,
-    maintenance: bikes.filter(b => b.status === 'maintenance').length
+    available: bikes.filter(b => getBikeRealStatus(b) === 'available').length,
+    inUse: bikes.filter(b => getBikeRealStatus(b) === 'in-use').length,
+    reserved: bikes.filter(b => getBikeRealStatus(b) === 'reserved').length,
+    maintenance: bikes.filter(b => getBikeRealStatus(b) === 'maintenance').length
   };
 
   const getStatusColor = (status) => {
@@ -438,107 +497,122 @@ const BikeManagement = () => {
           </div>
         ) : (
           <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-            {filteredBikes.map(bike => {
-              const contractInfo = getBikeContractInfo(bike._id);
-              
-              return (
-                <div
-                  key={bike._id}
-                  style={{
-                    padding: '20px',
-                    borderBottom: '1px solid #e5e7eb',
-                    display: 'grid',
-                    gridTemplateColumns: 'auto 1fr auto',
-                    gap: '20px',
-                    alignItems: 'center'
-                  }}
-                >
-                  {/* Info bici */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <div
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        backgroundColor: getStatusColor(bike.status)
-                      }}
-                    />
-                    <div>
-                      <div style={{ 
-                        fontWeight: 'bold', 
-                        fontSize: '16px',
-                        color: '#1f2937'
-                      }}>
-                        {bike.name}
-                      </div>
-                      <div style={{ 
-                        fontSize: '14px', 
-                        color: '#6b7280',
-                        marginTop: '2px'
-                      }}>
-                        {bike.barcode} • {bike.model}
-                      </div>
-                    </div>
-                  </div>
+{filteredBikes.map(bike => {
+               const contractInfo = getBikeContractInfo(bike._id);
+               const realStatus = getBikeRealStatus(bike);
+               
+               return (
+                 <div
+                   key={bike._id}
+                   style={{
+                     padding: '20px',
+                     borderBottom: '1px solid #e5e7eb',
+                     display: 'grid',
+                     gridTemplateColumns: 'auto 1fr auto',
+                     gap: '20px',
+                     alignItems: 'center'
+                   }}
+                 >
+                   {/* Info bici */}
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                     <div
+                       style={{
+                         width: '12px',
+                         height: '12px',
+                         borderRadius: '50%',
+                         backgroundColor: getStatusColor(realStatus)
+                       }}
+                     />
+                     <div>
+                       <div style={{ 
+                         fontWeight: 'bold', 
+                         fontSize: '16px',
+                         color: '#1f2937'
+                       }}>
+                         {bike.name}
+                       </div>
+                       <div style={{ 
+                         fontSize: '14px', 
+                         color: '#6b7280',
+                         marginTop: '2px'
+                       }}>
+                         {bike.barcode} • {bike.model}
+                       </div>
+                     </div>
+                   </div>
 
-                  {/* Dettagli centrali */}
-                  <div>
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '10px',
-                      marginBottom: '8px'
-                    }}>
-                      <span
-                        style={{
-                          padding: '4px 12px',
-                          borderRadius: '20px',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          backgroundColor: getStatusColor(bike.status) + '20',
-                          color: getStatusColor(bike.status)
-                        }}
-                      >
-                        {getStatusText(bike.status)}
-                      </span>
-                      
-                      {bike.location && (
-                        <span style={{ 
-                          fontSize: '12px', 
-                          color: '#6b7280',
-                          backgroundColor: '#f3f4f6',
-                          padding: '4px 8px',
-                          borderRadius: '12px'
-                        }}>
-                          📍 {locations.find(l => l._id === bike.location)?.name || 'N/A'}
-                        </span>
-                      )}
-                    </div>
+                   {/* Dettagli centrali */}
+                   <div>
+                     <div style={{ 
+                       display: 'flex', 
+                       alignItems: 'center', 
+                       gap: '10px',
+                       marginBottom: '8px'
+                     }}>
+                       <span
+                         style={{
+                           padding: '4px 12px',
+                           borderRadius: '20px',
+                           fontSize: '12px',
+                           fontWeight: '500',
+                           backgroundColor: getStatusColor(realStatus) + '20',
+                           color: getStatusColor(realStatus)
+                         }}
+                       >
+                         {getStatusText(realStatus)}
+                       </span>
+                       
+                       {bike.location && (
+                         <span style={{ 
+                           fontSize: '12px', 
+                           color: '#6b7280',
+                           backgroundColor: '#f3f4f6',
+                           padding: '4px 8px',
+                           borderRadius: '12px'
+                         }}>
+                           📍 {locations.find(l => l._id === bike.location)?.name || 'N/A'}
+                         </span>
+                       )}
+                       
+                       {/* Indicatore prenotazione futura */}
+                       {contractInfo?.isFutureReservation && (
+                         <span style={{
+                           fontSize: '12px',
+                           backgroundColor: '#fef3c7',
+                           color: '#92400e',
+                           padding: '4px 8px',
+                           borderRadius: '12px',
+                           fontWeight: '600'
+                         }}>
+                           📅 Prenotata per {formatDate(contractInfo.startDate).split(' ')[0]}
+                         </span>
+                       )}
+                     </div>
 
-                    {/* Info contratto se in uso */}
-                    {contractInfo && (
-                      <div style={{ 
-                        fontSize: '13px', 
-                        color: '#4b5563',
-                        backgroundColor: '#f9fafb',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        border: '1px solid #e5e7eb'
-                      }}>
-                        <div style={{ fontWeight: '500', marginBottom: '4px' }}>
-                          👤 {contractInfo.customer.name}
-                        </div>
-                        <div>
-                          📅 Dal: {formatDate(contractInfo.startDate)}
-                        </div>
-                        {contractInfo.expectedReturn && (
-                          <div>
-                            ⏰ Previsto: {formatDate(contractInfo.expectedReturn)}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                     {/* Info contratto se in uso */}
+                     {contractInfo && !contractInfo.isFutureReservation && (
+                       <div style={{ 
+                         fontSize: '13px', 
+                         color: '#4b5563',
+                         backgroundColor: '#f9fafb',
+                         padding: '8px 12px',
+                         borderRadius: '6px',
+                         border: '1px solid #e5e7eb'
+                       }}>
+                         <div style={{ fontWeight: '500', marginBottom: '4px' }}>
+                           👤 {contractInfo.customer.name}
+                         </div>
+                         <div>
+                           📅 Dal: {formatDate(contractInfo.startDate)}
+                         </div>
+                         {contractInfo.expectedReturn && (
+                           <div>
+                             ⏰ Previsto: {formatDate(contractInfo.expectedReturn)}
+                           </div>
+                         )}
+                       </div>
+                     )}
+                   </div>
 
                   {/* Prezzi */}
                   <div style={{ textAlign: 'right' }}>
