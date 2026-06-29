@@ -206,7 +206,7 @@ export default function ContractsBeautiful(){
     }
   }
 
-  // Funzione per creare contratto aggiornata
+// Funzione per creare contratto aggiornata
   async function createContract(){
     try {
       if (isReservation) {
@@ -221,12 +221,15 @@ export default function ContractsBeautiful(){
         return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
       }, 0);
       
-      let payloadStartAt = startDate
-      let payloadEndAt = endDate || null
+      let payloadStartAt = startDate ? new Date(startDate).toISOString() : null
+      let payloadEndAt = endDate ? new Date(endDate).toISOString() : null
       
       if (isReservation && reservationDate) {
-        payloadStartAt = `${reservationDate}T00:00:00`
-        payloadEndAt = `${reservationDate}T23:59:59`
+        const [year, month, day] = reservationDate.split('-')
+        const reservationDateStart = new Date(Date.UTC(year, month - 1, day, 0, 0, 0))
+        const reservationDateEnd = new Date(Date.UTC(year, month - 1, day, 23, 59, 59))
+        payloadStartAt = reservationDateStart.toISOString()
+        payloadEndAt = reservationDateEnd.toISOString()
       }
       
       const payload = {
