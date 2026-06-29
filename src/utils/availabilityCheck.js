@@ -62,7 +62,8 @@ export function isItemAvailableForDates(itemId, kind, contractStart, contractEnd
 export function isItemAvailableForDatesWithFutureCheck(itemId, kind, contractStart, contractEnd, contracts) {
   if (!contracts || !contracts.length) return { available: true, reason: null };
   
-  const newStart = new Date(contractStart);
+  // Se i parametri sono stringhe, converti in Date
+  const newStart = contractStart ? new Date(contractStart) : new Date();
   const newEnd = contractEnd ? new Date(contractEnd) : newStart;
   
   // Normalizza le date a mezzanotte per confronto giornaliero
@@ -89,7 +90,9 @@ export function isItemAvailableForDatesWithFutureCheck(itemId, kind, contractSta
     } else if (contract.status === 'in-use') {
       existingEndDay = new Date();
     } else {
-      existingEndDay = existingStartDay;
+      // Per le prenotazioni senza endAt, la prenotazione è solo per quel giorno
+      // ma la bici è disponibile prima di quella data
+      existingEndDay = new Date(existingStartDay);
     }
     existingEndDay.setHours(0, 0, 0, 0);
     
@@ -97,8 +100,8 @@ export function isItemAvailableForDatesWithFutureCheck(itemId, kind, contractSta
     if (contract.status === 'reserved') {
       // Per le prenotazioni, la bici è riservata solo nel periodo della prenotazione
       // Se il nuovo contratto si sovrappa al periodo della prenotazione, non è disponibile
-      const reservationEndDay = existingEndDay;
-      if (newStartDay <= reservationEndDay && newEndDay >= existingStartDay) {
+      // Condizione: nuovo inizio <= fine prenotazione E nuovo fine >= inizio prenotazione
+      if (newStartDay <= existingEndDay && newEndDay >= existingStartDay) {
         return { 
           available: false, 
           reason: `Bici prenotata per questa data (contratto #${contract._id.slice(-6)})` 
@@ -109,7 +112,7 @@ export function isItemAvailableForDatesWithFutureCheck(itemId, kind, contractSta
       if (newStartDay <= existingEndDay && newEndDay >= existingStartDay) {
         return { 
           available: false, 
-          reason: `Bici già in uso o prenotata (contratto #${contract._id.slice(-6)})` 
+          reason: `Bici già in uso (contratto #${contract._id.slice(-6)})` 
         };
       }
     }
