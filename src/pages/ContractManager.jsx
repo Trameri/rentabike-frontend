@@ -64,12 +64,14 @@ export default function ContractManager(){
   const canvasRef = useRef(null)
   const fileInputRef = useRef(null)
 
-const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new Date()))
+const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date()
+    // Create local midnight for user's timezone
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+  })
   const timelineDays = Array.from({length: 14}, (_, i) => {
     const d = new Date()
-    d.setDate(d.getDate() + (i - 7))
-    d.setHours(0, 0, 0, 0)
-    return d
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + (i - 7), 0, 0, 0, 0)
   })
   
   const getDayContracts = (date) => {
@@ -77,7 +79,7 @@ const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new 
     const dayEnd = dateUtils.endOfDay(date)
     
     // Extract LOCAL date in YYYY-MM-DD format for comparison
-    // The user selects days based on their local timezone
+    // The target date is in user's local timezone
     const targetDate = new Date(date)
     const year = targetDate.getFullYear()
     const month = String(targetDate.getMonth() + 1).padStart(2, '0')
@@ -88,11 +90,11 @@ const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new 
       if (contract.status === 'reserved') {
         const contractDate = contract.startAt || contract.reservationDate
         if (!contractDate) return false
-        // Backend stores UTC dates. We need to compare local date from UTC date.
+        // Backend stores UTC dates - convert to user's local date for comparison
         const contractDateObj = new Date(contractDate)
-        const contractYear = contractDateObj.getFullYear()
-        const contractMonth = String(contractDateObj.getMonth() + 1).padStart(2, '0')
-        const contractDay = String(contractDateObj.getDate()).padStart(2, '0')
+        const contractYear = contractDateObj.getUTCFullYear()
+        const contractMonth = String(contractDateObj.getUTCMonth() + 1).padStart(2, '0')
+        const contractDay = String(contractDateObj.getUTCDate()).padStart(2, '0')
         const contractDateStr = `${contractYear}-${contractMonth}-${contractDay}`
         return contractDateStr === targetDateStr
       }
