@@ -137,8 +137,7 @@ const filteredContracts = getDayContracts(selectedDate).filter(c => {
   })
 
   const handleDateSelect = (date) => {
-    const d = new Date(date)
-    setSelectedDate(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0))
+    setSelectedDate(dateUtils.startOfDay(date))
     setViewDate(date)
   }
 
