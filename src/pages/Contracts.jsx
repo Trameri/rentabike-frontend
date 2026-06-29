@@ -90,59 +90,59 @@ export default function Contracts(){
 
   async function createContract(){
     try {
-      // Calcola assicurazione totale dalle singole bici
       const totalInsurance = items.reduce((sum, item) => {
         return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
       }, 0);
       
-      const payload = {
-        customer, 
-        items: items.map(it => ({ 
-          ...it, 
-          insurance: it.insurance || false, 
-          insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
-        })),
-        notes, 
-        status, 
-        paymentMethod, 
-        reservationPrepaid,
-        startAt: startDate,
-        endAt: endDate || null,
-        calculatedPrice: calculatedPrice,
-        totalInsurance: totalInsurance
+      const reservedItems = items.filter(item => item.originalStatus === 'reserved');
+      const reserveRollback = [];
+      
+      for (const item of reservedItems) {
+        const base = item.kind === 'bike' ? '/api/bikes' : '/api/accessories';
+        await api.patch(`${base}/${item.id}`, { status: 'in-use' });
+        reserveRollback.push({ kind: item.kind, id: item.id });
       }
       
-      console.log('Creazione contratto:', payload);
-      const { data } = await api.post('/api/contracts', payload)
-      alert('✅ Contratto creato con successo!\nID: ' + data._id + '\nAssicurazione totale: €' + totalInsurance)
-
-      if (status === 'reserved') {
-        const reservationDate = new Date(startDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        reservationDate.setHours(0, 0, 0, 0);
-        if (reservationDate.getTime() <= today.getTime()) {
-          for (const item of items) {
-            if (item.kind === 'bike') {
-              await api.patch(`/api/bikes/${item.id}`, { status: 'reserved' });
-            } else if (item.kind === 'accessory') {
-              await api.patch(`/api/accessories/${item.id}`, { status: 'reserved' });
-            }
-          }
+      try {
+        const payload = {
+          customer, 
+          items: items.map(it => ({ 
+            ...it, 
+            insurance: it.insurance || false, 
+            insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
+          })),
+          notes, 
+          status, 
+          paymentMethod, 
+          reservationPrepaid,
+          startAt: startDate,
+          endAt: endDate || null,
+          calculatedPrice: calculatedPrice,
+          totalInsurance: totalInsurance
         }
+        
+        console.log('Creazione contratto:', payload);
+        const { data } = await api.post('/api/contracts', payload)
+        alert('✅ Contratto creato con successo!\nID: ' + data._id + '\nAssicurazione totale: €' + totalInsurance)
+
+        setItems([]); 
+        setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
+        setNotes(''); 
+        setStatus('in-use'); 
+        setPaymentMethod(null); 
+        setPrepaid(false);
+        setStartDate(new Date().toISOString().slice(0, 16)); 
+        setEndDate(''); 
+        setCalculatedPrice(null);
+
+        await Promise.all([load(), loadContracts()]);
+      } catch (postError) {
+        for (const rb of reserveRollback) {
+          const base = rb.kind === 'bike' ? '/api/bikes' : '/api/accessories';
+          await api.patch(`${base}/${rb.id}`, { status: 'reserved' });
+        }
+        throw postError;
       }
-
-      setItems([]); 
-      setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
-      setNotes(''); 
-      setStatus('in-use'); 
-      setPaymentMethod(null); 
-      setPrepaid(false);
-      setStartDate(new Date().toISOString().slice(0, 16)); 
-      setEndDate(''); 
-      setCalculatedPrice(null);
-
-      await Promise.all([load(), loadContracts()]);
       
     } catch (error) {
       console.error('Errore creazione contratto:', error);
@@ -181,7 +181,8 @@ export default function Contracts(){
       originalPriceHourly: item.priceHourly,
       originalPriceDaily: item.priceDaily,
       insurance: false,
-      insuranceFlat: 0
+      insuranceFlat: 0,
+      originalStatus: item.status || 'available'
     }]);
   };
 

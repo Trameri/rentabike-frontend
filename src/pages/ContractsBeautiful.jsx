@@ -123,7 +123,8 @@ export default function ContractsBeautiful(){
             originalPriceDaily: bike.priceDaily,
             photo: bike.photoUrl,
             insurance: false,
-            insuranceFlat: 0
+            insuranceFlat: 0,
+            originalStatus: bike.status
           }])
           
           playBeep()
@@ -229,7 +230,8 @@ export default function ContractsBeautiful(){
               priceDaily: accessory.priceDaily,
               originalPriceHourly: accessory.priceHourly,
               originalPriceDaily: accessory.priceDaily,
-              photo: accessory.photoUrl
+              photo: accessory.photoUrl,
+              originalStatus: accessory.status
             }])
             
             playBeep()
@@ -282,7 +284,6 @@ export default function ContractsBeautiful(){
         }
       }
 
-      // Calcola assicurazione totale dalle singole bici
       const totalInsurance = items.reduce((sum, item) => {
         return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
       }, 0);
@@ -291,67 +292,64 @@ export default function ContractsBeautiful(){
       let payloadEndAt = endDate ? new Date(endDate).toISOString() : null
       
       if (isReservation && reservationDate) {
-        // Usa la data esattamente come selezionata dall'utente
-        // Invia come ISO con T00:00:00Z (mezzanotte UTC) ma la data rimane corretta
         payloadStartAt = `${reservationDate}T00:00:00.000Z`
         payloadEndAt = `${reservationDate}T23:59:59.000Z`
       }
       
-      const payload = {
-        customer, 
-        items: items.map(it => ({ 
-          ...it, 
-          insurance: it.insurance || false, 
-          insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
-        })),
-        notes, 
-        status: isReservation ? 'reserved' : 'in-use', 
-        startAt: payloadStartAt,
-        endAt: payloadEndAt,
-        ...(isReservation && reservationDate ? { reservationDate } : {}),
-        calculatedPrice: calculatedPrice,
-        totalInsurance: totalInsurance,
-        isReservation: isReservation
+      const reservedItems = items.filter(item => item.originalStatus === 'reserved' && !isReservation);
+      const reserveRollback = [];
+      
+      for (const item of reservedItems) {
+        const base = item.kind === 'bike' ? '/api/bikes' : '/api/accessories';
+        await api.patch(`${base}/${item.id}`, { status: 'in-use' });
+        reserveRollback.push({ kind: item.kind, id: item.id });
       }
       
-      console.log('📤 PAYLOAD CONTRATTO:', JSON.stringify(payload, null, 2))
-      const { data } = await api.post('/api/contracts', payload)
-      console.log('📥 RISPOSTA CONTRATTO:', JSON.stringify(data, null, 2))
-      if (isReservation && !(data.startAt || data.reservationDate)) {
-        console.warn('⚠️ Prenotazione creata ma senza data di inizio salvata dal backend')
-      }
-      
-      const statusMessage = isReservation ? 'prenotato' : 'creato';
-      alert(`✅ Contratto ${statusMessage} con successo!\nID: ${data._id}\nAssicurazione totale: €${totalInsurance}`)
-      
-      if (isReservation) {
-        const contractStart = reservationDate ? `${reservationDate}T00:00:00.000Z` : startDate;
-        const reservationDateObj = new Date(contractStart);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        reservationDateObj.setHours(0, 0, 0, 0);
-        if (reservationDateObj.getTime() <= today.getTime()) {
-          for (const item of items) {
-            if (item.kind === 'bike') {
-              await api.patch(`/api/bikes/${item.id}`, { status: 'reserved' });
-            } else if (item.kind === 'accessory') {
-              await api.patch(`/api/accessories/${item.id}`, { status: 'reserved' });
-            }
-          }
+      try {
+        const payload = {
+          customer, 
+          items: items.map(it => ({ 
+            ...it, 
+            insurance: it.insurance || false, 
+            insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
+          })),
+          notes, 
+          status: isReservation ? 'reserved' : 'in-use', 
+          startAt: payloadStartAt,
+          endAt: payloadEndAt,
+          ...(isReservation && reservationDate ? { reservationDate } : {}),
+          calculatedPrice: calculatedPrice,
+          totalInsurance: totalInsurance,
+          isReservation: isReservation
         }
+        
+        console.log('📤 PAYLOAD CONTRATTO:', JSON.stringify(payload, null, 2))
+        const { data } = await api.post('/api/contracts', payload)
+        console.log('📥 RISPOSTA CONTRATTO:', JSON.stringify(data, null, 2))
+        if (isReservation && !(data.startAt || data.reservationDate)) {
+          console.warn('⚠️ Prenotazione creata ma senza data di inizio salvata dal backend')
+        }
+        
+        const statusMessage = isReservation ? 'prenotato' : 'creato';
+        alert(`✅ Contratto ${statusMessage} con successo!\nID: ${data._id}\nAssicurazione totale: €${totalInsurance}`)
+        
+        setItems([]); 
+        setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
+        setNotes(''); 
+        setStatus('in-use'); 
+        setStartDate(new Date().toISOString().slice(0, 16)); 
+        setEndDate(''); 
+        setReservationDate('');
+        setCalculatedPrice(null);
+        setCurrentStep(1);
+        setIsReservation(false);
+      } catch (postError) {
+        for (const rb of reserveRollback) {
+          const base = rb.kind === 'bike' ? '/api/bikes' : '/api/accessories';
+          await api.patch(`${base}/${rb.id}`, { status: 'reserved' });
+        }
+        throw postError;
       }
-
-      // Reset form
-      setItems([]); 
-      setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
-      setNotes(''); 
-      setStatus('in-use'); 
-      setStartDate(new Date().toISOString().slice(0, 16)); 
-      setEndDate(''); 
-      setReservationDate('');
-      setCalculatedPrice(null);
-      setCurrentStep(1);
-      setIsReservation(false);
       
     } catch (error) {
       console.error('Errore creazione contratto:', error);

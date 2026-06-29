@@ -49,6 +49,7 @@ const BarcodeToItemScanner = ({ onItemScanned, loading = false }) => {
             priceHourly: bike.priceHourly,
             priceDaily: bike.priceDaily,
             image: bike.image,
+            status: bike.status,
             insurance: false,
             insuranceFlat: 0
           })

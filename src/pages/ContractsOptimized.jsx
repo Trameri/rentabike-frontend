@@ -61,7 +61,7 @@ export default function ContractsOptimized(){
       return;
     }
 
-    setItems(prev => [...prev, item])
+    setItems(prev => [...prev, { ...item, originalStatus: item.status || 'available' }])
     showSuccessNotification(`✅ ${item.kind === 'bike' ? 'Bici' : 'Accessorio'} aggiunto: ${item.name}`)
   }
 
@@ -145,72 +145,70 @@ export default function ContractsOptimized(){
 
     setLoading(true)
     try {
-      // Calcola assicurazione totale dalle singole bici
       const totalInsurance = items.reduce((sum, item) => {
         return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
       }, 0);
       
-      const payload = {
-        customer, 
-        items: items.map(it => ({ 
-          ...it, 
-          insurance: it.insurance || false, 
-          insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
-        })),
-        notes, 
-        status: isReservation ? 'reserved' : status, 
-        paymentMethod, 
-        startAt: startDate,
-        endAt: endDate || null,
-        calculatedPrice: calculatedPrice,
-        totalInsurance: totalInsurance,
-        paymentLink: paymentLink || null,
-        paymentNotes: paymentNotes || null,
-        isReservation: isReservation,
-        // Salva le foto dei documenti nel contratto
-        documentPhotos: {
-          idFront: customer.idFrontUrl,
-          idBack: customer.idBackUrl
-        }
+      const reservedItems = items.filter(item => item.originalStatus === 'reserved' && !isReservation);
+      const reserveRollback = [];
+      
+      for (const item of reservedItems) {
+        const base = item.kind === 'bike' ? '/api/bikes' : '/api/accessories';
+        await api.patch(`${base}/${item.id}`, { status: 'in-use' });
+        reserveRollback.push({ kind: item.kind, id: item.id });
       }
       
-      console.log('Creazione contratto:', payload);
-      const { data } = await api.post('/api/contracts', payload)
-      
-      const statusMessage = isReservation ? 'prenotato' : 'creato';
-      showSuccessNotification(`✅ Contratto ${statusMessage} con successo! ID: ${data._id}`)
-      
-      if (isReservation) {
-        const reservationDateObj = new Date(startDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        reservationDateObj.setHours(0, 0, 0, 0);
-        if (reservationDateObj.getTime() <= today.getTime()) {
-          for (const item of items) {
-            if (item.kind === 'bike') {
-              await api.patch(`/api/bikes/${item.id}`, { status: 'reserved' });
-            } else if (item.kind === 'accessory') {
-              await api.patch(`/api/accessories/${item.id}`, { status: 'reserved' });
-            }
+      try {
+        const payload = {
+          customer, 
+          items: items.map(it => ({ 
+            ...it, 
+            insurance: it.insurance || false, 
+            insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
+          })),
+          notes, 
+          status: isReservation ? 'reserved' : status, 
+          paymentMethod, 
+          startAt: startDate,
+          endAt: endDate || null,
+          calculatedPrice: calculatedPrice,
+          totalInsurance: totalInsurance,
+          paymentLink: paymentLink || null,
+          paymentNotes: paymentNotes || null,
+          isReservation: isReservation,
+          documentPhotos: {
+            idFront: customer.idFrontUrl,
+            idBack: customer.idBackUrl
           }
         }
+        
+        console.log('Creazione contratto:', payload);
+        const { data } = await api.post('/api/contracts', payload)
+        
+        const statusMessage = isReservation ? 'prenotato' : 'creato';
+        showSuccessNotification(`✅ Contratto ${statusMessage} con successo! ID: ${data._id}`)
+        
+        setItems([]); 
+        setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
+        setNotes(''); 
+        setStatus('in-use'); 
+        setPaymentMethod(null); 
+        setStartDate(new Date().toISOString().slice(0, 16)); 
+        setEndDate(''); 
+        setCalculatedPrice(null);
+        setCurrentStep(1);
+        setPaymentLink('');
+        setPaymentNotes('');
+        setIsReservation(false);
+        
+        await loadContracts()
+      } catch (postError) {
+        for (const rb of reserveRollback) {
+          const base = rb.kind === 'bike' ? '/api/bikes' : '/api/accessories';
+          await api.patch(`${base}/${rb.id}`, { status: 'reserved' });
+        }
+        throw postError;
       }
-      
-      // Reset form
-      setItems([]); 
-      setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
-      setNotes(''); 
-      setStatus('in-use'); 
-      setPaymentMethod(null); 
-      setStartDate(new Date().toISOString().slice(0, 16)); 
-      setEndDate(''); 
-      setCalculatedPrice(null);
-      setCurrentStep(1);
-      setPaymentLink('');
-      setPaymentNotes('');
-      setIsReservation(false);
-      
-      await loadContracts()
       
     } catch (error) {
       console.error('Errore creazione contratto:', error);
