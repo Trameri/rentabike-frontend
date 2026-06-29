@@ -75,9 +75,11 @@ export default function ContractManager(){
       if (contract.status === 'reserved') {
         const contractDate = contract.startAt || contract.reservationDate
         if (!contractDate) return false
-        const contractMoment = moment.utc(contractDate)
-        const dateMoment = moment.utc(date)
-        return contractMoment.isSame(dateMoment, 'day')
+        // Per le prenotazioni, il backend salva la data in UTC
+        // Confrontiamo i componenti locali per gestire correttamente i fusi orari
+        const contractDateLocal = dateUtils.formatDate(contractDate, { year: 'numeric', month: 'numeric', day: 'numeric' })
+        const targetDateLocal = dateUtils.formatDate(date, { year: 'numeric', month: 'numeric', day: 'numeric' })
+        return contractDateLocal === targetDateLocal
       }
       
       const start = new Date(contract.startAt || contract.createdAt)

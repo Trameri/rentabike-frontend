@@ -153,14 +153,24 @@ export const dateUtils = {
     return result
   },
 
-  // Verifica se due date sono lo stesso giorno
-  isSameDay: (date1, date2) => {
-    const d1 = new Date(date1)
-    const d2 = new Date(date2)
-    return d1.getFullYear() === d2.getFullYear() &&
-           d1.getMonth() === d2.getMonth() &&
-           d1.getDate() === d2.getDate()
-  },
+// Verifica se due date sono lo stesso giorno
+   isSameDay: (date1, date2) => {
+     if (!date1 || !date2) return false
+     const d1 = new Date(date1)
+     const d2 = new Date(date2)
+     // Extract just the date parts (year, month, day) without time/timezone
+     const getDateParts = (d) => {
+       const iso = d.toISOString().slice(0, 10)
+       return {
+         year: parseInt(iso.slice(0, 4)),
+         month: parseInt(iso.slice(5, 7)) - 1,
+         day: parseInt(iso.slice(8, 10))
+       }
+     }
+     const p1 = getDateParts(d1)
+     const p2 = getDateParts(d2)
+     return p1.year === p2.year && p1.month === p2.month && p1.day === p2.day
+   },
 
   // Ottieni il nome del giorno della settimana
   getDayName: (date, short = false) => {
