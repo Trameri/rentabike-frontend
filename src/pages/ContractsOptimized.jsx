@@ -61,7 +61,7 @@ export default function ContractsOptimized(){
       return;
     }
 
-    setItems(prev => [...prev, { ...item, originalStatus: item.status || 'available' }])
+    setItems(prev => [...prev, item])
     showSuccessNotification(`✅ ${item.kind === 'bike' ? 'Bici' : 'Accessorio'} aggiunto: ${item.name}`)
   }
 
@@ -149,66 +149,49 @@ export default function ContractsOptimized(){
         return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
       }, 0);
       
-      const reservedItems = items.filter(item => item.originalStatus === 'reserved' && !isReservation);
-      const reserveRollback = [];
-      
-      for (const item of reservedItems) {
-        const base = item.kind === 'bike' ? '/api/bikes' : '/api/accessories';
-        await api.patch(`${base}/${item.id}`, { status: 'in-use' });
-        reserveRollback.push({ kind: item.kind, id: item.id });
+      const payload = {
+        customer, 
+        items: items.map(it => ({ 
+          ...it, 
+          insurance: it.insurance || false, 
+          insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
+        })),
+        notes, 
+        status: isReservation ? 'reserved' : status, 
+        paymentMethod, 
+        startAt: startDate,
+        endAt: endDate || null,
+        calculatedPrice: calculatedPrice,
+        totalInsurance: totalInsurance,
+        paymentLink: paymentLink || null,
+        paymentNotes: paymentNotes || null,
+        isReservation: isReservation,
+        documentPhotos: {
+          idFront: customer.idFrontUrl,
+          idBack: customer.idBackUrl
+        }
       }
       
-      try {
-        const payload = {
-          customer, 
-          items: items.map(it => ({ 
-            ...it, 
-            insurance: it.insurance || false, 
-            insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
-          })),
-          notes, 
-          status: isReservation ? 'reserved' : status, 
-          paymentMethod, 
-          startAt: startDate,
-          endAt: endDate || null,
-          calculatedPrice: calculatedPrice,
-          totalInsurance: totalInsurance,
-          paymentLink: paymentLink || null,
-          paymentNotes: paymentNotes || null,
-          isReservation: isReservation,
-          documentPhotos: {
-            idFront: customer.idFrontUrl,
-            idBack: customer.idBackUrl
-          }
-        }
-        
-        console.log('Creazione contratto:', payload);
-        const { data } = await api.post('/api/contracts', payload)
-        
-        const statusMessage = isReservation ? 'prenotato' : 'creato';
-        showSuccessNotification(`✅ Contratto ${statusMessage} con successo! ID: ${data._id}`)
-        
-        setItems([]); 
-        setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
-        setNotes(''); 
-        setStatus('in-use'); 
-        setPaymentMethod(null); 
-        setStartDate(new Date().toISOString().slice(0, 16)); 
-        setEndDate(''); 
-        setCalculatedPrice(null);
-        setCurrentStep(1);
-        setPaymentLink('');
-        setPaymentNotes('');
-        setIsReservation(false);
-        
-        await loadContracts()
-      } catch (postError) {
-        for (const rb of reserveRollback) {
-          const base = rb.kind === 'bike' ? '/api/bikes' : '/api/accessories';
-          await api.patch(`${base}/${rb.id}`, { status: 'reserved' });
-        }
-        throw postError;
-      }
+      console.log('Creazione contratto:', payload);
+      const { data } = await api.post('/api/contracts', payload)
+      
+      const statusMessage = isReservation ? 'prenotato' : 'creato';
+      showSuccessNotification(`✅ Contratto ${statusMessage} con successo! ID: ${data._id}`)
+      
+      setItems([]); 
+      setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
+      setNotes(''); 
+      setStatus('in-use'); 
+      setPaymentMethod(null); 
+      setStartDate(new Date().toISOString().slice(0, 16)); 
+      setEndDate(''); 
+      setCalculatedPrice(null);
+      setCurrentStep(1);
+      setPaymentLink('');
+      setPaymentNotes('');
+      setIsReservation(false);
+      
+      await loadContracts()
       
     } catch (error) {
       console.error('Errore creazione contratto:', error);

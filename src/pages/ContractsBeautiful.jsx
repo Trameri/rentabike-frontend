@@ -94,7 +94,7 @@ export default function ContractsBeautiful(){
     try {
       let response = await api.get(`/api/bikes/barcode/${barcode}`)
       if (response.data) {
-        if (response.data.status === 'available' || response.data.status === 'reserved') {
+        if (response.data.status === 'available') {
           const bike = response.data
           const exists = items.find(i => i.id === bike._id && i.kind === 'bike');
           if (exists) {
@@ -123,8 +123,7 @@ export default function ContractsBeautiful(){
             originalPriceDaily: bike.priceDaily,
             photo: bike.photoUrl,
             insurance: false,
-            insuranceFlat: 0,
-            originalStatus: bike.status
+            insuranceFlat: 0
           }])
           
           playBeep()
@@ -198,11 +197,10 @@ export default function ContractsBeautiful(){
         }
       }
     } catch (error) {
-      // Se non trovata nelle bici, cerca negli accessori
       try {
         let response = await api.get(`/api/accessories/barcode/${barcode}`)
         if (response.data) {
-          if (response.data.status === 'available' || response.data.status === 'reserved') {
+          if (response.data.status === 'available') {
             const accessory = response.data
             
             const exists = items.find(i => i.id === accessory._id && i.kind === 'accessory');
@@ -230,8 +228,7 @@ export default function ContractsBeautiful(){
               priceDaily: accessory.priceDaily,
               originalPriceHourly: accessory.priceHourly,
               originalPriceDaily: accessory.priceDaily,
-              photo: accessory.photoUrl,
-              originalStatus: accessory.status
+              photo: accessory.photoUrl
             }])
             
             playBeep()
@@ -284,6 +281,7 @@ export default function ContractsBeautiful(){
         }
       }
 
+      // Calcola assicurazione totale dalle singole bici
       const totalInsurance = items.reduce((sum, item) => {
         return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
       }, 0);
@@ -296,60 +294,44 @@ export default function ContractsBeautiful(){
         payloadEndAt = `${reservationDate}T23:59:59.000Z`
       }
       
-      const reservedItems = items.filter(item => item.originalStatus === 'reserved' && !isReservation);
-      const reserveRollback = [];
-      
-      for (const item of reservedItems) {
-        const base = item.kind === 'bike' ? '/api/bikes' : '/api/accessories';
-        await api.patch(`${base}/${item.id}`, { status: 'in-use' });
-        reserveRollback.push({ kind: item.kind, id: item.id });
+      const payload = {
+        customer, 
+        items: items.map(it => ({ 
+          ...it, 
+          insurance: it.insurance || false, 
+          insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
+        })),
+        notes, 
+        status: isReservation ? 'reserved' : 'in-use', 
+        startAt: payloadStartAt,
+        endAt: payloadEndAt,
+        ...(isReservation && reservationDate ? { reservationDate } : {}),
+        calculatedPrice: calculatedPrice,
+        totalInsurance: totalInsurance,
+        isReservation: isReservation
       }
       
-      try {
-        const payload = {
-          customer, 
-          items: items.map(it => ({ 
-            ...it, 
-            insurance: it.insurance || false, 
-            insuranceFlat: it.insurance ? (it.insuranceFlat || 5) : 0 
-          })),
-          notes, 
-          status: isReservation ? 'reserved' : 'in-use', 
-          startAt: payloadStartAt,
-          endAt: payloadEndAt,
-          ...(isReservation && reservationDate ? { reservationDate } : {}),
-          calculatedPrice: calculatedPrice,
-          totalInsurance: totalInsurance,
-          isReservation: isReservation
-        }
-        
-        console.log('📤 PAYLOAD CONTRATTO:', JSON.stringify(payload, null, 2))
-        const { data } = await api.post('/api/contracts', payload)
-        console.log('📥 RISPOSTA CONTRATTO:', JSON.stringify(data, null, 2))
-        if (isReservation && !(data.startAt || data.reservationDate)) {
-          console.warn('⚠️ Prenotazione creata ma senza data di inizio salvata dal backend')
-        }
-        
-        const statusMessage = isReservation ? 'prenotato' : 'creato';
-        alert(`✅ Contratto ${statusMessage} con successo!\nID: ${data._id}\nAssicurazione totale: €${totalInsurance}`)
-        
-        setItems([]); 
-        setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
-        setNotes(''); 
-        setStatus('in-use'); 
-        setStartDate(new Date().toISOString().slice(0, 16)); 
-        setEndDate(''); 
-        setReservationDate('');
-        setCalculatedPrice(null);
-        setCurrentStep(1);
-        setIsReservation(false);
-      } catch (postError) {
-        for (const rb of reserveRollback) {
-          const base = rb.kind === 'bike' ? '/api/bikes' : '/api/accessories';
-          await api.patch(`${base}/${rb.id}`, { status: 'reserved' });
-        }
-        throw postError;
+      console.log('📤 PAYLOAD CONTRATTO:', JSON.stringify(payload, null, 2))
+      const { data } = await api.post('/api/contracts', payload)
+      console.log('📥 RISPOSTA CONTRATTO:', JSON.stringify(data, null, 2))
+      if (isReservation && !(data.startAt || data.reservationDate)) {
+        console.warn('⚠️ Prenotazione creata ma senza data di inizio salvata dal backend')
       }
+      
+      const statusMessage = isReservation ? 'prenotato' : 'creato';
+      alert(`✅ Contratto ${statusMessage} con successo!\nID: ${data._id}\nAssicurazione totale: €${totalInsurance}`)
+
+      // Reset form
+      setItems([]); 
+      setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
+      setNotes(''); 
+      setStatus('in-use'); 
+      setStartDate(new Date().toISOString().slice(0, 16)); 
+      setEndDate(''); 
+      setReservationDate('');
+      setCalculatedPrice(null);
+      setCurrentStep(1);
+      setIsReservation(false);
       
     } catch (error) {
       console.error('Errore creazione contratto:', error);

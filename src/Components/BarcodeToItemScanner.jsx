@@ -39,7 +39,7 @@ const BarcodeToItemScanner = ({ onItemScanned, loading = false }) => {
       // Cerca prima nelle bici
       let response = await api.get(`/api/bikes/barcode/${targetBarcode}`)
       if (response.data) {
-        if (response.data.status === 'available' || response.data.status === 'reserved') {
+        if (response.data.status === 'available') {
           const bike = response.data
           onItemScanned({
             kind: 'bike',
@@ -49,7 +49,6 @@ const BarcodeToItemScanner = ({ onItemScanned, loading = false }) => {
             priceHourly: bike.priceHourly,
             priceDaily: bike.priceDaily,
             image: bike.image,
-            status: bike.status,
             insurance: false,
             insuranceFlat: 0
           })
@@ -70,7 +69,7 @@ const BarcodeToItemScanner = ({ onItemScanned, loading = false }) => {
       try {
         let response = await api.get(`/api/accessories/barcode/${targetBarcode}`)
         if (response.data) {
-          if (response.data.status === 'available' || response.data.status === 'reserved') {
+          if (response.data.status === 'available') {
             const accessory = response.data
             onItemScanned({
               kind: 'accessory',
