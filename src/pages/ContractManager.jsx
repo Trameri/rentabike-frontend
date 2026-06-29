@@ -64,42 +64,40 @@ export default function ContractManager(){
   const canvasRef = useRef(null)
   const fileInputRef = useRef(null)
 
-// selectedDate and timelineDays use UTC to match backend storage
-  // When user selects "today", they see contracts for today in their local timezone
-  // The comparison in getDayContracts uses UTC dates
+// selectedDate and timelineDays use local dates for UI
+  // The comparison in getDayContracts uses local dates to match user's timezone
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date()
-    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0))
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
   })
   const timelineDays = Array.from({length: 14}, (_, i) => {
-    const now = new Date()
-    const d = new Date(now.getTime())
-    d.setUTCDate(d.getUTCDate() + (i - 7))
-    d.setUTCHours(0, 0, 0, 0)
+    const d = new Date()
+    d.setDate(d.getDate() + (i - 7))
+    d.setHours(0, 0, 0, 0)
     return d
   })
   
   const getDayContracts = (date) => {
-    // Use UTC for comparison since backend stores UTC dates
-    const dayStart = new Date(Date.UTC(new Date(date).getUTCFullYear(), new Date(date).getUTCMonth(), new Date(date).getUTCDate(), 0, 0, 0, 0))
-    const dayEnd = new Date(Date.UTC(new Date(date).getUTCFullYear(), new Date(date).getUTCMonth(), new Date(date).getUTCDate(), 23, 59, 59, 999))
+    const dayStart = dateUtils.startOfDay(date)
+    const dayEnd = dateUtils.endOfDay(date)
     
-    // Extract UTC date in YYYY-MM-DD format for comparison
+    // Extract LOCAL date in YYYY-MM-DD format for comparison
+    // Backend stores UTC, but we compare in user's timezone
     const targetDate = new Date(date)
-    const year = targetDate.getUTCFullYear()
-    const month = String(targetDate.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(targetDate.getUTCDate()).padStart(2, '0')
+    const year = targetDate.getFullYear()
+    const month = String(targetDate.getMonth() + 1).padStart(2, '0')
+    const day = String(targetDate.getDate()).padStart(2, '0')
     const targetDateStr = `${year}-${month}-${day}`
     
     return contracts.filter(contract => {
       if (contract.status === 'reserved') {
         const contractDate = contract.startAt || contract.reservationDate
         if (!contractDate) return false
-        // Backend stores UTC dates - use UTC for comparison
+        // Convert backend UTC date to user's local date for comparison
         const contractDateObj = new Date(contractDate)
-        const contractYear = contractDateObj.getUTCFullYear()
-        const contractMonth = String(contractDateObj.getUTCMonth() + 1).padStart(2, '0')
-        const contractDay = String(contractDateObj.getUTCDate()).padStart(2, '0')
+        const contractYear = contractDateObj.getFullYear()
+        const contractMonth = String(contractDateObj.getMonth() + 1).padStart(2, '0')
+        const contractDay = String(contractDateObj.getDate()).padStart(2, '0')
         const contractDateStr = `${contractYear}-${contractMonth}-${contractDay}`
         return contractDateStr === targetDateStr
       }
