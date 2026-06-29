@@ -125,7 +125,7 @@ export default function ContractManager(){
     console.log('📆 selectedDate iniziale:', selectedDate, 'format:', dateUtils.formatDate(selectedDate))
   }, [contracts])
 
-  const filteredContracts = getDayContracts(selectedDate).filter(c => {
+const filteredContracts = getDayContracts(selectedDate).filter(c => {
     const matchesStatus = filter === 'all' || c.status === filter
     if (!matchesStatus) return false
     if (!searchQuery.trim()) return true
