@@ -225,11 +225,10 @@ export default function ContractsBeautiful(){
       let payloadEndAt = endDate ? new Date(endDate).toISOString() : null
       
       if (isReservation && reservationDate) {
-        const [year, month, day] = reservationDate.split('-')
-        const reservationDateStart = new Date(Date.UTC(year, month - 1, day, 0, 0, 0))
-        const reservationDateEnd = new Date(Date.UTC(year, month - 1, day, 23, 59, 59))
-        payloadStartAt = reservationDateStart.toISOString()
-        payloadEndAt = reservationDateEnd.toISOString()
+        // Usa la data esattamente come selezionata dall'utente
+        // Invia come ISO con T00:00:00Z (mezzanotte UTC) ma la data rimane corretta
+        payloadStartAt = `${reservationDate}T00:00:00.000Z`
+        payloadEndAt = `${reservationDate}T23:59:59.000Z`
       }
       
       const payload = {

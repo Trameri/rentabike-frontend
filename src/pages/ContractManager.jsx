@@ -71,15 +71,27 @@ export default function ContractManager(){
     const dayStart = dateUtils.startOfDay(date)
     const dayEnd = dateUtils.endOfDay(date)
     
+    // Get the date string in local format for comparison
+    const targetDate = new Date(date)
+    const targetDateStr = targetDate.toISOString().slice(0, 10)
+    
     return contracts.filter(contract => {
       if (contract.status === 'reserved') {
         const contractDate = contract.startAt || contract.reservationDate
         if (!contractDate) return false
-        // Per le prenotazioni, il backend salva la data in UTC
-        // Confrontiamo i componenti locali per gestire correttamente i fusi orari
-        const contractDateLocal = dateUtils.formatDate(contractDate, { year: 'numeric', month: 'numeric', day: 'numeric' })
-        const targetDateLocal = dateUtils.formatDate(date, { year: 'numeric', month: 'numeric', day: 'numeric' })
-        return contractDateLocal === targetDateLocal
+        // Parse the contract date and compare just the date part
+        // The date comes as ISO UTC but we need to compare in UTC terms
+        const contractDateObj = new Date(contractDate)
+        const contractDateStr = contractDateObj.toISOString().slice(0, 10)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('🔍 Checking reserved contract:', { 
+            targetDateStr, 
+            contractDateStr,
+            startAt: contract.startAt,
+            reservationDate: contract.reservationDate
+          })
+        }
+        return contractDateStr === targetDateStr
       }
       
       const start = new Date(contract.startAt || contract.createdAt)
