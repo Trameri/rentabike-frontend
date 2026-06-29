@@ -112,9 +112,12 @@ const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new 
         startAt: c.startAt,
         endAt: c.endAt,
         reservationDate: c.reservationDate,
-        createdAt: c.createdAt
+        createdAt: c.createdAt,
+        status: c.status
       })))
     }
+    // Log selectedDate for debugging
+    console.log('📆 selectedDate iniziale:', selectedDate, 'format:', dateUtils.formatDate(selectedDate))
   }, [contracts])
 
   const filteredContracts = getDayContracts(selectedDate).filter(c => {
