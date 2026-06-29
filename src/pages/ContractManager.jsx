@@ -74,8 +74,8 @@ export default function ContractManager(){
     d.setHours(0, 0, 0, 0)
     return d
   })
-  
-const getDayContracts = (date) => {
+
+  const getDayContracts = (date) => {
     const dayStart = dateUtils.startOfDay(date)
     const dayEnd = dateUtils.endOfDay(date)
     
@@ -99,13 +99,6 @@ const getDayContracts = (date) => {
         const contractDateStr = `${contractYear}-${contractMonth}-${contractDay}`
         return contractDateStr === targetDateStr
       }
-      
-      const start = new Date(contract.startAt || contract.createdAt)
-      const end = contract.endAt ? new Date(contract.endAt) : null
-      const isInRange = start <= dayEnd && (!end || end >= dayStart)
-      return isInRange
-    })
-  }
       
       const start = new Date(contract.startAt || contract.createdAt)
       const end = contract.endAt ? new Date(contract.endAt) : null
