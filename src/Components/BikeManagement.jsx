@@ -58,8 +58,10 @@ const BikeManagement = () => {
 
   // Funzione per ottenere informazioni sul contratto per una bici
   const getBikeContractInfo = (bikeId) => {
+    const now = new Date();
     const contract = contracts.find(c => 
-      c.items.some(item => item.kind === 'bike' && item.refId === bikeId)
+      c.items.some(item => item.kind === 'bike' && item.refId === bikeId) &&
+      (c.status === 'in-use' || (c.status === 'reserved' && c.startAt && new Date(c.startAt) <= now && (!c.endAt || now <= new Date(c.endAt))))
     );
     
     if (contract) {

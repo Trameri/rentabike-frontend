@@ -53,29 +53,33 @@ export default function NewContract(){
     try {
       // Cerca prima nelle bici
       let response = await api.get(`/api/bikes/barcode/${barcode}`)
-      if (response.data && response.data.status === 'available') {
-        const bike = response.data
-        
-        // Controlla se è già presente
-        const exists = items.find(i => i.id === bike._id && i.kind === 'bike');
-        if (exists) {
-          alert('⚠️ Bici già aggiunta al contratto');
-          setLoading(false);
-          return;
+      if (response.data) {
+        if (response.data.status === 'available') {
+          const bike = response.data
+          
+          // Controlla se è già presente
+          const exists = items.find(i => i.id === bike._id && i.kind === 'bike');
+          if (exists) {
+            alert('⚠️ Bici già aggiunta al contratto');
+            setLoading(false);
+            return;
+          }
+          
+          setItems(prev => [...prev, { 
+            kind: 'bike', 
+            id: bike._id, 
+            name: bike.name, 
+            barcode: bike.barcode,
+            priceHourly: bike.priceHourly,
+            priceDaily: bike.priceDaily,
+            photoUrl: bike.photoUrl,
+            insurance: false,
+            insuranceFlat: 0
+          }])
+          alert(`✅ Bici aggiunta: ${bike.name}`)
+        } else {
+          alert(`❌ Bici non disponibile (stato: ${response.data.status})`)
         }
-        
-        setItems(prev => [...prev, { 
-          kind: 'bike', 
-          id: bike._id, 
-          name: bike.name, 
-          barcode: bike.barcode,
-          priceHourly: bike.priceHourly,
-          priceDaily: bike.priceDaily,
-          photoUrl: bike.photoUrl,
-          insurance: false,
-          insuranceFlat: 0
-        }])
-        alert(`✅ Bici aggiunta: ${bike.name}`)
         setLoading(false)
         return
       }
@@ -83,27 +87,31 @@ export default function NewContract(){
       // Se non trovata nelle bici, cerca negli accessori
       try {
         let response = await api.get(`/api/accessories/barcode/${barcode}`)
-        if (response.data && response.data.status === 'available') {
-          const accessory = response.data
-          
-          // Controlla se è già presente
-          const exists = items.find(i => i.id === accessory._id && i.kind === 'accessory');
-          if (exists) {
-            alert('⚠️ Accessorio già aggiunto al contratto');
-            setLoading(false);
-            return;
+        if (response.data) {
+          if (response.data.status === 'available') {
+            const accessory = response.data
+            
+            // Controlla se è già presente
+            const exists = items.find(i => i.id === accessory._id && i.kind === 'accessory');
+            if (exists) {
+              alert('⚠️ Accessorio già aggiunto al contratto');
+              setLoading(false);
+              return;
+            }
+            
+            setItems(prev => [...prev, { 
+              kind: 'accessory', 
+              id: accessory._id, 
+              name: accessory.name, 
+              barcode: accessory.barcode,
+              priceHourly: accessory.priceHourly,
+              priceDaily: accessory.priceDaily,
+              photoUrl: accessory.photoUrl
+            }])
+            alert(`✅ Accessorio aggiunto: ${accessory.name}`)
+          } else {
+            alert(`❌ Accessorio non disponibile (stato: ${response.data.status})`)
           }
-          
-          setItems(prev => [...prev, { 
-            kind: 'accessory', 
-            id: accessory._id, 
-            name: accessory.name, 
-            barcode: accessory.barcode,
-            priceHourly: accessory.priceHourly,
-            priceDaily: accessory.priceDaily,
-            photoUrl: accessory.photoUrl
-          }])
-          alert(`✅ Accessorio aggiunto: ${accessory.name}`)
         } else {
           alert('❌ Accessorio non trovato o non disponibile')
         }
@@ -111,7 +119,6 @@ export default function NewContract(){
         alert('❌ Codice a barre non trovato')
       }
     }
-    setLoading(false)
   }
 
   // Gestione inserimento rapido barcode

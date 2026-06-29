@@ -82,95 +82,134 @@ export default function ContractsBeautiful(){
     try {
       // Cerca prima nelle bici
       let response = await api.get(`/api/bikes/barcode/${barcode}`)
-      if (response.data && response.data.status === 'available') {
-        const bike = response.data
-        
-        // Controlla se è già presente
-        const exists = items.find(i => i.id === bike._id && i.kind === 'bike');
-        if (exists) {
-          alert('⚠️ Bici già aggiunta al contratto');
-          setLoading(false);
-          return;
-        }
-        
-        setItems(prev => [...prev, { 
-          kind: 'bike', 
-          id: bike._id, 
-          name: bike.name, 
-          barcode: bike.barcode,
-          priceHourly: bike.priceHourly,
-          priceDaily: bike.priceDaily,
-          originalPriceHourly: bike.priceHourly,
-          originalPriceDaily: bike.priceDaily,
-          photo: bike.photoUrl,
-          insurance: false,
-          insuranceFlat: 0
-        }])
-        
-        playBeep()
-        
-        const notification = document.createElement('div');
-        notification.innerHTML = `
-          <div style="
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
-            z-index: 10000;
-            font-weight: 600;
-            animation: slideIn 0.3s ease-out;
-          ">
-            ✅ Bici aggiunta: ${bike.name}
-          </div>
-          <style>
-            @keyframes slideIn {
-              from { transform: translateX(100%); opacity: 0; }
-              to { transform: translateX(0); opacity: 1; }
-            }
-          </style>
-        `;
-        document.body.appendChild(notification);
-        setTimeout(() => {
-          if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-          }
-        }, 3000);
-        
-        setLoading(false)
-        return
-      }
-    } catch (error) {
-      // Se non trovata nelle bici, cerca negli accessori
-      try {
-        let response = await api.get(`/api/accessories/barcode/${barcode}`)
-        if (response.data && response.data.status === 'available') {
-          const accessory = response.data
+      if (response.data) {
+        if (response.data.status === 'available') {
+          const bike = response.data
           
           // Controlla se è già presente
-          const exists = items.find(i => i.id === accessory._id && i.kind === 'accessory');
+          const exists = items.find(i => i.id === bike._id && i.kind === 'bike');
           if (exists) {
-            alert('⚠️ Accessorio già aggiunto al contratto');
+            alert('⚠️ Bici già aggiunta al contratto');
             setLoading(false);
             return;
           }
           
           setItems(prev => [...prev, { 
-            kind: 'accessory', 
-            id: accessory._id, 
-            name: accessory.name, 
-            barcode: accessory.barcode,
-            priceHourly: accessory.priceHourly,
-            priceDaily: accessory.priceDaily,
-            originalPriceHourly: accessory.priceHourly, // Salva prezzo originale
-            originalPriceDaily: accessory.priceDaily,   // Salva prezzo originale
-            photo: accessory.photoUrl // Usa photoUrl dal database
+            kind: 'bike', 
+            id: bike._id, 
+            name: bike.name, 
+            barcode: bike.barcode,
+            priceHourly: bike.priceHourly,
+            priceDaily: bike.priceDaily,
+            originalPriceHourly: bike.priceHourly,
+            originalPriceDaily: bike.priceDaily,
+            photo: bike.photoUrl,
+            insurance: false,
+            insuranceFlat: 0
           }])
+          
           playBeep()
-          alert(`✅ Accessorio aggiunto: ${accessory.name}`)
+          
+          const notification = document.createElement('div');
+          notification.innerHTML = `
+            <div style="
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+              color: white;
+              padding: 16px 24px;
+              border-radius: 12px;
+              box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+              z-index: 10000;
+              font-weight: 600;
+              animation: slideIn 0.3s ease-out;
+            ">
+              ✅ Bici aggiunta: ${bike.name}
+            </div>
+            <style>
+              @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+              }
+            </style>
+          `;
+          document.body.appendChild(notification);
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 3000);
+          
+          setLoading(false)
+          return
+        } else {
+          const notification = document.createElement('div');
+          notification.innerHTML = `
+            <div style="
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+              color: white;
+              padding: 16px 24px;
+              border-radius: 12px;
+              box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+              z-index: 10000;
+              font-weight: 600;
+              animation: slideIn 0.3s ease-out;
+            ">
+              ❌ Bici non disponibile (stato: ${response.data.status})
+            </div>
+            <style>
+              @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+              }
+            </style>
+          `;
+          document.body.appendChild(notification);
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 3000);
+          setLoading(false)
+          return
+        }
+      }
+    } catch (error) {
+      // Se non trovata nelle bici, cerca negli accessori
+      try {
+        let response = await api.get(`/api/accessories/barcode/${barcode}`)
+        if (response.data) {
+          if (response.data.status === 'available') {
+            const accessory = response.data
+            
+            // Controlla se è già presente
+            const exists = items.find(i => i.id === accessory._id && i.kind === 'accessory');
+            if (exists) {
+              alert('⚠️ Accessorio già aggiunto al contratto');
+              setLoading(false);
+              return;
+            }
+            
+            setItems(prev => [...prev, { 
+              kind: 'accessory', 
+              id: accessory._id, 
+              name: accessory.name, 
+              barcode: accessory.barcode,
+              priceHourly: accessory.priceHourly,
+              priceDaily: accessory.priceDaily,
+              originalPriceHourly: accessory.priceHourly, // Salva prezzo originale
+              originalPriceDaily: accessory.priceDaily,   // Salva prezzo originale
+              photo: accessory.photoUrl // Usa photoUrl dal database
+            }])
+            playBeep()
+            alert(`✅ Accessorio aggiunto: ${accessory.name}`)
+          } else {
+            alert(`❌ Accessorio non disponibile (stato: ${response.data.status})`)
+          }
         } else {
           alert('❌ Accessorio non trovato o non disponibile')
         }

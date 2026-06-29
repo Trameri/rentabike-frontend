@@ -38,48 +38,59 @@ const BarcodeToItemScanner = ({ onItemScanned, loading = false }) => {
     try {
       // Cerca prima nelle bici
       let response = await api.get(`/api/bikes/barcode/${targetBarcode}`)
-      if (response.data && response.data.status === 'available') {
-        const bike = response.data
-        onItemScanned({
-          kind: 'bike',
-          id: bike._id,
-          name: bike.name,
-          barcode: bike.barcode,
-          priceHourly: bike.priceHourly,
-          priceDaily: bike.priceDaily,
-          image: bike.image,
-          insurance: false,
-          insuranceFlat: 0
-        })
-        
-        // Feedback visivo e sonoro
-        showSuccessNotification(`✅ Bici aggiunta: ${bike.name}`)
-        playSuccessSound()
-        
-        if (!barcodeToScan) setBarcode('') // Reset solo se non è automatico
-        return
+      if (response.data) {
+        if (response.data.status === 'available') {
+          const bike = response.data
+          onItemScanned({
+            kind: 'bike',
+            id: bike._id,
+            name: bike.name,
+            barcode: bike.barcode,
+            priceHourly: bike.priceHourly,
+            priceDaily: bike.priceDaily,
+            image: bike.image,
+            insurance: false,
+            insuranceFlat: 0
+          })
+          
+          showSuccessNotification(`✅ Bici aggiunta: ${bike.name}`)
+          playSuccessSound()
+          
+          if (!barcodeToScan) setBarcode('') // Reset solo se non è automatico
+          return
+        } else {
+          showErrorNotification(`❌ Bici non disponibile (stato: ${response.data.status})`)
+          if (!barcodeToScan) setBarcode('') // Reset campo in caso di errore
+          return
+        }
       }
     } catch (error) {
       // Se non trovata nelle bici, cerca negli accessori
       try {
         let response = await api.get(`/api/accessories/barcode/${targetBarcode}`)
-        if (response.data && response.data.status === 'available') {
-          const accessory = response.data
-          onItemScanned({
-            kind: 'accessory',
-            id: accessory._id,
-            name: accessory.name,
-            barcode: accessory.barcode,
-            priceHourly: accessory.priceHourly,
-            priceDaily: accessory.priceDaily,
-            image: accessory.image
-          })
-          
-          showSuccessNotification(`✅ Accessorio aggiunto: ${accessory.name}`)
-          playSuccessSound()
-          
-          if (!barcodeToScan) setBarcode('') // Reset solo se non è automatico
-          return
+        if (response.data) {
+          if (response.data.status === 'available') {
+            const accessory = response.data
+            onItemScanned({
+              kind: 'accessory',
+              id: accessory._id,
+              name: accessory.name,
+              barcode: accessory.barcode,
+              priceHourly: accessory.priceHourly,
+              priceDaily: accessory.priceDaily,
+              image: accessory.image
+            })
+            
+            showSuccessNotification(`✅ Accessorio aggiunto: ${accessory.name}`)
+            playSuccessSound()
+            
+            if (!barcodeToScan) setBarcode('') // Reset solo se non è automatico
+            return
+          } else {
+            showErrorNotification(`❌ Accessorio non disponibile (stato: ${response.data.status})`)
+            if (!barcodeToScan) setBarcode('')
+            return
+          }
         }
       } catch (accessoryError) {
         showErrorNotification('❌ Codice a barre non trovato')
