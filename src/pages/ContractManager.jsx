@@ -66,15 +66,17 @@ export default function ContractManager(){
 
 // selectedDate and timelineDays use local dates for UI
   // The comparison in getDayContracts uses local dates to match user's timezone
+  // selectedDate uses UTC to match backend storage
+  // When user sees "today", we store UTC midnight of today
+  // This ensures today's contracts appear when user opens the manager
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+    // Store as UTC midnight of the current UTC day
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0))
   })
   const timelineDays = Array.from({length: 14}, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() + (i - 7))
-    d.setHours(0, 0, 0, 0)
-    return d
+    const now = new Date()
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + (i - 7), 0, 0, 0, 0))
   })
   
   const getDayContracts = (date) => {
