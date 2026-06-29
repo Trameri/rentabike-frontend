@@ -4,6 +4,7 @@ import { useNotifications } from '../Components/NotificationSystem.jsx'
 import dateUtils from '../utils/dateUtils.js'
 import PaymentModal from '../Components/PaymentModal.jsx'
 import moment from 'moment'
+import CompletedRevenueByDay from '../Components/CompletedRevenueByDay.jsx'
 
 export default function ContractManager(){
   const [contracts, setContracts] = useState([])
@@ -1482,6 +1483,8 @@ const getEndOfWeek = (date) => {
           {filteredContracts.length} contratti
         </span>
       </h2>
+
+      <CompletedRevenueByDay contracts={contracts} />
 
       {/* Barra di ricerca globale */}
       <div style={{
