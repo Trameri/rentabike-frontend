@@ -64,17 +64,15 @@ export default function ContractManager(){
   const canvasRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new Date()))
-  const timelineDays = Array.from({length: 14}, (_, i) => dateUtils.addDays(new Date(), i - 7))
-
-  const getDayContracts = (date) => {
+const [selectedDate, setSelectedDate] = useState(() => dateUtils.startOfDay(new Date()))
+   const timelineDays = Array.from({length: 14}, (_, i) => dateUtils.addDays(new Date(), i - 7))
+   
+   const getDayContracts = (date) => {
     const dayStart = dateUtils.startOfDay(date)
     const dayEnd = dateUtils.endOfDay(date)
     
-    // Extract date in YYYY-MM-DD format for comparison
-    // The date parameter is a Date object. We need the LOCAL date string.
-    // toISOString() converts to UTC, which may shift the date.
-    // Use toLocaleDateString or manual extraction to get correct local date.
+    // Extract LOCAL date in YYYY-MM-DD format for comparison
+    // The user selects days based on their local timezone
     const targetDate = new Date(date)
     const year = targetDate.getFullYear()
     const month = String(targetDate.getMonth() + 1).padStart(2, '0')
@@ -85,16 +83,16 @@ export default function ContractManager(){
       if (contract.status === 'reserved') {
         const contractDate = contract.startAt || contract.reservationDate
         if (!contractDate) return false
-        // Backend stores UTC dates, extract UTC date parts
+        // Backend stores UTC dates. We need to compare local date from UTC date.
         const contractDateObj = new Date(contractDate)
-        const contractYear = contractDateObj.getUTCFullYear()
-        const contractMonth = String(contractDateObj.getUTCMonth() + 1).padStart(2, '0')
-        const contractDay = String(contractDateObj.getUTCDate()).padStart(2, '0')
+        const contractYear = contractDateObj.getFullYear()
+        const contractMonth = String(contractDateObj.getMonth() + 1).padStart(2, '0')
+        const contractDay = String(contractDateObj.getDate()).padStart(2, '0')
         const contractDateStr = `${contractYear}-${contractMonth}-${contractDay}`
         return contractDateStr === targetDateStr
       }
       
-      const start = new Date(contract.startAt || contract.createdAt)
+const start = new Date(contract.startAt || contract.createdAt)
       const end = contract.endAt ? new Date(contract.endAt) : null
       const isInRange = start <= dayEnd && (!end || end >= dayStart)
       return isInRange

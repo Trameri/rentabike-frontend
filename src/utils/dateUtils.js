@@ -108,6 +108,27 @@ export const dateUtils = {
     return d
   },
 
+  // Ottieni l'inizio del giorno in UTC (per confronti con backend)
+  startOfDayUTC: (date = new Date()) => {
+    const d = new Date(date)
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0))
+  },
+
+  // Ottieni la fine del giorno in UTC
+  endOfDayUTC: (date = new Date()) => {
+    const d = new Date(date)
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999))
+  },
+
+  // Verifica se due date sono lo stesso giorno (considerando UTC)
+  isSameDayUTC: (date1, date2) => {
+    const d1 = new Date(date1)
+    const d2 = new Date(date2)
+    return d1.getUTCFullYear() === d2.getUTCFullYear() &&
+           d1.getUTCMonth() === d2.getUTCMonth() &&
+           d1.getUTCDate() === d2.getUTCDate()
+  },
+
   // Ottieni l'inizio della settimana (lunedì)
   startOfWeek: (date = new Date()) => {
     const d = new Date(date)
