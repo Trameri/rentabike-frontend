@@ -5,6 +5,7 @@ import BarcodeToItemScanner from '../Components/BarcodeToItemScanner.jsx'
 import PriceCalculatorOptimized from '../Components/PriceCalculatorOptimized.jsx'
 import LocationLogo from '../Components/LocationLogo.jsx'
 import { jwtDecode } from 'jwt-decode'
+import { loadActiveContracts, isItemAvailableForDates } from '../utils/availabilityCheck.js'
 
 export default function ContractsOptimized(){
   const [items, setItems] = useState([])
@@ -15,6 +16,7 @@ export default function ContractsOptimized(){
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
+  const [contracts, setContracts] = useState([])
   
   // Stati per gestione contratto
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 16))
@@ -36,14 +38,29 @@ export default function ContractsOptimized(){
     }
   }, [])
 
+  const loadContracts = async () => {
+    try {
+      const data = await loadActiveContracts();
+      setContracts(data);
+    } catch (error) {
+      console.error('Errore caricamento contratti:', error);
+    }
+  }
+  useEffect(()=>{ loadContracts() }, [])
+
   const handleItemScanned = (item) => {
-    // Controlla se è già presente
     const exists = items.find(i => i.id === item.id && i.kind === item.kind);
     if (exists) {
       showErrorNotification(`⚠️ ${item.kind === 'bike' ? 'Bici' : 'Accessorio'} già aggiunto al contratto`);
       return;
     }
-    
+
+    const isAvailable = isItemAvailableForDates(item.id, item.kind, startDate, endDate, contracts);
+    if (!isAvailable) {
+      showErrorNotification(`❌ ${item.kind === 'bike' ? 'Bici' : 'Accessorio'} non disponibile: esiste una prenotazione o contratto attivo per questo articolo nelle date selezionate`);
+      return;
+    }
+
     setItems(prev => [...prev, item])
     showSuccessNotification(`✅ ${item.kind === 'bike' ? 'Bici' : 'Accessorio'} aggiunto: ${item.name}`)
   }
@@ -163,6 +180,22 @@ export default function ContractsOptimized(){
       const statusMessage = isReservation ? 'prenotato' : 'creato';
       showSuccessNotification(`✅ Contratto ${statusMessage} con successo! ID: ${data._id}`)
       
+      if (isReservation) {
+        const reservationDateObj = new Date(startDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        reservationDateObj.setHours(0, 0, 0, 0);
+        if (reservationDateObj.getTime() <= today.getTime()) {
+          for (const item of items) {
+            if (item.kind === 'bike') {
+              await api.patch(`/api/bikes/${item.id}`, { status: 'reserved' });
+            } else if (item.kind === 'accessory') {
+              await api.patch(`/api/accessories/${item.id}`, { status: 'reserved' });
+            }
+          }
+        }
+      }
+      
       // Reset form
       setItems([]); 
       setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
@@ -176,6 +209,8 @@ export default function ContractsOptimized(){
       setPaymentLink('');
       setPaymentNotes('');
       setIsReservation(false);
+      
+      await loadContracts()
       
     } catch (error) {
       console.error('Errore creazione contratto:', error);

@@ -13,6 +13,7 @@ import ContractClosure from '../Components/ContractClosure.jsx'
 import PaymentModal from '../Components/PaymentModal.jsx'
 import LocationLogo from '../Components/LocationLogo.jsx'
 import { jwtDecode } from 'jwt-decode'
+import { loadActiveContracts, isItemAvailableForDates } from '../utils/availabilityCheck.js'
 
 export default function Contracts(){
   const [bikes,setBikes] = useState([])
@@ -26,6 +27,7 @@ export default function Contracts(){
   const [reservationPrepaid,setPrepaid] = useState(false)
   const [q,setQ] = useState('')
   const [user, setUser] = useState(null)
+  const [contracts, setContracts] = useState([])
 
   const [showPriceCalculator, setShowPriceCalculator] = useState(true)
   const [showContractMirror, setShowContractMirror] = useState(true)
@@ -68,6 +70,16 @@ export default function Contracts(){
   }
   useEffect(()=>{ load() }, [])
 
+  const loadContracts = async () => {
+    try {
+      const data = await loadActiveContracts();
+      setContracts(data);
+    } catch (error) {
+      console.error('Errore caricamento contratti:', error);
+    }
+  }
+  useEffect(()=>{ loadContracts() }, [])
+
   useEffect(() => {
     if (reservationPrepaid) {
       setPaymentMethod("link")
@@ -103,8 +115,23 @@ export default function Contracts(){
       console.log('Creazione contratto:', payload);
       const { data } = await api.post('/api/contracts', payload)
       alert('✅ Contratto creato con successo!\nID: ' + data._id + '\nAssicurazione totale: €' + totalInsurance)
-      
-      // Reset form
+
+      if (status === 'reserved') {
+        const reservationDate = new Date(startDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        reservationDate.setHours(0, 0, 0, 0);
+        if (reservationDate.getTime() <= today.getTime()) {
+          for (const item of items) {
+            if (item.kind === 'bike') {
+              await api.patch(`/api/bikes/${item.id}`, { status: 'reserved' });
+            } else if (item.kind === 'accessory') {
+              await api.patch(`/api/accessories/${item.id}`, { status: 'reserved' });
+            }
+          }
+        }
+      }
+
       setItems([]); 
       setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
       setNotes(''); 
@@ -114,9 +141,8 @@ export default function Contracts(){
       setStartDate(new Date().toISOString().slice(0, 16)); 
       setEndDate(''); 
       setCalculatedPrice(null);
-      
-      // Ricarica dati
-      await load();
+
+      await Promise.all([load(), loadContracts()]);
       
     } catch (error) {
       console.error('Errore creazione contratto:', error);
@@ -127,14 +153,19 @@ export default function Contracts(){
   // Gestione scansione barcode per aggiungere bici/accessori
   // Funzione per aggiungere item al contratto
   const addItem = (kind, item) => {
-    // Controlla se l'item è già presente
     const exists = items.find(i => i.id === item._id && i.kind === kind);
     if (exists) {
       alert('Item già aggiunto al contratto');
       return;
     }
-    
-    // Aggiungi l'item alla lista con prezzi originali salvati
+
+    const itemId = item._id;
+    const isAvailable = isItemAvailableForDates(itemId, kind, startDate, endDate, contracts);
+    if (!isAvailable) {
+      alert('❌ Articolo non disponibile: esiste una prenotazione o contratto attivo per questo articolo nelle date selezionate');
+      return;
+    }
+
     setItems(prev => [...prev, {
       id: item._id,
       kind: kind,
@@ -142,8 +173,8 @@ export default function Contracts(){
       barcode: item.barcode,
       priceHourly: item.priceHourly,
       priceDaily: item.priceDaily,
-      originalPriceHourly: item.priceHourly, // Salva prezzo originale
-      originalPriceDaily: item.priceDaily,   // Salva prezzo originale
+      originalPriceHourly: item.priceHourly,
+      originalPriceDaily: item.priceDaily,
       insurance: false,
       insuranceFlat: 0
     }]);
@@ -305,18 +336,28 @@ export default function Contracts(){
 
   const handleBarcodeScanned = async (barcode) => {
     try {
-      // Cerca prima nelle bici
       const bikeResponse = await api.get(`/api/bikes/barcode/${barcode}`);
       if (bikeResponse.data && bikeResponse.data.status === 'available') {
+        const bikeId = bikeResponse.data._id;
+        const isAvailable = isItemAvailableForDates(bikeId, 'bike', startDate, endDate, contracts);
+        if (!isAvailable) {
+          alert('❌ Bici non disponibile: esiste una prenotazione o contratto attivo per questo articolo nelle date selezionate');
+          return;
+        }
         addItem('bike', bikeResponse.data);
         alert(`✅ Bici aggiunta: ${bikeResponse.data.name}`);
         return;
       }
     } catch (error) {
-      // Se non è una bici, prova con gli accessori
       try {
         const accResponse = await api.get(`/api/accessories/barcode/${barcode}`);
         if (accResponse.data && accResponse.data.status === 'available') {
+          const accId = accResponse.data._id;
+          const isAvailable = isItemAvailableForDates(accId, 'accessory', startDate, endDate, contracts);
+          if (!isAvailable) {
+            alert('❌ Accessorio non disponibile: esiste una prenotazione o contratto attivo per questo articolo nelle date selezionate');
+            return;
+          }
           addItem('accessory', accResponse.data);
           alert(`✅ Accessorio aggiunto: ${accResponse.data.name}`);
           return;
