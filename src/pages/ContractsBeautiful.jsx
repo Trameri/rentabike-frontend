@@ -94,7 +94,7 @@ export default function ContractsBeautiful(){
     try {
       let response = await api.get(`/api/bikes/barcode/${barcode}`)
       if (response.data) {
-        if (response.data.status === 'available') {
+        if (response.data.status === 'available' || response.data.status === 'reserved') {
           const bike = response.data
           const exists = items.find(i => i.id === bike._id && i.kind === 'bike');
           if (exists) {
@@ -162,7 +162,6 @@ export default function ContractsBeautiful(){
           setLoading(false)
           return
         } else {
-          // ... existing unavailable notification code ...
           const notification = document.createElement('div');
           notification.innerHTML = `
             <div style="
@@ -202,10 +201,9 @@ export default function ContractsBeautiful(){
       try {
         let response = await api.get(`/api/accessories/barcode/${barcode}`)
         if (response.data) {
-          if (response.data.status === 'available') {
+          if (response.data.status === 'available' || response.data.status === 'reserved') {
             const accessory = response.data
             
-            // Controlla se è già presente
             const exists = items.find(i => i.id === accessory._id && i.kind === 'accessory');
             if (exists) {
               alert('⚠️ Accessorio già aggiunto');

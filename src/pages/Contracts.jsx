@@ -159,6 +159,11 @@ export default function Contracts(){
       return;
     }
 
+    if (item.status && item.status !== 'available' && item.status !== 'reserved') {
+      alert('❌ Articolo non disponibile (stato: ' + item.status + ')');
+      return;
+    }
+
     const itemId = item._id;
     const isAvailable = isItemAvailableForDates(itemId, kind, startDate, endDate, contracts);
     if (!isAvailable) {
@@ -337,7 +342,7 @@ export default function Contracts(){
   const handleBarcodeScanned = async (barcode) => {
     try {
       const bikeResponse = await api.get(`/api/bikes/barcode/${barcode}`);
-      if (bikeResponse.data && bikeResponse.data.status === 'available') {
+      if (bikeResponse.data && (bikeResponse.data.status === 'available' || bikeResponse.data.status === 'reserved')) {
         const bikeId = bikeResponse.data._id;
         const isAvailable = isItemAvailableForDates(bikeId, 'bike', startDate, endDate, contracts);
         if (!isAvailable) {
@@ -351,7 +356,7 @@ export default function Contracts(){
     } catch (error) {
       try {
         const accResponse = await api.get(`/api/accessories/barcode/${barcode}`);
-        if (accResponse.data && accResponse.data.status === 'available') {
+        if (accResponse.data && (accResponse.data.status === 'available' || accResponse.data.status === 'reserved')) {
           const accId = accResponse.data._id;
           const isAvailable = isItemAvailableForDates(accId, 'accessory', startDate, endDate, contracts);
           if (!isAvailable) {

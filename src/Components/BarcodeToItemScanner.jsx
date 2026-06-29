@@ -39,7 +39,7 @@ const BarcodeToItemScanner = ({ onItemScanned, loading = false }) => {
       // Cerca prima nelle bici
       let response = await api.get(`/api/bikes/barcode/${targetBarcode}`)
       if (response.data) {
-        if (response.data.status === 'available') {
+        if (response.data.status === 'available' || response.data.status === 'reserved') {
           const bike = response.data
           onItemScanned({
             kind: 'bike',
@@ -56,11 +56,11 @@ const BarcodeToItemScanner = ({ onItemScanned, loading = false }) => {
           showSuccessNotification(`✅ Bici aggiunta: ${bike.name}`)
           playSuccessSound()
           
-          if (!barcodeToScan) setBarcode('') // Reset solo se non è automatico
+          if (!barcodeToScan) setBarcode('')
           return
         } else {
           showErrorNotification(`❌ Bici non disponibile (stato: ${response.data.status})`)
-          if (!barcodeToScan) setBarcode('') // Reset campo in caso di errore
+          if (!barcodeToScan) setBarcode('')
           return
         }
       }
@@ -69,7 +69,7 @@ const BarcodeToItemScanner = ({ onItemScanned, loading = false }) => {
       try {
         let response = await api.get(`/api/accessories/barcode/${targetBarcode}`)
         if (response.data) {
-          if (response.data.status === 'available') {
+          if (response.data.status === 'available' || response.data.status === 'reserved') {
             const accessory = response.data
             onItemScanned({
               kind: 'accessory',
@@ -84,7 +84,7 @@ const BarcodeToItemScanner = ({ onItemScanned, loading = false }) => {
             showSuccessNotification(`✅ Accessorio aggiunto: ${accessory.name}`)
             playSuccessSound()
             
-            if (!barcodeToScan) setBarcode('') // Reset solo se non è automatico
+            if (!barcodeToScan) setBarcode('')
             return
           } else {
             showErrorNotification(`❌ Accessorio non disponibile (stato: ${response.data.status})`)
