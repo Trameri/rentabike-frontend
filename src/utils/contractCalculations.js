@@ -1,10 +1,11 @@
 // Funzione per calcolare i totali separati di noleggio e assicurazione
-export const calculateSeparateTotals = (contract) => {
+// items insurancePaidAdvance è un array di booleani indicante se l'assicurazione è stata pagata in anticipo
+export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}, contractInsurancePaidAdvance = false) => {
   let bikesTotal = 0;
   let insuranceTotal = 0;
 
   if (contract.items && contract.items.length > 0) {
-    contract.items.forEach(item => {
+    contract.items.forEach((item, index) => {
       if (item.returnedAt) return; // Skip item restituiti
 
       const startDate = new Date(contract.startAt || contract.createdAt);
@@ -26,8 +27,9 @@ export const calculateSeparateTotals = (contract) => {
       bikesTotal += itemPrice;
 
       // Calcola il prezzo dell'assicurazione separatamente
-      if (item.insurance) {
-        const insuranceFlat = parseFloat(item.insuranceFlat) || 0;
+      // Escludi l'assicurazione se è stata pagata in anticipo
+      if (item.insurance && !itemsInsurancePaidAdvance[item._id] && !itemsInsurancePaidAdvance[index]) {
+        const insuranceFlat = parseFloat(item.insuranceFlat) || 5;
         insuranceTotal += insuranceFlat;
       }
     });

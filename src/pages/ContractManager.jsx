@@ -34,6 +34,8 @@ export default function ContractManager(){
   const [selectedContractForPayment, setSelectedContractForPayment] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [paymentNotes, setPaymentNotes] = useState('')
+  const [selectedItemInsurancePaidAdvance, setSelectedItemInsurancePaidAdvance] = useState({})
+  const [selectedContractInsurancePaidAdvance, setSelectedContractInsurancePaidAdvance] = useState(false)
   
   // Stati per eliminazione contratto
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -778,12 +780,41 @@ const getEndOfWeek = (date) => {
     setLoading(true)
     try {
       const bill = calculateDetailedBill(selectedContractForPayment)
-      const finalAmount = bill.finalTotal
+      let finalAmount = bill.finalTotal
+      
+      // Prepara i dati delle assicurazioni pagate in anticipo
+      const itemInsurancePaidAdvanceData = {}
+      selectedContractForPayment.items.forEach((item, index) => {
+        if (selectedItemInsurancePaidAdvance[index]) {
+          itemInsurancePaidAdvanceData[item._id || index] = true
+        }
+      })
+
+      // Ricalcola il totale finale escludendo le assicurazioni pagate in anticipo
+      if (Object.keys(itemInsurancePaidAdvanceData).length > 0 || selectedContractInsurancePaidAdvance) {
+        let subtotal = bill.finalTotal
+        let insuranceToSubtract = 0
+        
+        Object.keys(itemInsurancePaidAdvanceData).forEach(key => {
+          const item = selectedContractForPayment.items.find(i => i._id === key || i._id === undefined)
+          if (item && item.insurance) {
+            insuranceToSubtract += parseFloat(item.insuranceFlat) || 5
+          }
+        })
+        
+        if (selectedContractInsurancePaidAdvance && selectedContractForPayment.insuranceFlat) {
+          insuranceToSubtract += parseFloat(selectedContractForPayment.insuranceFlat)
+        }
+        
+        finalAmount = bill.finalTotal - insuranceToSubtract
+      }
       
       await api.post(`/api/contracts/${selectedContractForPayment._id}/complete-payment`, {
         paymentMethod,
         paymentNotes: paymentNotes || '',
-        finalAmount
+        finalAmount: Math.max(0, finalAmount),
+        itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
+        contractInsurancePaidAdvance: selectedContractInsurancePaidAdvance
       })
       
       showSuccess(`✅ Pagamento di €${finalAmount.toFixed(2)} completato e contratto chiuso!`)
@@ -791,6 +822,8 @@ const getEndOfWeek = (date) => {
       setSelectedContractForPayment(null)
       setPaymentMethod('')
       setPaymentNotes('')
+      setSelectedItemInsurancePaidAdvance({})
+      setSelectedContractInsurancePaidAdvance(false)
       await loadContracts()
       
     } catch (error) {

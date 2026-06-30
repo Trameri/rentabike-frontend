@@ -14,6 +14,8 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
   });
   const [itemPrices, setItemPrices] = useState({});
   const [itemInsurances, setItemInsurances] = useState({});
+  const [itemInsurancePaidAdvance, setItemInsurancePaidAdvance] = useState({});
+  const [contractInsurancePaidAdvance, setContractInsurancePaidAdvance] = useState(false);
 
   useEffect(() => {
     if (contract) {
@@ -23,6 +25,10 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
 
   const calculatePaymentDetails = () => {
     if (!contract) return;
+
+    // Inizializza gli stati delle assicurazioni pagate in anticipo
+    const initialItemInsurancePaid = {};
+    const initialContractInsurancePaid = !!contract.insurancePaidInAdvance;
 
     // Se c'è un finalAmount già calcolato, usalo direttamente
     if (contract.finalAmount && contract.finalAmount > 0) {
@@ -39,7 +45,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
       const insurances = {};
       let totalInsurances = 0;
       contract.items.forEach((item, index) => {
-        const itemInsurance = item.insurance && item.insuranceFlat ? parseFloat(item.insuranceFlat) : 0;
+        const itemInsurance = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0;
         insurances[index] = itemInsurance.toFixed(2);
         totalInsurances += itemInsurance;
       });
@@ -49,11 +55,12 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
       });
       setItemPrices(prices);
       setItemInsurances(insurances);
+      setItemInsurancePaidAdvance(initialItemInsurancePaid);
+      setContractInsurancePaidAdvance(initialContractInsurancePaid);
       return;
     }
 
     // Altrimenti calcola con la NUOVA LOGICA TARIFFE
-    const duration = calculateDuration();
     const isReservation = contract.status === 'reserved' || contract.isReservation;
 
     let subtotal = 0;
@@ -96,7 +103,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
       prices[index] = itemPrice.toFixed(2);
       subtotal += itemPrice;
 
-      const itemInsurance = item.insurance && item.insuranceFlat ? parseFloat(item.insuranceFlat) : 0;
+      const itemInsurance = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0;
       insurances[index] = itemInsurance.toFixed(2);
       insurance += itemInsurance;
     });
@@ -110,6 +117,8 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
 
     setItemPrices(prices);
     setItemInsurances(insurances);
+    setItemInsurancePaidAdvance(initialItemInsurancePaid);
+    setContractInsurancePaidAdvance(initialContractInsurancePaid);
     setPaymentDetails({
       subtotal: Math.round(subtotal * 100) / 100,
       insurance: Math.round(insurance * 100) / 100,
@@ -124,13 +133,19 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     const updatedPrices = { ...itemPrices, [index]: newPrice };
     setItemPrices(updatedPrices);
 
-    // Ricalcola totale con prezzi base + assicurazioni fisse
+    // Ricalcola totale con prezzi base + assicurazioni (escludendo quelle pagate in anticipo)
     let newSubtotal = 0;
     let totalInsurance = 0;
     Object.keys(updatedPrices).forEach(idx => {
       newSubtotal += parseFloat(updatedPrices[idx]) || 0;
-      totalInsurance += parseFloat(itemInsurances[idx]) || 0;
+      const insuranceVal = parseFloat(itemInsurances[idx]) || 0;
+      if (!itemInsurancePaidAdvance[idx]) {
+        totalInsurance += insuranceVal;
+      }
     });
+    if (!contractInsurancePaidAdvance && contract.insuranceFlat) {
+      totalInsurance += parseFloat(contract.insuranceFlat) || 0;
+    }
 
     const newTotal = newSubtotal + totalInsurance;
 
@@ -161,6 +176,45 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     return { hours, minutes, seconds, days };
   };
 
+  const toggleItemInsurancePaidAdvance = (index) => {
+    setItemInsurancePaidAdvance(prev => {
+      const newState = { ...prev, [index]: !prev[index] };
+      recalculateTotals(newState, contractInsurancePaidAdvance);
+      return newState;
+    });
+  };
+
+  const toggleContractInsurancePaidAdvance = () => {
+    setContractInsurancePaidAdvance(prev => {
+      const newState = !prev;
+      recalculateTotals(itemInsurancePaidAdvance, newState);
+      return newState;
+    });
+  };
+
+  const recalculateTotals = (itemInsuranceStates, contractInsuranceState) => {
+    let newSubtotal = 0;
+    let newInsurance = 0;
+    Object.keys(itemPrices).forEach(idx => {
+      newSubtotal += parseFloat(itemPrices[idx]) || 0;
+      const insuranceVal = parseFloat(itemInsurances[idx]) || 0;
+      if (!itemInsuranceStates[idx]) {
+        newInsurance += insuranceVal;
+      }
+    });
+    if (!contractInsuranceState && contract.insuranceFlat) {
+      newInsurance += parseFloat(contract.insuranceFlat);
+    }
+    const newTotal = newSubtotal + newInsurance;
+    setPaymentDetails({
+      subtotal: Math.round(newSubtotal * 100) / 100,
+      insurance: Math.round(newInsurance * 100) / 100,
+      adjustments: 0,
+      total: Math.round(newTotal * 100) / 100
+    });
+    setFinalAmount(newTotal.toFixed(2));
+  };
+
   const handlePayment = async () => {
     if (!finalAmount || parseFloat(finalAmount) <= 0) {
       alert('❌ Inserisci un importo valido');
@@ -169,10 +223,20 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
 
     setLoading(true);
     try {
+      // Prepara i dati delle assicurazioni pagate in anticipo
+      const itemInsurancePaidAdvanceData = {};
+      contract.items.forEach((item, index) => {
+        if (itemInsurancePaidAdvance[index]) {
+          itemInsurancePaidAdvanceData[item._id || index] = true;
+        }
+      });
+
       await api.post(`/api/contracts/${contract._id}/complete-payment`, {
         paymentMethod,
         paymentNotes,
-        finalAmount: parseFloat(finalAmount)
+        finalAmount: parseFloat(finalAmount),
+        itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
+        contractInsurancePaidAdvance: contractInsurancePaidAdvance
       });
 
       alert('✅ Pagamento completato con successo!');
@@ -417,12 +481,40 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
                           </div>
                         )}
                       </div>
+                      {itemInsurances[index] && parseFloat(itemInsurances[index]) > 0 && (
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          marginTop: '8px',
+                          padding: '6px 10px',
+                          background: itemInsurancePaidAdvance[index] ? '#fef3c7' : '#f0fdf4',
+                          borderRadius: '6px',
+                          border: '1px solid #fde047',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={!!itemInsurancePaidAdvance[index]}
+                            onChange={() => toggleItemInsurancePaidAdvance(index)}
+                          />
+                          <span style={{ color: '#92400e', fontWeight: '500' }}>
+                            Assicurazione già pagata in anticipo
+                          </span>
+                        </label>
+                      )}
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>Totale Item:</div>
-                      <div style={{ fontWeight: '600', color: '#059669' }}>
-                        €{(parseFloat(itemPrices[index] || 0) + parseFloat(itemInsurances[index] || 0)).toFixed(2)}
+                      <div style={{ fontWeight: '600', color: itemInsurancePaidAdvance[index] ? '#6b7280' : '#059669' }}>
+                        €{(parseFloat(itemPrices[index] || 0) + (itemInsurancePaidAdvance[index] ? 0 : parseFloat(itemInsurances[index] || 0))).toFixed(2)}
                       </div>
+                      {itemInsurancePaidAdvance[index] && (
+                        <div style={{ fontSize: '10px', color: '#92400e', fontStyle: 'italic' }}>
+                          (Assicurazione scontata)
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -430,6 +522,35 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
             );
           })}
         </div>
+
+        {/* Insurance flat del contratto */}
+        {contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0 && (
+          <div style={{
+            marginBottom: '16px',
+            padding: '12px',
+            background: contractInsurancePaidAdvance ? '#fef3c7' : '#f0fdf4',
+            borderRadius: '8px',
+            border: '1px solid #fde047'
+          }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}>
+              <input
+                type="checkbox"
+                checked={contractInsurancePaidAdvance}
+                onChange={toggleContractInsurancePaidAdvance}
+                style={{ transform: 'scale(1.2)' }}
+              />
+              <span style={{ fontWeight: '600' }}>
+                🛡️ Assicurazione contratto (€{parseFloat(contract.insuranceFlat).toFixed(2)}) già pagata in anticipo
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* Riepilogo Costi */}
         <div style={{
