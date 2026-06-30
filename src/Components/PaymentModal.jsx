@@ -231,10 +231,14 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
         }
       });
 
+      // Calcola l'importo totale completo (con assicurazione) per i ricavi giornalieri
+      const totalWithInsurance = paymentDetails.subtotal + paymentDetails.insurance;
+
       await api.post(`/api/contracts/${contract._id}/complete-payment`, {
         paymentMethod,
         paymentNotes,
         finalAmount: parseFloat(finalAmount),
+        totalWithInsurance: Math.round(totalWithInsurance * 100) / 100,
         itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
         contractInsurancePaidAdvance: contractInsurancePaidAdvance
       });
