@@ -139,6 +139,16 @@ export const dateUtils = {
     return d
   },
 
+  // Ottieni la fine della settimana (domenica)
+  endOfWeek: (date = new Date()) => {
+    const d = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? 0 : 7 - day)
+    d.setDate(diff)
+    d.setHours(23, 59, 59, 999)
+    return d
+  },
+
   // Ottieni l'inizio del mese
   startOfMonth: (date = new Date()) => {
     const d = new Date(date)
