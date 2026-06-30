@@ -1484,7 +1484,7 @@ const getEndOfWeek = (date) => {
         </span>
       </h2>
 
-      <CompletedRevenueByDay contracts={contracts} />
+      <CompletedRevenueByDay contracts={contracts} selectedDate={selectedDate} viewMode={viewMode} viewDate={viewDate} />
 
       {/* Barra di ricerca globale */}
       <div style={{

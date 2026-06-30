@@ -2,12 +2,42 @@ import React, { useState, useMemo } from 'react';
 import { calculateSeparateTotals } from '../utils/contractCalculations.js';
 import dateUtils from '../utils/dateUtils.js';
 
-const CompletedRevenueByDay = ({ contracts = [] }) => {
+const CompletedRevenueByDay = ({ contracts = [], selectedDate, viewMode = 'week', viewDate }) => {
   const [expandedDays, setExpandedDays] = useState({});
 
   const completedContracts = useMemo(() => {
-    return contracts.filter(c => c.status === 'completed' && c.endAt);
-  }, [contracts]);
+    const completed = contracts.filter(c => c.status === 'completed' && c.endAt);
+    if (!selectedDate || !viewMode || !viewDate) return completed;
+
+    const baseDate = viewMode === 'day' ? selectedDate : viewDate;
+    const year = baseDate.getFullYear();
+    const month = baseDate.getMonth();
+    const day = baseDate.getDate();
+
+    let rangeStart, rangeEnd;
+    if (viewMode === 'day') {
+      rangeStart = new Date(year, month, day);
+      rangeEnd = new Date(year, month, day);
+    } else if (viewMode === 'week') {
+      rangeStart = dateUtils.startOfWeek(baseDate);
+      rangeEnd = dateUtils.endOfWeek(baseDate);
+    } else if (viewMode === 'month') {
+      rangeStart = dateUtils.startOfMonth(baseDate);
+      const lastDay = new Date(year, month + 1, 0);
+      rangeEnd = dateUtils.endOfDay(lastDay);
+      rangeStart = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
+    } else {
+      rangeStart = new Date(year, 0, 1);
+      rangeEnd = new Date(year, 11, 31);
+    }
+    rangeEnd = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
+
+    return completed.filter(contract => {
+      const end = new Date(contract.endAt);
+      const contractLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+      return contractLocal >= rangeStart && contractLocal <= rangeEnd;
+    });
+  }, [contracts, selectedDate, viewMode, viewDate]);
 
   const revenueByDay = useMemo(() => {
     const map = new Map();
