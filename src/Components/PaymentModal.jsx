@@ -15,7 +15,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
   const [itemPrices, setItemPrices] = useState({});
   const [itemInsurances, setItemInsurances] = useState({});
   const [itemInsurancePaidAdvance, setItemInsurancePaidAdvance] = useState({});
-  const [contractInsurancePaidAdvance, setContractInsurancePaidAdvance] = useState(false);
+
 
   useEffect(() => {
     if (contract) {
@@ -28,7 +28,6 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
 
     // Inizializza gli stati delle assicurazioni pagate in anticipo
     const initialItemInsurancePaid = {};
-    const initialContractInsurancePaid = !!contract.insurancePaidInAdvance;
 
     // Se c'è un finalAmount già calcolato, usalo direttamente
     if (contract.finalAmount && contract.finalAmount > 0) {
@@ -56,7 +55,6 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
       setItemPrices(prices);
       setItemInsurances(insurances);
       setItemInsurancePaidAdvance(initialItemInsurancePaid);
-      setContractInsurancePaidAdvance(initialContractInsurancePaid);
       return;
     }
 
@@ -109,7 +107,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     });
 
     // Assicurazione flat del contratto
-    if (contract.insuranceFlat) {
+    if (contract.insuranceFlat && !contract.insurancePaidInAdvance) {
       insurance += parseFloat(contract.insuranceFlat);
     }
 
@@ -118,7 +116,6 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     setItemPrices(prices);
     setItemInsurances(insurances);
     setItemInsurancePaidAdvance(initialItemInsurancePaid);
-    setContractInsurancePaidAdvance(initialContractInsurancePaid);
     setPaymentDetails({
       subtotal: Math.round(subtotal * 100) / 100,
       insurance: Math.round(insurance * 100) / 100,
@@ -143,7 +140,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
         totalInsurance += insuranceVal;
       }
     });
-    if (!contractInsurancePaidAdvance && contract.insuranceFlat) {
+    if (!contract.insurancePaidInAdvance && contract.insuranceFlat) {
       totalInsurance += parseFloat(contract.insuranceFlat) || 0;
     }
 
@@ -179,20 +176,12 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
   const toggleItemInsurancePaidAdvance = (index) => {
     setItemInsurancePaidAdvance(prev => {
       const newState = { ...prev, [index]: !prev[index] };
-      recalculateTotals(newState, contractInsurancePaidAdvance);
+      recalculateTotals(newState);
       return newState;
     });
   };
 
-  const toggleContractInsurancePaidAdvance = () => {
-    setContractInsurancePaidAdvance(prev => {
-      const newState = !prev;
-      recalculateTotals(itemInsurancePaidAdvance, newState);
-      return newState;
-    });
-  };
-
-  const recalculateTotals = (itemInsuranceStates, contractInsuranceState) => {
+  const recalculateTotals = (itemInsuranceStates) => {
     let newSubtotal = 0;
     let newInsurance = 0;
     Object.keys(itemPrices).forEach(idx => {
@@ -202,7 +191,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
         newInsurance += insuranceVal;
       }
     });
-    if (!contractInsuranceState && contract.insuranceFlat) {
+    if (!contract.insurancePaidInAdvance && contract.insuranceFlat) {
       newInsurance += parseFloat(contract.insuranceFlat);
     }
     const newTotal = newSubtotal + newInsurance;
@@ -239,8 +228,8 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
         paymentNotes,
         finalAmount: parseFloat(finalAmount),
         totalWithInsurance: Math.round(totalWithInsurance * 100) / 100,
-        itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
-        contractInsurancePaidAdvance: contractInsurancePaidAdvance
+         itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
+         contractInsurancePaidAdvance: !!contract.insurancePaidInAdvance
       });
 
       alert('✅ Pagamento completato con successo!');
@@ -526,35 +515,6 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
             );
           })}
         </div>
-
-        {/* Insurance flat del contratto */}
-        {contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0 && (
-          <div style={{
-            marginBottom: '16px',
-            padding: '12px',
-            background: contractInsurancePaidAdvance ? '#fef3c7' : '#f0fdf4',
-            borderRadius: '8px',
-            border: '1px solid #fde047'
-          }}>
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}>
-              <input
-                type="checkbox"
-                checked={contractInsurancePaidAdvance}
-                onChange={toggleContractInsurancePaidAdvance}
-                style={{ transform: 'scale(1.2)' }}
-              />
-              <span style={{ fontWeight: '600' }}>
-                🛡️ Assicurazione contratto (€{parseFloat(contract.insuranceFlat).toFixed(2)}) già pagata in anticipo
-              </span>
-            </label>
-          </div>
-        )}
 
         {/* Riepilogo Costi */}
         <div style={{
