@@ -39,8 +39,6 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
         let subtotalFromLocked = 0;
         
         contract.items.forEach((item, index) => {
-          if (item.returnedAt) return;
-          
           const lockedPrice = contract.lockedItemPrices.find(lp => 
             lp.itemId === item._id || lp.itemId === index || lp.itemId === item.id
           );
@@ -55,6 +53,7 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
             const priceHourly = parseFloat(item.priceHourly) || 0;
             const priceDaily = parseFloat(item.priceDaily) || 0;
             
+            // Durata: usa returnedAt se presente (bici già restituita), altrimenti usa endAt/contratto
             const itemEndTime = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
             const itemStartTime = new Date(contract.startAt || contract.createdAt);
             const itemDurationMs = itemEndTime - itemStartTime;
@@ -91,17 +90,23 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
           total: Math.round(total * 100) / 100
         });
       } else {
-        // Nessun lockedItemPrices salvato: calcola i prezzi individualmente
+        // Nessun lockedItemPrices salvato: calcola i prezzi individualmente per TUTTE le bici
         let totalBaseAmount = 0;
         let totalInsurances = 0;
 
         contract.items.forEach((item, index) => {
-          if (item.returnedAt) return;
-          
           const priceHourly = parseFloat(item.priceHourly) || 0;
           const priceDaily = parseFloat(item.priceDaily) || 0;
-          const itemEndTime = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
-          const itemStartTime = new Date(contract.startAt || contract.createdAt);
+          
+          // Durata per questa specifica bici: usa returnedAt se presente, altrimenti endAt o ora attuale
+          let itemEndTime = new Date();
+          let itemStartTime = new Date(contract.startAt || contract.createdAt);
+          if (item.returnedAt) {
+            itemEndTime = new Date(item.returnedAt);
+          } else if (contract.endAt) {
+            itemEndTime = new Date(contract.endAt);
+          }
+          
           const itemDurationMs = itemEndTime - itemStartTime;
           const itemHours = Math.max(1, Math.floor(itemDurationMs / (1000 * 60 * 60)));
           const itemDays = Math.max(1, Math.floor(itemHours / 24));

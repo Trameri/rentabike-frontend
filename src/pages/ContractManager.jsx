@@ -542,40 +542,47 @@ const processReturns = async () => {
       if (successCount > 0) {
         // Calcola i prezzi individuali per ogni bici alla data di restituzione
         const now = new Date()
-        let totalBaseAmount = 0
-        const lockedItemPrices = []
+        // Parti dai lockedItemPrices esistenti se presenti
+        const existingLockedPrices = selectedContractForReturn.lockedItemPrices || []
+        const lockedItemPrices = [...existingLockedPrices]
+        let totalBaseAmount = existingLockedPrices.reduce((sum, lp) => sum + (lp.basePrice || 0), 0)
         
+        // Aggiorna i prezzi solo per le bici che vengono appena restituite
         selectedContractForReturn.items.forEach(item => {
           if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
-            const itemEndTime = now
-            const itemStartTime = new Date(item.startedAt || item.activatedAt || selectedContractForReturn.startAt || selectedContractForReturn.createdAt)
-            const itemDurationMs = itemEndTime - itemStartTime
-            const itemHours = Math.max(1, Math.floor(itemDurationMs / (1000 * 60 * 60)))
-            const itemDays = Math.max(1, Math.floor(itemHours / 24))
-            
-            const priceHourly = parseFloat(item.priceHourly) || 0
-            const priceDaily = parseFloat(item.priceDaily) || 0
-            
-            let itemBasePrice = 0
-            // Logic: oraria fino a quando non raggiunge/supera la giornaliera, poi si blocca
-            const hourlyTotal = priceHourly * itemHours
-            const dailyTotal = priceDaily * itemDays
-            
-            if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
-              itemBasePrice = dailyTotal
-            } else if (priceHourly > 0) {
-              itemBasePrice = hourlyTotal
-            } else if (priceDaily > 0) {
-              itemBasePrice = dailyTotal
+            // Verifica se questa bici ha già un prezzo bloccato
+            const alreadyLocked = existingLockedPrices.find(lp => lp.itemId === item._id)
+            if (!alreadyLocked) {
+              const itemEndTime = now
+              const itemStartTime = new Date(item.startedAt || item.activatedAt || selectedContractForReturn.startAt || selectedContractForReturn.createdAt)
+              const itemDurationMs = itemEndTime - itemStartTime
+              const itemHours = Math.max(1, Math.floor(itemDurationMs / (1000 * 60 * 60)))
+              const itemDays = Math.max(1, Math.floor(itemHours / 24))
+              
+              const priceHourly = parseFloat(item.priceHourly) || 0
+              const priceDaily = parseFloat(item.priceDaily) || 0
+              
+              let itemBasePrice = 0
+              // Logic: oraria fino a quando non raggiunge/supera la giornaliera, poi si blocca
+              const hourlyTotal = priceHourly * itemHours
+              const dailyTotal = priceDaily * itemDays
+              
+              if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
+                itemBasePrice = dailyTotal
+              } else if (priceHourly > 0) {
+                itemBasePrice = hourlyTotal
+              } else if (priceDaily > 0) {
+                itemBasePrice = dailyTotal
+              }
+              
+              lockedItemPrices.push({
+                itemId: item._id,
+                basePrice: Math.round(itemBasePrice * 100) / 100,
+                insurance: item.insurance ? Math.round((parseFloat(item.insuranceFlat) || 5) * 100) / 100 : 0,
+                lockedAt: now.toISOString()
+              })
+              totalBaseAmount += itemBasePrice
             }
-            
-            lockedItemPrices.push({
-              itemId: item._id,
-              basePrice: Math.round(itemBasePrice * 100) / 100,
-              insurance: item.insurance ? Math.round((parseFloat(item.insuranceFlat) || 5) * 100) / 100 : 0,
-              lockedAt: now.toISOString()
-            })
-            totalBaseAmount += itemBasePrice
           }
         })
         
@@ -1063,9 +1070,9 @@ const processReturns = async () => {
         let totalInsurance = 0
         const lockedItemPrices = []
         
-        // Calcola il prezzo per ogni bici individualmente
+        // Calcola il prezzo per ogni bici individualmente (TUTTE le bici)
         selectedContractForStatusChange.items.forEach(item => {
-          if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
+          if (item.kind === 'bike' || item.kind === 'accessory') {
             const priceHourly = parseFloat(item.priceHourly) || 0
             const priceDaily = parseFloat(item.priceDaily) || 0
             
@@ -1084,8 +1091,8 @@ const processReturns = async () => {
             
             lockedItemPrices.push({
               itemId: item._id,
-              basePrice: itemBasePrice,
-              insurance: item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0,
+              basePrice: Math.round(itemBasePrice * 100) / 100,
+              insurance: Math.round((item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0) * 100) / 100,
               lockedAt: new Date().toISOString()
             })
             totalBaseAmount += itemBasePrice
