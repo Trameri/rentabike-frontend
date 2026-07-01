@@ -299,7 +299,7 @@ const PricingLogicTest = () => {
               borderRadius: '8px',
               border: '1px solid #fbbf24'
             }}>
-              <strong>Scenario 1 (3 ore):</strong> Contratto €15 vs Prenotazione €20 - Il contratto conviene
+              <strong>Scenario 1 (3 ore):</strong> 3 ore fatturate × €5 = €15 vs Prenotazione €20 - Il contratto conviene
             </div>
             <div style={{
               padding: '12px',
@@ -307,7 +307,7 @@ const PricingLogicTest = () => {
               borderRadius: '8px',
               border: '1px solid #fbbf24'
             }}>
-              <strong>Scenario 2 (6 ore):</strong> Contratto €20 vs Prenotazione €20 - Stesso prezzo, si blocca alla giornaliera
+              <strong>Scenario 2 (6 ore):</strong> 6 ore fatturate × €5 = €30, bloccato a €20 (giornaliero)
             </div>
             <div style={{
               padding: '12px',
@@ -315,7 +315,7 @@ const PricingLogicTest = () => {
               borderRadius: '8px',
               border: '1px solid #fbbf24'
             }}>
-              <strong>Scenario 4 (2 giorni):</strong> Prenotazione garantisce disponibilità con tariffa giornaliera fissa
+              <strong>Scenario 4 (2 giorni):</strong> Prenotazione usa sempre tariffa giornaliera
             </div>
           </div>
         </div>

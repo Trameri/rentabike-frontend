@@ -547,44 +547,35 @@ const processReturns = async () => {
         const lockedItemPrices = [...existingLockedPrices]
         let totalBaseAmount = existingLockedPrices.reduce((sum, lp) => sum + (lp.basePrice || 0), 0)
         
-        // Aggiorna i prezzi solo per le bici che vengono appena restituite
-        selectedContractForReturn.items.forEach(item => {
-          if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
-            // Verifica se questa bici ha già un prezzo bloccato
-            const alreadyLocked = existingLockedPrices.find(lp => lp.itemId === item._id)
-            if (!alreadyLocked) {
-              const itemEndTime = now
-              const itemStartTime = new Date(item.startedAt || item.activatedAt || selectedContractForReturn.startAt || selectedContractForReturn.createdAt)
-              const itemDurationMs = itemEndTime - itemStartTime
-              const itemHours = Math.max(1, Math.floor(itemDurationMs / (1000 * 60 * 60)))
-              const itemDays = Math.max(1, Math.floor(itemHours / 24))
-              
-              const priceHourly = parseFloat(item.priceHourly) || 0
-              const priceDaily = parseFloat(item.priceDaily) || 0
-              
-              let itemBasePrice = 0
-              // Logic: oraria fino a quando non raggiunge/supera la giornaliera, poi si blocca
-              const hourlyTotal = priceHourly * itemHours
-              const dailyTotal = priceDaily * itemDays
-              
-              if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
-                itemBasePrice = dailyTotal
-              } else if (priceHourly > 0) {
-                itemBasePrice = hourlyTotal
-              } else if (priceDaily > 0) {
-                itemBasePrice = dailyTotal
-              }
-              
-              lockedItemPrices.push({
-                itemId: item._id,
-                basePrice: Math.round(itemBasePrice * 100) / 100,
-                insurance: item.insurance ? Math.round((parseFloat(item.insuranceFlat) || 5) * 100) / 100 : 0,
-                lockedAt: now.toISOString()
-              })
-              totalBaseAmount += itemBasePrice
-            }
-          }
-        })
+// Aggiorna i prezzi solo per le bici che vengono appena restituite
+         selectedContractForReturn.items.forEach(item => {
+           if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
+             // Verifica se questa bici ha già un prezzo bloccato
+             const alreadyLocked = existingLockedPrices.find(lp => lp.itemId === item._id)
+             if (!alreadyLocked) {
+               const itemEndTime = now
+               const itemStartTime = new Date(item.startedAt || item.activatedAt || selectedContractForReturn.startAt || selectedContractForReturn.createdAt)
+               const itemDurationMs = itemEndTime - itemStartTime
+               const itemDurationMinutes = itemDurationMs / (1000 * 60)
+               const oreFatturate = Math.max(1, Math.ceil(itemDurationMinutes / 60))
+               
+               const priceHourly = parseFloat(item.priceHourly) || 0
+               const priceDaily = parseFloat(item.priceDaily) || 0
+               
+               // Scatto orario: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
+               const hourlyTotal = priceHourly * oreFatturate
+               const itemBasePrice = Math.min(hourlyTotal, priceDaily)
+               
+               lockedItemPrices.push({
+                 itemId: item._id,
+                 basePrice: Math.round(itemBasePrice * 100) / 100,
+                 insurance: item.insurance ? Math.round((parseFloat(item.insuranceFlat) || 5) * 100) / 100 : 0,
+                 lockedAt: now.toISOString()
+               })
+               totalBaseAmount += itemBasePrice
+             }
+           }
+         })
         
         const totalInsurance = lockedItemPrices.reduce((sum, lp) => sum + lp.insurance, 0)
         const contractInsurance = selectedContractForReturn.insuranceFlat ? parseFloat(selectedContractForReturn.insuranceFlat) || 0 : 0
@@ -702,97 +693,71 @@ const processReturns = async () => {
       }
     }
     
-    // PRIORITÀ 3: Calcolo con NUOVA LOGICA TARIFFE
-    const startDate = new Date(contract.startAt || contract.createdAt)
-    const endDate = new Date(contract.endAt || new Date())
-    const durationMs = Math.max(0, endDate - startDate)
-    const durationHours = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60)))
-    const durationDays = Math.max(1, Math.ceil(durationHours / 24))
-    
-    let totalAmount = 0
-    const billItems = []
-    
-    // NUOVA LOGICA: Contratti prenotati vs contratti nuovi
-    const isReservation = contract.status === 'reserved' || contract.isReservation
-    
-    contract.items.forEach(item => {
-      if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
-        let itemTotal = 0
-        let duration = ''
-        let pricingLogic = ''
-        
-        // PRIORITÀ 1: Prezzo personalizzato dell'ultimo momento (dal ContractManager)
-        const customPrice = parseFloat(item.customPrice) || 0
-        if (customPrice > 0) {
-          itemTotal = customPrice
-          duration = item.customPriceReason || 'Prezzo personalizzato'
-          pricingLogic = 'custom'
-        } else {
-          // PRIORITÀ 2: Prezzi modificati durante stipula o prezzi standard
-          const priceHourly = parseFloat(item.priceHourly) || 0
-          const priceDaily = parseFloat(item.priceDaily) || 0
-          
-          // Controlla se i prezzi sono stati modificati rispetto agli originali
-          const originalHourly = parseFloat(item.originalPriceHourly) || priceHourly
-          const originalDaily = parseFloat(item.originalPriceDaily) || priceDaily
-          const isPriceModified = (priceHourly !== originalHourly) || (priceDaily !== originalDaily)
-          
-          if (isReservation) {
-            // LOGICA PRENOTAZIONI: Tariffa sommativa di tutte le tariffe giornaliere (BLOCCATA)
-            itemTotal = priceDaily * durationDays
-            duration = `${durationDays} giorni (PRENOTAZIONE - Tariffa giornaliera bloccata)`
-            pricingLogic = 'reservation_daily_locked'
-          } else {
-            // LOGICA CONTRATTI NUOVI: Inizia oraria, si blocca quando raggiunge giornaliera
-            const hourlyTotal = priceHourly * durationHours
-            const dailyTotal = priceDaily * durationDays
-            
-            if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
-              // Quando il costo orario raggiunge o supera quello giornaliero, si blocca sulla tariffa giornaliera
-              itemTotal = dailyTotal
-              duration = `${durationDays} giorni (Bloccato su tariffa giornaliera)`
-              pricingLogic = 'new_contract_daily_capped'
-            } else if (priceHourly > 0) {
-              // Continua con tariffa oraria
-              itemTotal = hourlyTotal
-              duration = `${durationHours} ore (Tariffa oraria)`
-              pricingLogic = 'new_contract_hourly'
-            } else {
-              // Fallback su tariffa giornaliera se non c'è oraria
-              itemTotal = dailyTotal
-              duration = `${durationDays} giorni (Solo tariffa giornaliera disponibile)`
-              pricingLogic = 'fallback_daily'
-            }
-          }
-          
-          if (isPriceModified) {
-            duration += ' (prezzo modificato)'
-          }
-        }
-        
-        // Aggiungi assicurazione se presente
-        const insuranceAmount = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0
-        itemTotal += insuranceAmount
-        
-        totalAmount += itemTotal
-        billItems.push({
-          name: item.name || 'Item senza nome',
-          duration,
-          basePrice: itemTotal - insuranceAmount,
-          insurance: insuranceAmount,
-          total: itemTotal,
-          isCustomPrice: customPrice > 0,
-          customReason: item.customPriceReason,
-          isPriceModified: customPrice === 0 && ((parseFloat(item.priceHourly) !== parseFloat(item.originalPriceHourly)) || (parseFloat(item.priceDaily) !== parseFloat(item.originalPriceDaily))),
-          originalPriceHourly: item.originalPriceHourly,
-          originalPriceDaily: item.originalPriceDaily,
-          currentPriceHourly: item.priceHourly,
-          currentPriceDaily: item.priceDaily,
-          pricingLogic: pricingLogic,
-          isReservation: isReservation
-        })
-      }
-    })
+// PRIORITÀ 3: Calcolo con NUOVA LOGICA TARIFFE - CALCOLO PER OGNI ITEM INDIVIDUALMENTE
+     let totalAmount = 0
+     const billItems = []
+     
+     contract.items.forEach(item => {
+       // Processa tutti gli items (bike/accessory) che non sono restituiti
+       if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
+         let itemTotal = 0
+         let durationText = ''
+         let pricingLogic = ''
+         
+         // PRIORITÀ 1: Prezzo personalizzato dell'ultimo momento
+         const customPrice = parseFloat(item.customPrice) || 0
+         if (customPrice > 0) {
+           itemTotal = customPrice
+           durationText = item.customPriceReason || 'Prezzo personalizzato'
+           pricingLogic = 'custom'
+         } else {
+           // PRIORITÀ 2: Calcolo per ogni singolo item
+           const priceHourly = parseFloat(item.priceHourly) || 0
+           const priceDaily = parseFloat(item.priceDaily) || 0
+           
+           // Scatto orario: calcola durata in minuti per questo item specifico
+           const startDate = new Date(contract.startAt || contract.createdAt)
+           const endDate = new Date(contract.endAt || new Date())
+           const itemDurationMs = Math.max(0, endDate - startDate)
+           const itemDurationMinutes = itemDurationMs / (1000 * 60)
+           const oreFatturate = Math.max(1, Math.ceil(itemDurationMinutes / 60))
+           
+           // Applicazione tariffa: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
+           const hourlyTotal = priceHourly * oreFatturate
+           itemTotal = Math.min(hourlyTotal, priceDaily)
+           
+           const itemDurationHours = Math.ceil(itemDurationMinutes / 60)
+           const itemDurationDays = Math.ceil(itemDurationHours / 24)
+           
+           if (priceDaily > 0 && hourlyTotal >= priceDaily) {
+             durationText = `${oreFatturate} ore (Bloccato su €${priceDaily}/giorno)`
+             pricingLogic = 'hourly_capped_daily'
+           } else if (priceHourly > 0) {
+             durationText = `${oreFatturate} ore`
+             pricingLogic = 'hourly'
+           } else {
+             durationText = `${itemDurationDays} giorni`
+             pricingLogic = 'daily_only'
+           }
+         }
+         
+         // Aggiungi assicurazione se presente (non ancora pagata in anticipo)
+         const insuranceAmount = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0
+         const itemBasePrice = itemTotal - insuranceAmount
+         
+         totalAmount += itemTotal
+         billItems.push({
+           name: item.name || 'Item senza nome',
+           duration: durationText,
+           basePrice: itemBasePrice,
+           insurance: insuranceAmount,
+           total: itemTotal,
+           isCustomPrice: customPrice > 0,
+           customReason: item.customPriceReason,
+           pricingLogic: pricingLogic
+         })
+       }
+     })
     
     // Aggiungi assicurazione flat del contratto se presente
     if (contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0) {
@@ -823,17 +788,22 @@ const processReturns = async () => {
           })
         }
       })
-    }
+}
     
+    // Calcola durata aggregata per visualizzazione
+    const contractStartDate = new Date(contract.startAt || contract.createdAt)
+    const contractEndDate = new Date(contract.endAt || new Date())
+    const aggregateDurationMs = Math.max(0, contractEndDate - contractStartDate)
+    const aggregateDurationHours = Math.max(1, Math.ceil(aggregateDurationMs / (1000 * 60 * 60)))
+    const aggregateDurationDays = Math.max(1, Math.ceil(aggregateDurationHours / 24))
+
     return {
       finalTotal: Math.round(totalAmount * 100) / 100,
       items: billItems,
-      duration: { hours: durationHours, days: durationDays },
-      startDate,
-      endDate,
-      priceSource: 'calculated',
-      isReservation: isReservation,
-      pricingStrategy: isReservation ? 'reservation_daily_locked' : 'new_contract_flexible'
+      duration: { hours: aggregateDurationHours, days: aggregateDurationDays },
+      startDate: contractStartDate,
+      endDate: contractEndDate,
+      priceSource: 'calculated'
     }
   }
 
@@ -1058,13 +1028,12 @@ const processReturns = async () => {
         actualStartAt: new Date().toISOString()
       }
       
-      // Se si vuole bloccare la tariffa giornaliera, calcola il prezzo finale con logica individuale
-      if (lockDailyRate) {
+// Se si vuole bloccare la tariffa giornaliera, calcola il prezzo finale con logica individuale
+       if (lockDailyRate) {
         const startDate = new Date(selectedContractForStatusChange.startAt || selectedContractForStatusChange.createdAt)
         const endDate = selectedContractForStatusChange.endAt ? new Date(selectedContractForStatusChange.endAt) : new Date()
         const durationMs = Math.max(0, endDate - startDate)
-        const durationHours = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60)))
-        const durationDays = Math.max(1, Math.ceil(durationHours / 24))
+        const durationMinutes = durationMs / (1000 * 60)
         
         let totalBaseAmount = 0
         let totalInsurance = 0
@@ -1076,18 +1045,10 @@ const processReturns = async () => {
             const priceHourly = parseFloat(item.priceHourly) || 0
             const priceDaily = parseFloat(item.priceDaily) || 0
             
-            let itemBasePrice = 0
-            const hourlyTotal = priceHourly * durationHours
-            const dailyTotal = priceDaily * durationDays
-            
-            // Quando il costo orario raggiunge o supera quello giornaliero, si blocca su giornaliera
-            if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
-              itemBasePrice = dailyTotal
-            } else if (priceHourly > 0) {
-              itemBasePrice = hourlyTotal
-            } else {
-              itemBasePrice = dailyTotal
-            }
+            // Scatto orario: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
+            const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+            const hourlyTotal = priceHourly * oreFatturate
+            const itemBasePrice = Math.min(hourlyTotal, priceDaily)
             
             lockedItemPrices.push({
               itemId: item._id,
@@ -2542,19 +2503,7 @@ const processReturns = async () => {
                     <div style={{ marginBottom: '16px', fontSize: '14px', color: '#6b7280' }}>
                       <div>📅 Dal: {bill.startDate?.toLocaleString('it-IT')}</div>
                       <div>📅 Al: {bill.endDate?.toLocaleString('it-IT')}</div>
-                      <div>⏱️ Durata: {bill.duration.hours} ore ({bill.duration.days} giorni)</div>
-                      {bill.pricingStrategy && (
-                        <div style={{ 
-                          marginTop: '8px', 
-                          padding: '8px 12px', 
-                          background: bill.isReservation ? '#fef3c7' : '#dbeafe',
-                          borderRadius: '6px',
-                          fontWeight: '600',
-                          color: bill.isReservation ? '#92400e' : '#1e40af'
-                        }}>
-                          🎯 {bill.isReservation ? 'PRENOTAZIONE: Tariffa giornaliera bloccata' : 'CONTRATTO NUOVO: Tariffa flessibile (oraria → giornaliera)'}
-                        </div>
-                      )}
+                      <div>⏱️ Ore fatturate: {bill.duration.hours} (Totale: {bill.duration.days} giorni)</div>
                     </div>
 
                     {bill.items.map((item, idx) => (
@@ -2574,7 +2523,7 @@ const processReturns = async () => {
                             alignItems: 'center',
                             gap: '8px'
                           }}>
-                            {item.kind === 'bike' ? '🚴' : '🎒'} {item.name}
+                            {item.isCustomPrice ? '💰' : '🚴'} {item.name}
                           </div>
                           
                           <div style={{ 
@@ -2585,62 +2534,29 @@ const processReturns = async () => {
                             gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
                             gap: '4px'
                           }}>
-                            <div>⏱️ {item.duration}</div>
-                            <div>💰 €{item.originalPriceHourly || item.priceHourly}/h</div>
-                            <div>📅 €{item.originalPriceDaily || item.priceDaily}/g</div>
-                            {item.barcode && <div>🏷️ {item.barcode}</div>}
+<div>⏱️ {item.duration}</div>
                           </div>
                           
                           {item.pricingLogic && (
                             <div style={{ 
                               fontSize: '11px', 
-                              color: item.isReservation ? '#92400e' : '#1e40af',
+                              color: '#1e40af',
                               fontWeight: '500',
                               marginTop: '4px',
                               padding: '4px 8px',
-                              background: item.isReservation ? '#fef3c7' : '#dbeafe',
+                              background: '#dbeafe',
                               borderRadius: '4px',
                               display: 'inline-block'
                             }}>
-                              {item.pricingLogic === 'reservation_daily_locked' && '🔒 Prenotazione - Tariffa giornaliera bloccata'}
-                              {item.pricingLogic === 'new_contract_daily_capped' && '⚡ Bloccato su tariffa giornaliera'}
-                              {item.pricingLogic === 'new_contract_hourly' && '⏰ Tariffa oraria attiva'}
-                              {item.pricingLogic === 'fallback_daily' && '📅 Solo tariffa giornaliera'}
+                              {item.pricingLogic === 'hourly' && '⏰ Tariffa oraria'}
+                              {item.pricingLogic === 'hourly_capped_daily' && '⚡ Bloccato su tariffa giornaliera'}
+                              {item.pricingLogic === 'daily_only' && '📅 Solo tariffa giornaliera'}
                               {item.pricingLogic === 'custom' && '🎯 Prezzo personalizzato'}
                             </div>
                           )}
-                          
-                          {item.isPriceModified && (
-                            <div style={{ 
-                              fontSize: '11px', 
-                              color: '#dc2626', 
-                              fontWeight: '500',
-                              marginTop: '4px',
-                              padding: '4px 8px',
-                              background: '#fee2e2',
-                              borderRadius: '4px',
-                              display: 'inline-block'
-                            }}>
-                              ⚠️ Prezzo modificato durante stipula
-                            </div>
-                          )}
-                          
-                          {item.returnedAt && (
-                            <div style={{ 
-                              fontSize: '11px', 
-                              color: '#059669', 
-                              fontWeight: '500',
-                              marginTop: '4px',
-                              padding: '4px 8px',
-                              background: '#d1fae5',
-                              borderRadius: '4px',
-                              display: 'inline-block'
-                            }}>
-                              ✅ Restituito il {new Date(item.returnedAt).toLocaleDateString('it-IT')}
-                            </div>
-                          )}
                         </div>
-                        <div style={{ 
+
+                        <div style={{
                           textAlign: 'right',
                           minWidth: '120px',
                           display: 'flex',
@@ -2661,7 +2577,7 @@ const processReturns = async () => {
                               color: '#059669',
                               fontWeight: '500'
                             }}>
-                              Assicurazione: €{item.insurance.toFixed(2)}
+Assicurazione: €{item.insurance.toFixed(2)}
                             </div>
                           )}
                           
@@ -2675,20 +2591,10 @@ const processReturns = async () => {
                           }}>
                             Totale: €{item.total.toFixed(2)}
                           </div>
-                          
-                          {item.returnedAt && (
-                            <div style={{ 
-                              fontSize: '10px',
-                              color: '#6b7280',
-                              fontStyle: 'italic'
-                            }}>
-                              (Già restituito)
-                            </div>
-                          )}
                         </div>
                       </div>
                     ))}
-
+                    
                     <div style={{
                       display: 'flex',
                       justifyContent: 'space-between',

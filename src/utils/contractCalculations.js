@@ -5,32 +5,43 @@ export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}
   let insuranceTotal = 0;
 
   if (contract.items && contract.items.length > 0) {
-    contract.items.forEach((item, index) => {
-      if (item.returnedAt) return; // Skip item restituiti
-
+    contract.items.forEach((item) => {
+      // Calcola durata per ogni singolo item
       const startDate = new Date(contract.startAt || contract.createdAt);
-      const endDate = new Date(contract.endAt || new Date());
-      const durationHours = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60)));
-      const durationDays = Math.max(1, Math.ceil(durationHours / 24));
-
+      const endDate = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || new Date());
+      
+      // Durata in minuti, arrotondata per eccesso via Math.ceil su ore complete
+      const durationMs = Math.max(0, endDate - startDate);
+      const durationMinutes = durationMs / (1000 * 60);
+      const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
+      
       const priceHourly = parseFloat(item.priceHourly) || 0;
       const priceDaily = parseFloat(item.priceDaily) || 0;
 
       // Calcola il prezzo del noleggio (solo bici/accessorio)
       let itemPrice = 0;
-      if (durationHours <= 24) {
-        itemPrice = priceHourly * durationHours;
-      } else {
-        itemPrice = priceDaily * durationDays;
-      }
+      
+      if (item.kind === 'bike' || item.kind === 'accessory') {
+        // Scatto orario: moltiplica ore fatturate per prezzo orario
+        // Poi blocca su prezzo giornaliero se supera
+        const hourlyTotal = oreFatturate * priceHourly;
+        const dailyTotal = priceDaily;
+        
+        if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
+          // Quando il costo orario raggiunge o supera quello giornaliero, si blocca su giornaliera
+          itemPrice = dailyTotal;
+        } else {
+          itemPrice = hourlyTotal;
+        }
+        
+        bikesTotal += itemPrice;
 
-      bikesTotal += itemPrice;
-
-      // Calcola il prezzo dell'assicurazione separatamente
-      // Escludi l'assicurazione se è stata pagata in anticipo
-      if (item.insurance && !itemsInsurancePaidAdvance[item._id] && !itemsInsurancePaidAdvance[index]) {
-        const insuranceFlat = parseFloat(item.insuranceFlat) || 5;
-        insuranceTotal += insuranceFlat;
+        // Calcola il prezzo dell'assicurazione separatamente
+        // Escludi l'assicurazione se è stata pagata in anticipo
+        if (item.insurance && !itemsInsurancePaidAdvance[item._id]) {
+          const insuranceFlat = parseFloat(item.insuranceFlat) || 5;
+          insuranceTotal += insuranceFlat;
+        }
       }
     });
   }

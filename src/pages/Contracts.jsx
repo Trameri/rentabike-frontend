@@ -182,54 +182,23 @@ export default function Contracts(){
   const calculateBill = (contract) => {
     if (!contract || !contract.items) return { finalTotal: 0, items: [] };
     
-    const startDate = new Date(contract.startAt || contract.createdAt);
-    const endDate = new Date(contract.endAt || new Date());
-    const durationMs = endDate - startDate;
-    const durationHours = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60)));
-    const durationDays = Math.max(1, Math.ceil(durationHours / 24));
-    
-    let totalAmount = 0;
-    const billItems = [];
-    
-    // NUOVA LOGICA: Contratti prenotati vs contratti nuovi
-    const isReservation = contract.status === 'reserved' || contract.isReservation;
-    
     contract.items.forEach(item => {
       if (item.kind === 'bike' || item.kind === 'accessory') {
         let itemTotal = 0;
-        let duration = '';
-        let pricingLogic = '';
         
         const priceHourly = parseFloat(item.priceHourly) || 0;
         const priceDaily = parseFloat(item.priceDaily) || 0;
         
-        if (isReservation) {
-          // LOGICA PRENOTAZIONI: Tariffa sommativa di tutte le tariffe giornaliere (BLOCCATA)
-          itemTotal = priceDaily * durationDays;
-          duration = `${durationDays} giorni (PRENOTAZIONE - Tariffa giornaliera bloccata)`;
-          pricingLogic = 'reservation_daily_locked';
-        } else {
-          // LOGICA CONTRATTI NUOVI: Inizia oraria, si blocca quando raggiunge giornaliera
-          const hourlyTotal = priceHourly * durationHours;
-          const dailyTotal = priceDaily * durationDays;
-          
-          if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
-            // Quando il costo orario raggiunge o supera quello giornaliero, si blocca sulla tariffa giornaliera
-            itemTotal = dailyTotal;
-            duration = `${durationDays} giorni (Bloccato su tariffa giornaliera)`;
-            pricingLogic = 'new_contract_daily_capped';
-          } else if (priceHourly > 0) {
-            // Continua con tariffa oraria
-            itemTotal = hourlyTotal;
-            duration = `${durationHours} ore (Tariffa oraria)`;
-            pricingLogic = 'new_contract_hourly';
-          } else {
-            // Fallback su tariffa giornaliera se non c'è oraria
-            itemTotal = dailyTotal;
-            duration = `${durationDays} giorni (Solo tariffa giornaliera disponibile)`;
-            pricingLogic = 'fallback_daily';
-          }
-        }
+        // Scatto orario: calcola durata in minuti per ogni item
+        const startDate = new Date(contract.startAt || contract.createdAt);
+        const endDate = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
+        const itemDurationMs = Math.max(0, endDate - startDate);
+        const itemDurationMinutes = itemDurationMs / (1000 * 60);
+        const oreFatturate = Math.max(1, Math.ceil(itemDurationMinutes / 60));
+        
+        // Formula: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
+        const hourlyTotal = priceHourly * oreFatturate;
+        itemTotal = Math.min(hourlyTotal, priceDaily);
         
         // Aggiungi assicurazione se presente
         if (item.insurance) {
@@ -239,11 +208,9 @@ export default function Contracts(){
         totalAmount += itemTotal;
         billItems.push({
           name: item.name,
-          duration,
+          duration: `${oreFatturate} ore fatturate`,
           total: itemTotal,
-          insurance: item.insurance,
-          pricingLogic: pricingLogic,
-          isReservation: isReservation
+          insurance: item.insurance
         });
       }
     });
@@ -262,9 +229,7 @@ export default function Contracts(){
     return {
       finalTotal: totalAmount,
       items: billItems,
-      duration: { hours: durationHours, days: durationDays },
-      isReservation: isReservation,
-      pricingStrategy: isReservation ? 'reservation_daily_locked' : 'new_contract_flexible'
+      duration: { hours: 0, days: 0 }
     };
   };
 

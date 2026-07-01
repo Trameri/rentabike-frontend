@@ -41,29 +41,33 @@ const PriceCalculatorOptimized = ({
 
     const start = new Date(startDate)
     const end = new Date(endDate)
-    const diffMs = end - start
-    const diffHours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)))
-    const diffDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+    const diffMs = Math.max(0, end - start)
+    const diffMinutes = diffMs / (1000 * 60)
+    const diffHours = Math.max(1, Math.ceil(diffMinutes / 60))
+    const diffDays = Math.max(1, Math.ceil(diffHours / 24))
 
     let subtotal = 0
     let totalInsurance = 0
     const breakdown = []
 
     items.forEach(item => {
-      const hourlyPrice = (item.priceHourly || 0) * diffHours
-      const dailyPrice = (item.priceDaily || 0) * diffDays
+      const priceHourly = item.priceHourly || 0
+      const priceDaily = item.priceDaily || 0
       
+      // Scatto orario: calcola ore fatturate con Math.ceil(minutes/60)
+      const oreFatturate = Math.max(1, Math.ceil(diffMinutes / 60))
+      const hourlyPrice = priceHourly * oreFatturate
+      
+      // Per prenotazioni: usa sempre tariffa giornaliera
+      // Per contratti: scatto orario con blocco su giornaliero
       let bestPrice, bestType
-      
       if (isReservation) {
-        // PRENOTAZIONE: Sempre tariffa giornaliera
-        bestPrice = dailyPrice
+        bestPrice = priceDaily
         bestType = 'daily'
       } else {
-        // CONTRATTO NORMALE: Tariffa oraria fino a quando non conviene la giornaliera
-        // Se la tariffa oraria supera quella giornaliera, si blocca alla giornaliera
-        bestPrice = Math.min(hourlyPrice, dailyPrice)
-        bestType = hourlyPrice <= dailyPrice ? 'hourly' : 'daily'
+        // Blocco giornaliero: minimo tra orario e giornaliero
+        bestPrice = Math.min(hourlyPrice, priceDaily)
+        bestType = hourlyPrice <= priceDaily ? 'hourly' : 'daily'
       }
       
       subtotal += bestPrice
@@ -77,13 +81,13 @@ const PriceCalculatorOptimized = ({
         name: item.name,
         kind: item.kind,
         hourlyPrice,
-        dailyPrice,
+        dailyPrice: priceDaily,
         bestPrice,
         bestType,
         insurance: itemInsurance,
-        priceHourly: item.priceHourly || 0,
-        priceDaily: item.priceDaily || 0,
-        isReservation
+        priceHourly,
+        priceDaily,
+        oreFatturate
       })
     })
 
@@ -345,18 +349,15 @@ const PriceCalculatorOptimized = ({
                     color: '#6b7280',
                     marginTop: '2px'
                   }}>
-                    {item.isReservation ? 
-                      '📅 Tariffa giornaliera (prenotazione)' :
-                      (item.bestType === 'hourly' ? 
-                        '⏱️ Tariffa oraria (attiva)' : 
+                    {item.bestType === 'hourly' ? 
+                        '⏱️ Tariffa oraria (scatto orario)' : 
                         '🔒 Bloccata a tariffa giornaliera'
-                      )
-                    }
+                      }
                   </div>
                   
                   {/* Mostra risparmio se applicabile */}
-                  {!item.isReservation && item.bestType === 'daily' && item.hourlyPrice > item.dailyPrice && (
-                    <div style={{
+{!isReservation && item.bestType === 'daily' && item.hourlyPrice > item.dailyPrice && (
+                     <div style={{
                       fontSize: '10px',
                       color: '#059669',
                       marginTop: '2px',
