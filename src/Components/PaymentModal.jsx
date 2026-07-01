@@ -29,29 +29,127 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
     // Inizializza gli stati delle assicurazioni pagate in anticipo
     const initialItemInsurancePaid = {};
 
-    // Se c'è un finalAmount già calcolato, usalo direttamente
+    // Se c'è un finalAmount già calcolato, usa i prezzi individuali salvati o calcola individualmente
     if (contract.finalAmount && contract.finalAmount > 0) {
-      const total = parseFloat(contract.finalAmount);
-      setPaymentDetails({
-        subtotal: total,
-        insurance: 0,
-        adjustments: 0,
-        total: total
-      });
-      setFinalAmount(total.toFixed(2));
-      // Inizializza itemPrices con il totale distribuito (prezzi base)
       const prices = {};
       const insurances = {};
-      let totalInsurances = 0;
-      contract.items.forEach((item, index) => {
-        const itemInsurance = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0;
-        insurances[index] = itemInsurance.toFixed(2);
-        totalInsurances += itemInsurance;
-      });
-      const baseTotal = total - totalInsurances;
-      contract.items.forEach((item, index) => {
-        prices[index] = (baseTotal / contract.items.length).toFixed(2);
-      });
+      
+      // Usa i prezzi già salvati se presenti
+      if (contract.lockedItemPrices && Array.isArray(contract.lockedItemPrices) && contract.lockedItemPrices.length > 0) {
+        let subtotalFromLocked = 0;
+        
+        contract.items.forEach((item, index) => {
+          if (item.returnedAt) return;
+          
+          const lockedPrice = contract.lockedItemPrices.find(lp => 
+            lp.itemId === item._id || lp.itemId === index || lp.itemId === item.id
+          );
+          
+          if (lockedPrice) {
+            prices[index] = (lockedPrice.basePrice || 0).toFixed(2);
+            insurances[index] = (lockedPrice.insurance || 0).toFixed(2);
+            subtotalFromLocked += parseFloat(prices[index]);
+          } else {
+            // Fallback: calcola per questa bici
+            let itemBasePrice = 0;
+            const priceHourly = parseFloat(item.priceHourly) || 0;
+            const priceDaily = parseFloat(item.priceDaily) || 0;
+            
+            const itemEndTime = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
+            const itemStartTime = new Date(contract.startAt || contract.createdAt);
+            const itemDurationMs = itemEndTime - itemStartTime;
+            const itemHours = Math.max(1, Math.floor(itemDurationMs / (1000 * 60 * 60)));
+            const itemDays = Math.max(1, Math.floor(itemHours / 24));
+            
+            if (contract.status === 'reserved' || contract.isReservation) {
+              itemBasePrice = priceDaily * itemDays;
+            } else {
+              const hourlyTotal = priceHourly * itemHours;
+              const dailyTotal = priceDaily * itemDays;
+              if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
+                itemBasePrice = dailyTotal;
+              } else if (priceHourly > 0) {
+                itemBasePrice = hourlyTotal;
+              } else {
+                itemBasePrice = dailyTotal;
+              }
+            }
+            prices[index] = itemBasePrice.toFixed(2);
+            insurances[index] = item.insurance ? (parseFloat(item.insuranceFlat) || 5).toFixed(2) : '0.00';
+            subtotalFromLocked += itemBasePrice;
+          }
+        });
+        
+        const total = parseFloat(contract.finalAmount);
+        const contractInsurance = contract.insuranceFlat && !contract.insurancePaidInAdvance ? parseFloat(contract.insuranceFlat) || 0 : 0;
+        const totalInsurances = Object.values(insurances).reduce((sum, ins) => sum + parseFloat(ins), 0) + contractInsurance;
+        
+        setPaymentDetails({
+          subtotal: Math.round((total - totalInsurances) * 100) / 100,
+          insurance: Math.round(totalInsurances * 100) / 100,
+          adjustments: 0,
+          total: Math.round(total * 100) / 100
+        });
+      } else {
+        // Nessun lockedItemPrices salvato: calcola i prezzi individualmente
+        let totalBaseAmount = 0;
+        let totalInsurances = 0;
+
+        contract.items.forEach((item, index) => {
+          if (item.returnedAt) return;
+          
+          const priceHourly = parseFloat(item.priceHourly) || 0;
+          const priceDaily = parseFloat(item.priceDaily) || 0;
+          const itemEndTime = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
+          const itemStartTime = new Date(contract.startAt || contract.createdAt);
+          const itemDurationMs = itemEndTime - itemStartTime;
+          const itemHours = Math.max(1, Math.floor(itemDurationMs / (1000 * 60 * 60)));
+          const itemDays = Math.max(1, Math.floor(itemHours / 24));
+          
+          let itemBasePrice = 0;
+          if (contract.status === 'reserved' || contract.isReservation) {
+            itemBasePrice = priceDaily * itemDays;
+          } else {
+            const hourlyTotal = priceHourly * itemHours;
+            const dailyTotal = priceDaily * itemDays;
+            if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
+              itemBasePrice = dailyTotal;
+            } else if (priceHourly > 0) {
+              itemBasePrice = hourlyTotal;
+            } else {
+              itemBasePrice = dailyTotal;
+            }
+          }
+          
+          prices[index] = itemBasePrice.toFixed(2);
+          totalBaseAmount += itemBasePrice;
+          
+          const itemInsurance = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0;
+          insurances[index] = itemInsurance.toFixed(2);
+          totalInsurances += itemInsurance;
+        });
+        
+        const total = parseFloat(contract.finalAmount);
+        const contractInsurance = contract.insuranceFlat && !contract.insurancePaidInAdvance ? parseFloat(contract.insuranceFlat) || 0 : 0;
+        const totalInsurancesWithContract = totalInsurances + contractInsurance;
+        const baseTotal = total - totalInsurancesWithContract;
+        
+        // Applica il fattore di scala in base al totale base calcolato
+        const scaleFactor = totalBaseAmount > 0 ? baseTotal / totalBaseAmount : 0;
+        
+        Object.keys(prices).forEach(index => {
+          prices[index] = (parseFloat(prices[index]) * scaleFactor).toFixed(2);
+        });
+        
+        setPaymentDetails({
+          subtotal: Math.round(baseTotal * 100) / 100,
+          insurance: Math.round(totalInsurancesWithContract * 100) / 100,
+          adjustments: 0,
+          total: Math.round(total * 100) / 100
+        });
+      }
+      
+      setFinalAmount(parseFloat(contract.finalAmount).toFixed(2));
       setItemPrices(prices);
       setItemInsurances(insurances);
       setItemInsurancePaidAdvance(initialItemInsurancePaid);

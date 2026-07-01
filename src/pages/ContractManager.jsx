@@ -509,7 +509,7 @@ const getEndOfWeek = (date) => {
     )
   }
 
-  const processReturns = async () => {
+const processReturns = async () => {
     const selectedItems = itemsToReturn.filter(item => item.selected)
     if (selectedItems.length === 0) {
       showWarning('Seleziona almeno un articolo da restituire')
@@ -540,25 +540,62 @@ const getEndOfWeek = (date) => {
       const failureCount = results.filter(r => !r.success).length
 
       if (successCount > 0) {
-        // Calcola il prezzo finale e aggiorna il contratto solo se ci sono stati successi
-        try {
-          const bill = calculateDetailedBill(selectedContractForReturn)
-          await api.put(`/api/contracts/${selectedContractForReturn._id}`, { 
-            finalAmount: bill.finalTotal,
-            endAt: new Date().toISOString()
-          })
-          
-          showSuccess(`✅ ${successCount} articoli restituiti con successo. Prezzo bloccato: €${bill.finalTotal.toFixed(2)}`)
-        } catch (updateError) {
-          console.error('Errore aggiornamento contratto:', updateError)
-          showWarning(`${successCount} articoli restituiti, ma errore nell'aggiornamento del prezzo`)
-        }
+        // Calcola i prezzi individuali per ogni bici alla data di restituzione
+        const now = new Date()
+        let totalBaseAmount = 0
+        const lockedItemPrices = []
+        
+        selectedContractForReturn.items.forEach(item => {
+          if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
+            const itemEndTime = now
+            const itemStartTime = new Date(item.startedAt || item.activatedAt || selectedContractForReturn.startAt || selectedContractForReturn.createdAt)
+            const itemDurationMs = itemEndTime - itemStartTime
+            const itemHours = Math.max(1, Math.floor(itemDurationMs / (1000 * 60 * 60)))
+            const itemDays = Math.max(1, Math.floor(itemHours / 24))
+            
+            const priceHourly = parseFloat(item.priceHourly) || 0
+            const priceDaily = parseFloat(item.priceDaily) || 0
+            
+            let itemBasePrice = 0
+            // Logic: oraria fino a quando non raggiunge/supera la giornaliera, poi si blocca
+            const hourlyTotal = priceHourly * itemHours
+            const dailyTotal = priceDaily * itemDays
+            
+            if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
+              itemBasePrice = dailyTotal
+            } else if (priceHourly > 0) {
+              itemBasePrice = hourlyTotal
+            } else if (priceDaily > 0) {
+              itemBasePrice = dailyTotal
+            }
+            
+            lockedItemPrices.push({
+              itemId: item._id,
+              basePrice: Math.round(itemBasePrice * 100) / 100,
+              insurance: item.insurance ? Math.round((parseFloat(item.insuranceFlat) || 5) * 100) / 100 : 0,
+              lockedAt: now.toISOString()
+            })
+            totalBaseAmount += itemBasePrice
+          }
+        })
+        
+        const totalInsurance = lockedItemPrices.reduce((sum, lp) => sum + lp.insurance, 0)
+        const contractInsurance = selectedContractForReturn.insuranceFlat ? parseFloat(selectedContractForReturn.insuranceFlat) || 0 : 0
+        const finalAmount = Math.round((totalBaseAmount + totalInsurance + contractInsurance) * 100) / 100
+        
+        await api.put(`/api/contracts/${selectedContractForReturn._id}`, { 
+          finalAmount,
+          endAt: new Date().toISOString(),
+          lockedItemPrices
+        })
+        
+        showSuccess(`✅ ${successCount} articoli restituiti con successo. Prezzo bloccato: €${finalAmount.toFixed(2)}`)
       }
       
       if (failureCount > 0) {
         showError(`❌ ${failureCount} articoli non sono stati restituiti`)
       }
-      
+
       setShowReturnModal(false)
       setSelectedContractForReturn(null)
       setItemsToReturn([])
@@ -585,7 +622,42 @@ const getEndOfWeek = (date) => {
       }
     }
     
-    // PRIORITÀ 1: Se c'è un prezzo finale bloccato, usalo
+    // PRIORITÀ 1: Se c'è un prezzo finale bloccato con prezzi individuali, usali
+    if (contract.finalAmount && contract.finalAmount > 0 && contract.lockedItemPrices && Array.isArray(contract.lockedItemPrices) && contract.lockedItemPrices.length > 0) {
+      const billItems = contract.lockedItemPrices.map(lockedPrice => {
+        const item = contract.items.find(i => i._id === lockedPrice.itemId)
+        return {
+          name: item?.name || 'Bici senza nome',
+          duration: lockedPrice.lockedAt ? `Bloccato il ${new Date(lockedPrice.lockedAt).toLocaleDateString('it-IT')}` : 'Prezzo bloccato',
+          basePrice: lockedPrice.basePrice,
+          insurance: lockedPrice.insurance,
+          total: lockedPrice.basePrice + lockedPrice.insurance
+        }
+      })
+      
+      // Aggiungi assicurazione flat del contratto se presente
+      if (contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0) {
+        billItems.push({
+          name: 'Assicurazione Contratto',
+          duration: 'Flat',
+          basePrice: 0,
+          insurance: parseFloat(contract.insuranceFlat),
+          total: parseFloat(contract.insuranceFlat)
+        })
+      }
+      
+      return {
+        finalTotal: parseFloat(contract.finalAmount),
+        items: billItems,
+        duration: { hours: 0, days: 0 },
+        startDate: new Date(contract.startAt || contract.createdAt),
+        endDate: new Date(contract.endAt || new Date()),
+        priceSource: 'locked_individual',
+        lockedAt: contract.priceLockedAt
+      }
+    }
+    
+    // PRIORITÀ 2: Se c'è un prezzo finale bloccato (generale, senza prezzi individuali)
     if (contract.finalAmount && contract.finalAmount > 0) {
       return {
         finalTotal: parseFloat(contract.finalAmount),
@@ -979,11 +1051,54 @@ const getEndOfWeek = (date) => {
         actualStartAt: new Date().toISOString()
       }
       
-      // Se si vuole bloccare la tariffa giornaliera, calcola il prezzo finale
+      // Se si vuole bloccare la tariffa giornaliera, calcola il prezzo finale con logica individuale
       if (lockDailyRate) {
-        const bill = calculateDetailedBill(selectedContractForStatusChange)
-        updateData.finalAmount = bill.finalTotal
+        const startDate = new Date(selectedContractForStatusChange.startAt || selectedContractForStatusChange.createdAt)
+        const endDate = selectedContractForStatusChange.endAt ? new Date(selectedContractForStatusChange.endAt) : new Date()
+        const durationMs = Math.max(0, endDate - startDate)
+        const durationHours = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60)))
+        const durationDays = Math.max(1, Math.ceil(durationHours / 24))
+        
+        let totalBaseAmount = 0
+        let totalInsurance = 0
+        const lockedItemPrices = []
+        
+        // Calcola il prezzo per ogni bici individualmente
+        selectedContractForStatusChange.items.forEach(item => {
+          if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
+            const priceHourly = parseFloat(item.priceHourly) || 0
+            const priceDaily = parseFloat(item.priceDaily) || 0
+            
+            let itemBasePrice = 0
+            const hourlyTotal = priceHourly * durationHours
+            const dailyTotal = priceDaily * durationDays
+            
+            // Quando il costo orario raggiunge o supera quello giornaliero, si blocca su giornaliera
+            if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
+              itemBasePrice = dailyTotal
+            } else if (priceHourly > 0) {
+              itemBasePrice = hourlyTotal
+            } else {
+              itemBasePrice = dailyTotal
+            }
+            
+            lockedItemPrices.push({
+              itemId: item._id,
+              basePrice: itemBasePrice,
+              insurance: item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0,
+              lockedAt: new Date().toISOString()
+            })
+            totalBaseAmount += itemBasePrice
+            totalInsurance += item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0
+          }
+        })
+        
+        // Aggiungi assicurazione flat del contratto
+        const contractInsurance = selectedContractForStatusChange.insuranceFlat ? parseFloat(selectedContractForStatusChange.insuranceFlat) || 0 : 0
+        
+        updateData.finalAmount = Math.round((totalBaseAmount + totalInsurance + contractInsurance) * 100) / 100
         updateData.priceLockedAt = new Date().toISOString()
+        updateData.lockedItemPrices = lockedItemPrices
       }
       
       await api.put(`/api/contracts/${selectedContractForStatusChange._id}`, updateData)
