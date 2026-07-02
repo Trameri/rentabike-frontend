@@ -637,7 +637,7 @@ const processReturns = async () => {
         pricingLogic = 'hourly'
       }
 
-      const insuranceAmount = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0
+      const insuranceAmount = item.insurance ? 5 : 0
       const itemTotal = itemBasePrice + insuranceAmount
 
       totalAmount += itemTotal
@@ -728,7 +728,7 @@ const processReturns = async () => {
     
     contract.items.forEach((item, index) => {
       if (item.insurance && selectedItemInsurancePaidAdvance[index]) {
-        totalPaid += parseFloat(item.insuranceFlat) || 5
+        totalPaid += 5
       }
     })
     
@@ -781,7 +781,7 @@ const processReturns = async () => {
         Object.keys(itemInsurancePaidAdvanceData).forEach(key => {
           const item = selectedContractForPayment.items.find(i => i._id === key || i._id === undefined)
           if (item && item.insurance) {
-            insuranceToSubtract += parseFloat(item.insuranceFlat) || 5
+            insuranceToSubtract += 5
           }
         })
         
@@ -2444,7 +2444,7 @@ const processReturns = async () => {
                     )}
                     {item.insurance && (
                       <div style={{ fontSize: '11px', color: '#059669', marginTop: '4px' }}>
-                        🛡️ Assicurazione: €{(parseFloat(item.insuranceFlat) || 5).toFixed(2)}
+                         🛡️ Assicurazione: €5,00
                       </div>
                     )}
                   </div>

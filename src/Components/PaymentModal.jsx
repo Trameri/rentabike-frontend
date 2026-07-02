@@ -65,7 +65,7 @@ const calculatePaymentDetails = () => {
             itemBasePrice = Math.min(hourlyTotal, priceDaily);
             
             prices[index] = itemBasePrice.toFixed(2);
-            insurances[index] = item.insurance ? (parseFloat(item.insuranceFlat) || 5).toFixed(2) : '0.00';
+            insurances[index] = item.insurance ? '5.00' : '0.00';
             subtotalFromLocked += itemBasePrice;
           }
         });
@@ -107,7 +107,7 @@ const calculatePaymentDetails = () => {
           prices[index] = itemBasePrice.toFixed(2);
           totalBaseAmount += itemBasePrice;
 
-          const itemInsurance = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0;
+          const itemInsurance = item.insurance ? 5 : 0;
           insurances[index] = itemInsurance.toFixed(2);
           totalInsurances += itemInsurance;
         });
@@ -168,7 +168,7 @@ const calculatePaymentDetails = () => {
       prices[index] = itemBasePrice.toFixed(2);
       subtotal += itemBasePrice;
 
-      const itemInsurance = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0;
+      const itemInsurance = item.insurance ? 5 : 0;
       insurances[index] = itemInsurance.toFixed(2);
       insurance += itemInsurance;
     });
