@@ -41,6 +41,15 @@ export default function ContractManager(){
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [selectedContractForDelete, setSelectedContractForDelete] = useState(null)
   const [deleteReason, setDeleteReason] = useState('')
+
+  // Stati per sostituzione bici (swap)
+  const [showSwapModal, setShowSwapModal] = useState(false)
+  const [selectedContractForSwap, setSelectedContractForSwap] = useState(null)
+  const [swapOldItemId, setSwapOldItemId] = useState(null)
+  const [swapNewItemBarcode, setSwapNewItemBarcode] = useState('')
+  const [swapNewItemName, setSwapNewItemName] = useState('')
+  const [swapNewItemPriceHourly, setSwapNewItemPriceHourly] = useState('')
+  const [swapNewItemPriceDaily, setSwapNewItemPriceDaily] = useState('')
   
   // Stati per cambio stato (prenotato -> in uso)
   const [showStatusChangeModal, setShowStatusChangeModal] = useState(false)
@@ -510,171 +519,67 @@ const getEndOfWeek = (date) => {
   }
 
 const processReturns = async () => {
-    const selectedItems = itemsToReturn.filter(item => item.selected)
-    if (selectedItems.length === 0) {
-      showWarning('Seleziona almeno un articolo da restituire')
-      return
-    }
-
-    setLoading(true)
-    try {
-      const results = []
-      
-      // Restituisci tutti gli items selezionati
-      for (const item of selectedItems) {
-        try {
-          await api.post(`/api/contracts/${selectedContractForReturn._id}/return-item`, {
-            itemId: item._id,
-            returnedAt: new Date().toISOString(),
-            condition: item.condition || 'good',
-            notes: `Restituito in condizioni: ${item.condition || 'good'}`
-          })
-          results.push({ success: true, item: item.name })
-        } catch (itemError) {
-          console.error(`Errore restituzione ${item.name}:`, itemError)
-          results.push({ success: false, item: item.name, error: itemError.message })
-        }
-      }
-
-      const successCount = results.filter(r => r.success).length
-      const failureCount = results.filter(r => !r.success).length
-
-      if (successCount > 0) {
-        // Calcola i prezzi individuali per ogni bici alla data di restituzione
-        const now = new Date()
-        // Parti dai lockedItemPrices esistenti se presenti
-        const existingLockedPrices = selectedContractForReturn.lockedItemPrices || []
-        const lockedItemPrices = [...existingLockedPrices]
-        let totalBaseAmount = existingLockedPrices.reduce((sum, lp) => sum + (lp.basePrice || 0), 0)
-        
-// Aggiorna i prezzi solo per le bici che vengono appena restituite
-         selectedContractForReturn.items.forEach(item => {
-           if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
-             // Verifica se questa bici ha già un prezzo bloccato
-             const alreadyLocked = existingLockedPrices.find(lp => lp.itemId === item._id)
-             if (!alreadyLocked) {
-               const itemEndTime = now
-               const itemStartTime = new Date(item.startedAt || item.activatedAt || selectedContractForReturn.startAt || selectedContractForReturn.createdAt)
-               const itemDurationMs = itemEndTime - itemStartTime
-               const itemDurationMinutes = itemDurationMs / (1000 * 60)
-               const oreFatturate = Math.max(1, Math.ceil(itemDurationMinutes / 60))
-               
-               const priceHourly = parseFloat(item.priceHourly) || 0
-               const priceDaily = parseFloat(item.priceDaily) || 0
-               
-               // Scatto orario: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
-               const hourlyTotal = priceHourly * oreFatturate
-               const itemBasePrice = Math.min(hourlyTotal, priceDaily)
-               
-               lockedItemPrices.push({
-                 itemId: item._id,
-                 basePrice: Math.round(itemBasePrice * 100) / 100,
-                 insurance: item.insurance ? Math.round((parseFloat(item.insuranceFlat) || 5) * 100) / 100 : 0,
-                 lockedAt: now.toISOString()
-               })
-               totalBaseAmount += itemBasePrice
-             }
-           }
-         })
-        
-        const totalInsurance = lockedItemPrices.reduce((sum, lp) => sum + lp.insurance, 0)
-        const contractInsurance = selectedContractForReturn.insuranceFlat ? parseFloat(selectedContractForReturn.insuranceFlat) || 0 : 0
-        const finalAmount = Math.round((totalBaseAmount + totalInsurance + contractInsurance) * 100) / 100
-        
-        await api.put(`/api/contracts/${selectedContractForReturn._id}`, { 
-          finalAmount,
-          endAt: new Date().toISOString(),
-          lockedItemPrices
-        })
-        
-        showSuccess(`✅ ${successCount} articoli restituiti con successo. Prezzo bloccato: €${finalAmount.toFixed(2)}`)
-      }
-      
-      if (failureCount > 0) {
-        showError(`❌ ${failureCount} articoli non sono stati restituiti`)
-      }
-
-      setShowReturnModal(false)
-      setSelectedContractForReturn(null)
-      setItemsToReturn([])
-      await loadContracts()
-      
-    } catch (error) {
-      console.error('Errore generale restituzione:', error)
-      showError(`Errore durante la restituzione: ${error.message}`)
-    } finally {
-      setLoading(false)
-    }
+  const selectedItems = itemsToReturn.filter(item => item.selected)
+  if (selectedItems.length === 0) {
+    showWarning('Seleziona almeno un articolo da restituire')
+    return
   }
 
-  // STEP 3: CALCOLO PREZZO DETTAGLIATO CON NUOVA LOGICA TARIFFE
+  setLoading(true)
+  try {
+    const results = []
+    
+    for (const item of selectedItems) {
+      try {
+        await api.post(`/api/contracts/${selectedContractForReturn._id}/return-item`, {
+          itemId: item._id,
+          returnedAt: new Date().toISOString(),
+          condition: item.condition || 'good',
+          notes: `Restituito in condizioni: ${item.condition || 'good'}`
+        })
+        results.push({ success: true, item: item.name })
+      } catch (itemError) {
+        console.error(`Errore restituzione ${item.name}:`, itemError)
+        results.push({ success: false, item: item.name, error: itemError.message })
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length
+    const failureCount = results.filter(r => !r.success).length
+
+    if (successCount > 0) {
+      showSuccess(`✅ ${successCount} articoli restituiti con successo.`)
+    }
+    
+    if (failureCount > 0) {
+      showError(`❌ ${failureCount} articoli non sono stati restituiti`)
+    }
+
+    setShowReturnModal(false)
+    setSelectedContractForReturn(null)
+    setItemsToReturn([])
+    await loadContracts()
+    
+  } catch (error) {
+    console.error('Errore generale restituzione:', error)
+    showError(`Errore durante la restituzione: ${error.message}`)
+  } finally {
+    setLoading(false)
+  }
+}
+
   const calculateDetailedBill = (contract) => {
     if (!contract || !contract.items || contract.items.length === 0) {
-      return { 
-        finalTotal: 0, 
-        items: [], 
-        duration: { hours: 0, days: 0 }, 
-        startDate: null, 
+      return {
+        finalTotal: 0,
+        items: [],
+        duration: { hours: 0, days: 0 },
+        startDate: null,
         endDate: null,
         priceSource: 'none'
       }
     }
-    
-    // PRIORITÀ 1: Se c'è un prezzo finale bloccato con prezzi individuali, usali
-    if (contract.finalAmount && contract.finalAmount > 0 && contract.lockedItemPrices && Array.isArray(contract.lockedItemPrices) && contract.lockedItemPrices.length > 0) {
-      const billItems = contract.lockedItemPrices.map(lockedPrice => {
-        const item = contract.items.find(i => i._id === lockedPrice.itemId)
-        return {
-          name: item?.name || 'Bici senza nome',
-          duration: lockedPrice.lockedAt ? `Bloccato il ${new Date(lockedPrice.lockedAt).toLocaleDateString('it-IT')}` : 'Prezzo bloccato',
-          basePrice: lockedPrice.basePrice,
-          insurance: lockedPrice.insurance,
-          total: lockedPrice.basePrice + lockedPrice.insurance
-        }
-      })
-      
-      // Aggiungi assicurazione flat del contratto se presente
-      if (contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0) {
-        billItems.push({
-          name: 'Assicurazione Contratto',
-          duration: 'Flat',
-          basePrice: 0,
-          insurance: parseFloat(contract.insuranceFlat),
-          total: parseFloat(contract.insuranceFlat)
-        })
-      }
-      
-      return {
-        finalTotal: parseFloat(contract.finalAmount),
-        items: billItems,
-        duration: { hours: 0, days: 0 },
-        startDate: new Date(contract.startAt || contract.createdAt),
-        endDate: new Date(contract.endAt || new Date()),
-        priceSource: 'locked_individual',
-        lockedAt: contract.priceLockedAt
-      }
-    }
-    
-    // PRIORITÀ 2: Se c'è un prezzo finale bloccato (generale, senza prezzi individuali)
-    if (contract.finalAmount && contract.finalAmount > 0) {
-      return {
-        finalTotal: parseFloat(contract.finalAmount),
-        items: [{
-          name: '💰 Prezzo Bloccato',
-          duration: contract.priceLockedAt ? `Bloccato il ${new Date(contract.priceLockedAt).toLocaleDateString('it-IT')}` : 'Prezzo fisso',
-          basePrice: parseFloat(contract.finalAmount),
-          insurance: 0,
-          total: parseFloat(contract.finalAmount)
-        }],
-        duration: { hours: 0, days: 0 },
-        startDate: new Date(contract.startAt || contract.createdAt),
-        endDate: new Date(contract.endAt || new Date()),
-        priceSource: 'locked',
-        lockedAt: contract.priceLockedAt
-      }
-    }
-    
-    // PRIORITÀ 2: Se c'è un prezzo personalizzato dell'ultimo momento
+
     if (contract.customFinalPrice && contract.customFinalPrice > 0) {
       return {
         finalTotal: parseFloat(contract.customFinalPrice),
@@ -683,83 +588,65 @@ const processReturns = async () => {
           duration: contract.customPriceReason || 'Prezzo modificato manualmente',
           basePrice: parseFloat(contract.customFinalPrice),
           insurance: 0,
-          total: parseFloat(contract.customFinalPrice)
+          total: parseFloat(contract.customFinalPrice),
+          pricingLogic: 'custom_override'
         }],
         duration: { hours: 0, days: 0 },
         startDate: new Date(contract.startAt || contract.createdAt),
         endDate: new Date(contract.endAt || new Date()),
-        priceSource: 'custom',
-        customReason: contract.customPriceReason
+        priceSource: 'custom'
       }
     }
-    
-// PRIORITÀ 3: Calcolo con NUOVA LOGICA TARIFFE - CALCOLO PER OGNI ITEM INDIVIDUALMENTE
-     let totalAmount = 0
-     const billItems = []
-     
-     contract.items.forEach(item => {
-       // Processa tutti gli items (bike/accessory) che non sono restituiti
-       if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
-         let itemTotal = 0
-         let durationText = ''
-         let pricingLogic = ''
-         
-         // PRIORITÀ 1: Prezzo personalizzato dell'ultimo momento
-         const customPrice = parseFloat(item.customPrice) || 0
-         if (customPrice > 0) {
-           itemTotal = customPrice
-           durationText = item.customPriceReason || 'Prezzo personalizzato'
-           pricingLogic = 'custom'
-         } else {
-           // PRIORITÀ 2: Calcolo per ogni singolo item
-           const priceHourly = parseFloat(item.priceHourly) || 0
-           const priceDaily = parseFloat(item.priceDaily) || 0
-           
-           // Scatto orario: calcola durata in minuti per questo item specifico
-           const startDate = new Date(contract.startAt || contract.createdAt)
-           const endDate = new Date(contract.endAt || new Date())
-           const itemDurationMs = Math.max(0, endDate - startDate)
-           const itemDurationMinutes = itemDurationMs / (1000 * 60)
-           const oreFatturate = Math.max(1, Math.ceil(itemDurationMinutes / 60))
-           
-           // Applicazione tariffa: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
-           const hourlyTotal = priceHourly * oreFatturate
-           itemTotal = Math.min(hourlyTotal, priceDaily)
-           
-           const itemDurationHours = Math.ceil(itemDurationMinutes / 60)
-           const itemDurationDays = Math.ceil(itemDurationHours / 24)
-           
-           if (priceDaily > 0 && hourlyTotal >= priceDaily) {
-             durationText = `${oreFatturate} ore (Bloccato su €${priceDaily}/giorno)`
-             pricingLogic = 'hourly_capped_daily'
-           } else if (priceHourly > 0) {
-             durationText = `${oreFatturate} ore`
-             pricingLogic = 'hourly'
-           } else {
-             durationText = `${itemDurationDays} giorni`
-             pricingLogic = 'daily_only'
-           }
-         }
-         
-         // Aggiungi assicurazione se presente (non ancora pagata in anticipo)
-         const insuranceAmount = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0
-         const itemBasePrice = itemTotal - insuranceAmount
-         
-         totalAmount += itemTotal
-         billItems.push({
-           name: item.name || 'Item senza nome',
-           duration: durationText,
-           basePrice: itemBasePrice,
-           insurance: insuranceAmount,
-           total: itemTotal,
-           isCustomPrice: customPrice > 0,
-           customReason: item.customPriceReason,
-           pricingLogic: pricingLogic
-         })
-       }
-     })
-    
-    // Aggiungi assicurazione flat del contratto se presente
+
+    const now = new Date()
+    let totalAmount = 0
+    const billItems = []
+    const contractStartDate = new Date(contract.startAt || contract.createdAt)
+
+    contract.items.forEach(item => {
+      if (item.kind !== 'bike' && item.kind !== 'accessory') return
+
+      const itemStartAt = item.startAt ? new Date(item.startAt) : contractStartDate
+      const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : now
+      const durationMs = Math.max(0, itemEndAt - itemStartAt)
+      const durationMinutes = durationMs / (1000 * 60)
+      const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+
+      const priceHourly = parseFloat(item.priceHourly) || 0
+      const priceDaily = parseFloat(item.priceDaily) || 0
+
+      let itemBasePrice = 0
+      let pricingLogic = 'hourly'
+
+      if (priceDaily > 0 && (priceHourly * oreFatturate) >= priceDaily) {
+        itemBasePrice = priceDaily
+        pricingLogic = 'hourly_capped_daily'
+      } else {
+        itemBasePrice = priceHourly * oreFatturate
+        pricingLogic = 'hourly'
+      }
+
+      const insuranceAmount = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0
+      const itemTotal = itemBasePrice + insuranceAmount
+
+      totalAmount += itemTotal
+
+      billItems.push({
+        name: item.name || 'Item senza nome',
+        duration: `${oreFatturate} ore`,
+        basePrice: Math.round(itemBasePrice * 100) / 100,
+        insurance: insuranceAmount,
+        total: Math.round(itemTotal * 100) / 100,
+        isReturned: !!item.returnedAt,
+        pricingLogic
+      })
+    })
+
+    const aggregateEndDate = new Date(contract.endAt || now)
+    const aggregateDurationMs = Math.max(0, aggregateEndDate - contractStartDate)
+    const aggregateDurationHours = Math.max(1, Math.ceil(aggregateDurationMs / (1000 * 60 * 60)))
+    const aggregateDurationDays = Math.max(1, Math.ceil(aggregateDurationHours / 24))
+
     if (contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0) {
       const contractInsurance = parseFloat(contract.insuranceFlat)
       totalAmount += contractInsurance
@@ -768,11 +655,11 @@ const processReturns = async () => {
         duration: 'Flat',
         basePrice: 0,
         insurance: contractInsurance,
-        total: contractInsurance
+        total: contractInsurance,
+        isContractInsurance: true
       })
     }
-    
-    // Aggiungi eventuali costi extra dell'ultimo momento
+
     if (contract.extraCharges && Array.isArray(contract.extraCharges)) {
       contract.extraCharges.forEach(charge => {
         const chargeAmount = parseFloat(charge.amount) || 0
@@ -788,21 +675,14 @@ const processReturns = async () => {
           })
         }
       })
-}
-    
-    // Calcola durata aggregata per visualizzazione
-    const contractStartDate = new Date(contract.startAt || contract.createdAt)
-    const contractEndDate = new Date(contract.endAt || new Date())
-    const aggregateDurationMs = Math.max(0, contractEndDate - contractStartDate)
-    const aggregateDurationHours = Math.max(1, Math.ceil(aggregateDurationMs / (1000 * 60 * 60)))
-    const aggregateDurationDays = Math.max(1, Math.ceil(aggregateDurationHours / 24))
+    }
 
     return {
       finalTotal: Math.round(totalAmount * 100) / 100,
       items: billItems,
       duration: { hours: aggregateDurationHours, days: aggregateDurationDays },
       startDate: contractStartDate,
-      endDate: contractEndDate,
+      endDate: aggregateEndDate,
       priceSource: 'calculated'
     }
   }
@@ -927,6 +807,83 @@ const processReturns = async () => {
     }
   }
 
+  const openSwapModal = (contract, itemId) => {
+    setSelectedContractForSwap(contract)
+    setSwapOldItemId(itemId)
+    setSwapNewItemBarcode('')
+    setSwapNewItemName('')
+    setSwapNewItemPriceHourly('')
+    setSwapNewItemPriceDaily('')
+    setShowSwapModal(true)
+  }
+
+  const handleSwapBike = async () => {
+    if (!selectedContractForSwap || !swapOldItemId) {
+      showError('Nessun contratto o articolo selezionato')
+      return
+    }
+
+    if (!swapNewItemName.trim() || !swapNewItemPriceHourly || !swapNewItemPriceDaily) {
+      showError('Inserisci nome e prezzi della nuova bici/accessorio')
+      return
+    }
+
+    const oldItem = selectedContractForSwap.items.find(i => i._id === swapOldItemId)
+    if (!oldItem) {
+      showError('Articolo vecchio non trovato')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const now = new Date().toISOString()
+
+      const updatedItems = selectedContractForSwap.items.map(item => {
+        if (item._id === swapOldItemId) {
+          return {
+            ...item,
+            status: 'returned',
+            returnedAt: now
+          }
+        }
+        return item
+      })
+
+      const newItem = {
+        name: swapNewItemName.trim(),
+        barcode: swapNewItemBarcode.trim() || undefined,
+        kind: oldItem.kind || 'bike',
+        priceHourly: parseFloat(swapNewItemPriceHourly),
+        priceDaily: parseFloat(swapNewItemPriceDaily),
+        status: 'in-use',
+        startAt: now,
+        returnedAt: undefined,
+        refId: undefined,
+        photoUrl: undefined
+      }
+
+      await api.put(`/api/contracts/${selectedContractForSwap._id}`, {
+        items: [...updatedItems, newItem]
+      })
+
+      showSuccess('✅ Sostituzione effettuata: la vecchia bici è stata chiusa e la nuova è attiva')
+      setShowSwapModal(false)
+      setSelectedContractForSwap(null)
+      setSwapOldItemId(null)
+      setSwapNewItemBarcode('')
+      setSwapNewItemName('')
+      setSwapNewItemPriceHourly('')
+      setSwapNewItemPriceDaily('')
+      await loadContracts()
+
+    } catch (error) {
+      console.error('Errore sostituzione bici:', error)
+      showError(`Errore sostituzione: ${error.response?.data?.error || error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // MODIFICA PREZZO FINALE
   const openPriceEditModal = (contract) => {
     setSelectedContractForPriceEdit(contract)
@@ -1023,60 +980,13 @@ const processReturns = async () => {
     
     setLoading(true)
     try {
-      const updateData = {
+      await api.put(`/api/contracts/${selectedContractForStatusChange._id}`, {
         status: 'in-use',
         actualStartAt: new Date().toISOString()
-      }
-      
-// Se si vuole bloccare la tariffa giornaliera, calcola il prezzo finale con logica individuale
-       if (lockDailyRate) {
-        const startDate = new Date(selectedContractForStatusChange.startAt || selectedContractForStatusChange.createdAt)
-        const endDate = selectedContractForStatusChange.endAt ? new Date(selectedContractForStatusChange.endAt) : new Date()
-        const durationMs = Math.max(0, endDate - startDate)
-        const durationMinutes = durationMs / (1000 * 60)
-        
-        let totalBaseAmount = 0
-        let totalInsurance = 0
-        const lockedItemPrices = []
-        
-        // Calcola il prezzo per ogni bici individualmente (TUTTE le bici)
-        selectedContractForStatusChange.items.forEach(item => {
-          if (item.kind === 'bike' || item.kind === 'accessory') {
-            const priceHourly = parseFloat(item.priceHourly) || 0
-            const priceDaily = parseFloat(item.priceDaily) || 0
-            
-            // Scatto orario: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
-            const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
-            const hourlyTotal = priceHourly * oreFatturate
-            const itemBasePrice = Math.min(hourlyTotal, priceDaily)
-            
-            lockedItemPrices.push({
-              itemId: item._id,
-              basePrice: Math.round(itemBasePrice * 100) / 100,
-              insurance: Math.round((item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0) * 100) / 100,
-              lockedAt: new Date().toISOString()
-            })
-            totalBaseAmount += itemBasePrice
-            totalInsurance += item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0
-          }
-        })
-        
-        // Aggiungi assicurazione flat del contratto
-        const contractInsurance = selectedContractForStatusChange.insuranceFlat ? parseFloat(selectedContractForStatusChange.insuranceFlat) || 0 : 0
-        
-        updateData.finalAmount = Math.round((totalBaseAmount + totalInsurance + contractInsurance) * 100) / 100
-        updateData.priceLockedAt = new Date().toISOString()
-        updateData.lockedItemPrices = lockedItemPrices
-      }
-      
-      await api.put(`/api/contracts/${selectedContractForStatusChange._id}`, updateData)
+      })
       
       const customerName = selectedContractForStatusChange.customer?.name || 'Cliente'
-      const priceMessage = lockDailyRate && updateData.finalAmount 
-        ? ` Prezzo bloccato: €${updateData.finalAmount.toFixed(2)}` 
-        : ''
-      
-      showSuccess(`✅ Contratto di ${customerName} attivato!${priceMessage}`)
+      showSuccess(`✅ Contratto di ${customerName} attivato!`)
       setShowStatusChangeModal(false)
       setSelectedContractForStatusChange(null)
       setLockDailyRate(true)
@@ -1959,14 +1869,31 @@ const processReturns = async () => {
                               {item.barcode}
                             </div>
                           )}
-                          {(item.priceHourly || item.priceDaily) && (
-                            <div style={{
-                              fontSize: '10px',
-                              color: '#6b7280'
-                            }}>
-                              {item.priceDaily ? `€${item.priceDaily}/giorno` : `€${item.priceHourly}/ora`}
-                            </div>
-                          )}
+                           {(item.priceHourly || item.priceDaily) && (
+                             <div style={{
+                               fontSize: '10px',
+                               color: '#6b7280'
+                             }}>
+                               {item.priceDaily ? `€${item.priceDaily}/giorno` : `€${item.priceHourly}/ora`}
+                             </div>
+                           )}
+                           {contract.status === 'in-use' && !item.returnedAt && (
+                             <button
+                               onClick={() => openSwapModal(contract, item._id)}
+                               style={{
+                                 marginTop: '4px',
+                                 padding: '2px 6px',
+                                 background: '#f59e0b',
+                                 color: 'white',
+                                 border: 'none',
+                                 borderRadius: '4px',
+                                 fontSize: '10px',
+                                 cursor: 'pointer'
+                               }}
+                             >
+                               🔄 Sostituisci
+                             </button>
+                           )}
                         </div>
                       </div>
                     ))}
@@ -1974,16 +1901,19 @@ const processReturns = async () => {
                 </div>
 
                 {/* Prezzo finale se disponibile */}
-                {contract.finalAmount !== undefined && contract.finalAmount !== null && (
-                  <div style={{
-                    fontSize: '18px', 
-                    fontWeight: 'bold', 
-                    color: '#059669',
-                    marginTop: '8px'
-                  }}>
-                    💰 Totale: €{contract.finalAmount.toFixed(2)}
-                  </div>
-                )}
+                {(() => {
+                  const bill = calculateDetailedBill(contract)
+                  return (
+                    <div style={{
+                      fontSize: '18px', 
+                      fontWeight: 'bold', 
+                      color: '#059669',
+                      marginTop: '8px'
+                    }}>
+                      💰 Totale: €{bill.finalTotal.toFixed(2)}
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Azioni */}
@@ -2515,16 +2445,17 @@ const processReturns = async () => {
                         borderBottom: '1px solid #e5e7eb'
                       }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ 
-                            fontWeight: '600', 
-                            fontSize: '16px',
-                            marginBottom: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                          }}>
-                            {item.isCustomPrice ? '💰' : '🚴'} {item.name}
-                          </div>
+                           <div style={{ 
+                             fontWeight: '600', 
+                             fontSize: '16px',
+                             marginBottom: '4px',
+                             display: 'flex',
+                             alignItems: 'center',
+                             gap: '8px'
+                           }}>
+                             {item.pricingLogic === 'custom_override' ? '💰' : item.isContractInsurance ? '🛡️' : item.isExtraCharge ? '➕' : '🚴'} {item.name}
+                             {item.isReturned ? ' ✅' : ''}
+                           </div>
                           
                           <div style={{ 
                             fontSize: '12px', 
@@ -2537,23 +2468,22 @@ const processReturns = async () => {
 <div>⏱️ {item.duration}</div>
                           </div>
                           
-                          {item.pricingLogic && (
-                            <div style={{ 
-                              fontSize: '11px', 
-                              color: '#1e40af',
-                              fontWeight: '500',
-                              marginTop: '4px',
-                              padding: '4px 8px',
-                              background: '#dbeafe',
-                              borderRadius: '4px',
-                              display: 'inline-block'
-                            }}>
-                              {item.pricingLogic === 'hourly' && '⏰ Tariffa oraria'}
-                              {item.pricingLogic === 'hourly_capped_daily' && '⚡ Bloccato su tariffa giornaliera'}
-                              {item.pricingLogic === 'daily_only' && '📅 Solo tariffa giornaliera'}
-                              {item.pricingLogic === 'custom' && '🎯 Prezzo personalizzato'}
-                            </div>
-                          )}
+                           {item.pricingLogic && (
+                             <div style={{ 
+                               fontSize: '11px', 
+                               color: '#1e40af',
+                               fontWeight: '500',
+                               marginTop: '4px',
+                               padding: '4px 8px',
+                               background: '#dbeafe',
+                               borderRadius: '4px',
+                               display: 'inline-block'
+                             }}>
+                               {item.pricingLogic === 'hourly' && '⏰ Tariffa oraria'}
+                               {item.pricingLogic === 'hourly_capped_daily' && '⚡ Bloccato su tariffa giornaliera'}
+                               {item.pricingLogic === 'custom_override' && '🎯 Prezzo personalizzato'}
+                             </div>
+                           )}
                         </div>
 
                         <div style={{
@@ -2724,7 +2654,165 @@ Assicurazione: €{item.insurance.toFixed(2)}
         </div>
       )}
 
-      {/* MODAL ELIMINAZIONE CONTRATTO */}
+      {/* MODAL SOSTITUZIONE BICI */}
+      {showSwapModal && selectedContractForSwap && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ margin: '0 0 24px 0', fontSize: '1.8rem', color: '#1e293b' }}>
+              🔄 Sostituisci Articolo
+            </h2>
+
+            <div style={{
+              background: '#fef3c7',
+              border: '2px solid #fde68a',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '24px'
+            }}>
+              <div style={{ fontWeight: '600', color: '#92400e', marginBottom: '8px' }}>
+                📋 Contratto: {selectedContractForSwap.customer?.name}
+              </div>
+              <div style={{ fontSize: '14px', color: '#78350f' }}>
+                Articolo da sostituire: {selectedContractForSwap.items.find(i => i._id === swapOldItemId)?.name}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                  Nome Nuovo Articolo *
+                </label>
+                <input
+                  type="text"
+                  value={swapNewItemName}
+                  onChange={(e) => setSwapNewItemName(e.target.value)}
+                  placeholder="Es: Bici city, Casco, Lucchetto..."
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '16px'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                  Barcode (opzionale)
+                </label>
+                <input
+                  type="text"
+                  value={swapNewItemBarcode}
+                  onChange={(e) => setSwapNewItemBarcode(e.target.value)}
+                  placeholder="Codice a barre..."
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '16px'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                    Prezzo Orario (€) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={swapNewItemPriceHourly}
+                    onChange={(e) => setSwapNewItemPriceHourly(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '16px'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                    Prezzo Giornaliero (€) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={swapNewItemPriceDaily}
+                    onChange={(e) => setSwapNewItemPriceDaily(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '16px'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <button
+                onClick={() => setShowSwapModal(false)}
+                style={{
+                  padding: '12px 24px',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleSwapBike}
+                style={{
+                  padding: '12px 24px',
+                  background: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                🔄 Conferma Sostituzione
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showDeleteModal && selectedContractForDelete && (
         <div style={{
           position: 'fixed',
@@ -2873,52 +2961,10 @@ Assicurazione: €{item.insurance.toFixed(2)}
             </div>
 
             <div style={{ marginBottom: '24px' }}>
-              <label style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px',
-                cursor: 'pointer',
-                padding: '12px',
-                background: '#f9fafb',
-                borderRadius: '8px',
-                border: '2px solid #e5e7eb'
-              }}>
-                <input
-                  type="checkbox"
-                  checked={lockDailyRate}
-                  onChange={(e) => setLockDailyRate(e.target.checked)}
-                  style={{ transform: 'scale(1.2)' }}
-                />
-                <div>
-                  <div style={{ fontWeight: '600', color: '#374151' }}>
-                    🔒 Blocca Tariffa Giornaliera
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                    Calcola e blocca il prezzo finale basato sulla tariffa giornaliera attuale
-                  </div>
-                </div>
-              </label>
-            </div>
-
-            {lockDailyRate && (
-              <div style={{
-                background: '#ecfdf5',
-                border: '2px solid #bbf7d0',
-                borderRadius: '12px',
-                padding: '16px',
-                marginBottom: '24px'
-              }}>
-                <div style={{ fontWeight: '600', color: '#059669', marginBottom: '8px' }}>
-                  💰 Anteprima Prezzo Bloccato
-                </div>
-                <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#047857' }}>
-                  €{calculateDetailedBill(selectedContractForStatusChange).finalTotal.toFixed(2)}
-                </div>
-                <div style={{ fontSize: '12px', color: '#065f46', marginTop: '4px' }}>
-                  Questo prezzo verrà bloccato e non cambierà più
-                </div>
+              <div style={{ fontSize: '14px', color: '#374151' }}>
+                Il contratto passerà allo stato <strong>In Uso</strong>. Il prezzo sarà calcolato automaticamente secondo la tariffa oraria con blocco giornaliero per ogni articolo.
               </div>
-            )}
+            </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
