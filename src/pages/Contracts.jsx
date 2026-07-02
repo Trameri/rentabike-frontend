@@ -1369,6 +1369,8 @@ export default function Contracts(){
         <PaymentModal
           contract={selectedContractForPayment}
           calculatedBill={calculateBill(selectedContractForPayment)}
+          initialItemInsurancePaidAdvance={{}}
+          initialContractInsurancePaidAdvance={false}
           onPaymentComplete={() => {
             setShowPaymentModal(false);
             setSelectedContractForPayment(null);

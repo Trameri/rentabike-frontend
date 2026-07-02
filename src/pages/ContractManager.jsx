@@ -1550,9 +1550,9 @@ const processReturns = async () => {
         </div>
       </div>
 
-      {/* 📁 I Faldoni */}
+      {/* 📁 I Contratti */}
       <h2 style={{ margin: '0 0 16px 0', fontSize: '1.5rem', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        📁 I Faldoni
+        📁 I Contratti
         <span style={{
           fontSize: '14px',
           fontWeight: '500',
@@ -1621,7 +1621,25 @@ const processReturns = async () => {
           }}>
             {filteredContracts.length} risultato/i per "{searchQuery.trim()}"
           </div>
-        )}
+      )}
+      
+      {/* Modal per pagamento */}
+      {showPaymentModal && selectedContractForPayment && (
+        <PaymentModal
+          contract={selectedContractForPayment}
+          initialItemInsurancePaidAdvance={selectedItemInsurancePaidAdvance}
+          initialContractInsurancePaidAdvance={selectedContractInsurancePaidAdvance}
+          onPaymentComplete={() => {
+            setShowPaymentModal(false);
+            setSelectedContractForPayment(null);
+            loadContracts();
+          }}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedContractForPayment(null);
+          }}
+        />
+      )}
       </div>
 
       <div style={{ display: 'grid', gap: '16px' }}>
@@ -2881,21 +2899,6 @@ Assicurazione: €{item.insurance.toFixed(2)}
                   }}
                 >
                   💳 Carta
-                </button>
-                <button
-                  onClick={() => setPaymentMethod('bank_transfer')}
-                  style={{
-                    padding: '12px 24px',
-                    background: paymentMethod === 'bank_transfer' ? '#10b981' : 'white',
-                    color: paymentMethod === 'bank_transfer' ? 'white' : '#374151',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: '600'
-                  }}
-                >
-                  🏦 Bonifico
                 </button>
               </div>
             </div>

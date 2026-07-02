@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api.js';
 
-const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
+const PaymentModal = ({ contract, onPaymentComplete, onClose, initialItemInsurancePaidAdvance = {}, initialContractInsurancePaidAdvance = false }) => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [finalAmount, setFinalAmount] = useState('');
@@ -14,7 +14,9 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose }) => {
   });
   const [itemPrices, setItemPrices] = useState({});
   const [itemInsurances, setItemInsurances] = useState({});
-  const [itemInsurancePaidAdvance, setItemInsurancePaidAdvance] = useState({});
+  const [itemInsurancePaidAdvance, setItemInsurancePaidAdvance] = useState(initialItemInsurancePaidAdvance || {});
+
+  const contractInsurancePaidInAdvance = initialContractInsurancePaidAdvance || contract.insurancePaidInAdvance || false;
 
 
   useEffect(() => {
@@ -69,7 +71,7 @@ const calculatePaymentDetails = () => {
         });
         
         const total = parseFloat(contract.finalAmount);
-        const contractInsurance = contract.insuranceFlat && !contract.insurancePaidInAdvance ? parseFloat(contract.insuranceFlat) || 0 : 0;
+        const contractInsurance = contract.insuranceFlat && !contractInsurancePaidInAdvance ? parseFloat(contract.insuranceFlat) || 0 : 0;
         const totalInsurances = Object.values(insurances).reduce((sum, ins) => sum + parseFloat(ins), 0) + contractInsurance;
         
         setPaymentDetails({
@@ -111,7 +113,7 @@ const calculatePaymentDetails = () => {
         });
         
         const total = parseFloat(contract.finalAmount);
-        const contractInsurance = contract.insuranceFlat && !contract.insurancePaidInAdvance ? parseFloat(contract.insuranceFlat) || 0 : 0;
+        const contractInsurance = contract.insuranceFlat && !contractInsurancePaidInAdvance ? parseFloat(contract.insuranceFlat) || 0 : 0;
         const totalInsurancesWithContract = totalInsurances + contractInsurance;
         const baseTotal = total - totalInsurancesWithContract;
         
@@ -133,7 +135,6 @@ const calculatePaymentDetails = () => {
       setFinalAmount(parseFloat(contract.finalAmount).toFixed(2));
       setItemPrices(prices);
       setItemInsurances(insurances);
-      setItemInsurancePaidAdvance(initialItemInsurancePaid);
       return;
     }
 
@@ -173,7 +174,7 @@ const calculatePaymentDetails = () => {
     });
 
     // Assicurazione flat del contratto
-    if (contract.insuranceFlat && !contract.insurancePaidInAdvance) {
+    if (contract.insuranceFlat && !contractInsurancePaidInAdvance) {
       insurance += parseFloat(contract.insuranceFlat);
     }
 
@@ -181,7 +182,6 @@ const calculatePaymentDetails = () => {
 
     setItemPrices(prices);
     setItemInsurances(insurances);
-    setItemInsurancePaidAdvance(initialItemInsurancePaid);
     setPaymentDetails({
       subtotal: Math.round(subtotal * 100) / 100,
       insurance: Math.round(insurance * 100) / 100,
@@ -206,7 +206,7 @@ const calculatePaymentDetails = () => {
         totalInsurance += insuranceVal;
       }
     });
-    if (!contract.insurancePaidInAdvance && contract.insuranceFlat) {
+    if (!contractInsurancePaidInAdvance && contract.insuranceFlat) {
       totalInsurance += parseFloat(contract.insuranceFlat) || 0;
     }
 
@@ -239,6 +239,17 @@ const calculatePaymentDetails = () => {
     return { hours, minutes, seconds, days };
   };
 
+  const calculateItemPreciseDuration = (item, contract) => {
+    const itemStartTime = item.startAt ? new Date(item.startAt) : new Date(contract.startAt || contract.createdAt);
+    const itemEndTime = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
+    const durationMs = Math.max(0, itemEndTime - itemStartTime);
+    const totalSeconds = Math.floor(durationMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return { hours, minutes, seconds };
+  };
+
   const toggleItemInsurancePaidAdvance = (index) => {
     setItemInsurancePaidAdvance(prev => {
       const newState = { ...prev, [index]: !prev[index] };
@@ -257,7 +268,7 @@ const calculatePaymentDetails = () => {
         newInsurance += insuranceVal;
       }
     });
-    if (!contract.insurancePaidInAdvance && contract.insuranceFlat) {
+    if (!contractInsurancePaidInAdvance && contract.insuranceFlat) {
       newInsurance += parseFloat(contract.insuranceFlat);
     }
     const newTotal = newSubtotal + newInsurance;
@@ -295,7 +306,7 @@ const calculatePaymentDetails = () => {
         finalAmount: parseFloat(finalAmount),
         totalWithInsurance: Math.round(totalWithInsurance * 100) / 100,
          itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
-         contractInsurancePaidAdvance: !!contract.insurancePaidInAdvance
+         contractInsurancePaidAdvance: contractInsurancePaidInAdvance
       });
 
       alert('✅ Pagamento completato con successo!');
@@ -497,6 +508,12 @@ const calculatePaymentDetails = () => {
                       Barcode: {item.barcode}
                     </div>
                   )}
+                  <div style={{ fontSize: '12px', color: '#1e40af', fontWeight: '500', marginTop: '4px' }}>
+                    ⏱️ Durata precisa: {(() => {
+                      const d = calculateItemPreciseDuration(item, contract);
+                      return `${d.hours} h ${d.minutes} min ${d.seconds} sec`;
+                    })()}
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
