@@ -2113,56 +2113,40 @@ const processReturns = async () => {
                     >
                       📦 Rientro Bici
                     </button>
-                    {contract.items?.some(item => item.insurance && !item.returnedAt) && (
-                      <button
-                        onClick={() => {
-                          const insuranceItems = contract.items.filter(item => item.insurance && !item.returnedAt)
-                          const newInsurancePaid = {}
-                          insuranceItems.forEach((item) => {
-                            const itemIndex = contract.items.findIndex(i => i._id === item._id)
-                            if (itemIndex !== -1) {
-                              newInsurancePaid[itemIndex] = true
-                            }
-                          })
-                          setSelectedItemInsurancePaidAdvance(prev => ({ ...prev, ...newInsurancePaid }))
-                          setSelectedContractForPayment(contract)
-                          setShowPaymentModal(true)
-                        }}
-                        style={{
-                          padding: '8px 16px',
-                          background: '#f59e0b',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          fontWeight: '600'
-                        }}
-                      >
-                        💰 Pagamento Assicurazione
-                      </button>
-                    )}
-                    {contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0 && (
-                      <button
-                        onClick={() => {
-                          setSelectedContractInsurancePaidAdvance(true)
-                          setSelectedContractForPayment(contract)
-                          setShowPaymentModal(true)
-                        }}
-                        style={{
-                          padding: '8px 16px',
-                          background: '#f59e0b',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          fontWeight: '600'
-                        }}
-                      >
-                        💰 Pagamento Assicurazione
-                      </button>
-                    )}
+                     {contract.items?.some(item => item.insurance && !item.returnedAt) && (
+                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 10px', background: contract.items.every((item, idx) => !item.insurance || item.returnedAt || selectedItemInsurancePaidAdvance[idx]) ? '#fef3c7' : '#f0fdf4', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '500' }}>
+                         <input
+                           type="checkbox"
+                           checked={contract.items.every((item, idx) => !item.insurance || item.returnedAt || selectedItemInsurancePaidAdvance[idx])}
+                           onChange={(e) => {
+                             setSelectedItemInsurancePaidAdvance(prev => {
+                               const next = { ...prev }
+                               contract.items.forEach((item, idx) => {
+                                 if (item.insurance && !item.returnedAt) {
+                                   next[idx] = e.target.checked
+                                 }
+                               })
+                               return next
+                             })
+                           }}
+                         />
+                         <span style={{ color: '#374151' }}>
+                           {contract.items.every((item, idx) => !item.insurance || item.returnedAt || selectedItemInsurancePaidAdvance[idx]) ? '✔ ' : ''}Assicurazione articoli pagata
+                         </span>
+                       </label>
+                     )}
+                     {contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0 && (
+                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 10px', background: selectedContractInsurancePaidAdvance ? '#fef3c7' : '#f0fdf4', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '500' }}>
+                         <input
+                           type="checkbox"
+                           checked={!!selectedContractInsurancePaidAdvance}
+                           onChange={(e) => setSelectedContractInsurancePaidAdvance(e.target.checked)}
+                         />
+                         <span style={{ color: '#374151' }}>
+                           {selectedContractInsurancePaidAdvance ? '✔ ' : ''}Assicurazione contratto pagata
+                         </span>
+                       </label>
+                     )}
                   </>
                 )}
 

@@ -25,6 +25,20 @@ const CompletedRevenueByDay = ({ contracts = [], selectedDate }) => {
     }, 0);
   }, [dayCompletedContracts]);
 
+  const dayInsuranceTotals = useMemo(() => {
+    return dayCompletedContracts.reduce((sum, contract) => {
+      const totals = calculateSeparateTotals(contract);
+      return sum + totals.insuranceTotal;
+    }, 0);
+  }, [dayCompletedContracts]);
+
+  const dayBikesTotals = useMemo(() => {
+    return dayCompletedContracts.reduce((sum, contract) => {
+      const totals = calculateSeparateTotals(contract);
+      return sum + totals.bikesTotal;
+    }, 0);
+  }, [dayCompletedContracts]);
+
   const toggle = () => setExpanded(prev => !prev);
 
   const formatCurrency = (amount) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount);
@@ -119,6 +133,38 @@ const CompletedRevenueByDay = ({ contracts = [], selectedDate }) => {
                 Media per Contratto
               </div>
             </div>
+
+            <div style={{
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              borderRadius: '12px',
+              padding: '16px',
+              color: 'white',
+              textAlign: 'center',
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)'
+            }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '4px' }}>
+                {formatCurrency(dayBikesTotals)}
+              </div>
+              <div style={{ fontSize: '12px', opacity: '0.9', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Totale Noleggio Bici
+              </div>
+            </div>
+
+            <div style={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              borderRadius: '12px',
+              padding: '16px',
+              color: 'white',
+              textAlign: 'center',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
+            }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '4px' }}>
+                {formatCurrency(dayInsuranceTotals)}
+              </div>
+              <div style={{ fontSize: '12px', opacity: '0.9', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Totale Assicurazioni
+              </div>
+            </div>
           </div>
 
           <div
@@ -189,6 +235,9 @@ const CompletedRevenueByDay = ({ contracts = [], selectedDate }) => {
                     }}>
                       <div style={{ fontWeight: '700', color: '#059669', fontSize: '15px' }}>
                         {formatCurrency(totals.total)}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#065f46' }}>
+                        🚲 {formatCurrency(totals.bikesTotal)} + 🛡️ {formatCurrency(totals.insuranceTotal)}
                       </div>
                       <div style={{ fontSize: '11px', color: '#065f46' }}>
                         {contract.finalAmount ? `(bloccato)` : 'calcolato'}
