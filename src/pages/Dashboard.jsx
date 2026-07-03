@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { api, clearToken } from '../services/api.js'
 import { jwtDecode } from 'jwt-decode'
 import { calculateAnnualDashboardStats } from '../utils/dashboardStats.js'
-import { formatCurrency, formatMetric, toSafeNumber } from '../utils/dashboardFormatting.js'
 import LocationLogo from '../Components/LocationLogo.jsx'
 
 export default function Dashboard(){
@@ -538,7 +537,7 @@ export default function Dashboard(){
               opacity: '0.2'
             }}>💰</div>
             <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              {formatCurrency(annualStats.total)}
+              €{annualStats.total.toFixed(2)}
             </div>
             <div style={{fontSize: '16px', opacity: '0.9'}}>Fatturato Totale Annuo</div>
             <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
@@ -564,7 +563,7 @@ export default function Dashboard(){
               opacity: '0.2'
             }}>🚲</div>
             <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              {formatCurrency(annualStats.bikesTotal)}
+              €{annualStats.bikesTotal.toFixed(2)}
             </div>
             <div style={{fontSize: '16px', opacity: '0.9'}}>Totale Bici</div>
             <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
@@ -590,7 +589,7 @@ export default function Dashboard(){
               opacity: '0.2'
             }}>🛡️</div>
             <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              {formatCurrency(annualStats.insuranceTotal)}
+              €{annualStats.insuranceTotal.toFixed(2)}
             </div>
             <div style={{fontSize: '16px', opacity: '0.9'}}>Totale Assicurazioni</div>
             <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
@@ -616,7 +615,7 @@ export default function Dashboard(){
               opacity: '0.2'
             }}>🔄</div>
             <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              {formatMetric(activeContracts?.length || 0)}
+              {activeContracts?.length || '0'}
             </div>
             <div style={{fontSize: '16px', opacity: '0.9'}}>Contratti Attivi</div>
             <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
@@ -642,7 +641,7 @@ export default function Dashboard(){
               opacity: '0.2'
             }}>✅</div>
             <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              {formatMetric(annualStats.closedContracts)}
+              {annualStats.closedContracts}
             </div>
             <div style={{fontSize: '16px', opacity: '0.9'}}>Contratti Chiusi</div>
             <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
@@ -668,7 +667,7 @@ export default function Dashboard(){
               opacity: '0.2'
             }}>📊</div>
             <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              {formatCurrency(annualStats.closedContracts > 0 ? annualStats.total / annualStats.closedContracts : 0)}
+              €{annualStats.closedContracts > 0 ? (annualStats.total / annualStats.closedContracts).toFixed(2) : '0.00'}
             </div>
             <div style={{fontSize: '16px', opacity: '0.9'}}>Media/Contratto</div>
             <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
@@ -929,7 +928,7 @@ export default function Dashboard(){
                       color: '#10b981',
                       marginBottom: '4px'
                     }}>
-                      {formatCurrency(locationStat?.revenue)}
+                      €{locationStat.revenue.toFixed(2)}
                     </div>
                     <div style={{
                       fontSize: '12px',
@@ -948,7 +947,7 @@ export default function Dashboard(){
                       color: '#3b82f6',
                       marginBottom: '4px'
                     }}>
-                      {formatMetric(locationStat?.closedContracts)}
+                      {locationStat.closedContracts}
                     </div>
                     <div style={{
                       fontSize: '12px',
@@ -967,7 +966,7 @@ export default function Dashboard(){
                       color: '#f59e0b',
                       marginBottom: '4px'
                     }}>
-                      {formatMetric(locationStat?.activeContracts)}
+                      {locationStat.activeContracts}
                     </div>
                     <div style={{
                       fontSize: '12px',
@@ -986,7 +985,7 @@ export default function Dashboard(){
                       color: '#8b5cf6',
                       marginBottom: '4px'
                     }}>
-                      {formatCurrency(locationStat?.closedContracts > 0 ? toSafeNumber(locationStat?.revenue) / toSafeNumber(locationStat?.closedContracts) : 0)}
+                      €{locationStat.closedContracts > 0 ? (locationStat.revenue / locationStat.closedContracts).toFixed(2) : '0.00'}
                     </div>
                     <div style={{
                       fontSize: '12px',
