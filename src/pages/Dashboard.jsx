@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { jwtDecode } from 'jwt-decode'
-import { calculateAnnualDashboardStats } from '../utils/dashboardStats.js'
+import { calculateSeparateTotals } from '../utils/contractCalculations.js'
 import LocationLogo from '../Components/LocationLogo.jsx'
 
 export default function Dashboard(){
@@ -92,9 +92,38 @@ export default function Dashboard(){
         setAllContracts(contracts)
         
         const currentYear = new Date().getFullYear()
-        const calculatedStats = calculateAnnualDashboardStats(contracts, currentYear)
         
-        setAnnualStats(calculatedStats)
+        let total = 0
+        let bikesTotal = 0
+        let insuranceTotal = 0
+        let extrasTotal = 0
+        let closedContracts = 0
+        
+        contracts.forEach(contract => {
+          const startDate = contract.startAt ? new Date(contract.startAt) : (contract.createdAt ? new Date(contract.createdAt) : null)
+          if (!startDate) return
+          
+          const contractYear = startDate.getFullYear()
+          if (contractYear !== currentYear) return
+          
+          const { bikesTotal: bt, insuranceTotal: it, extrasTotal: et, total: t } = calculateSeparateTotals(contract)
+          bikesTotal += bt
+          insuranceTotal += it
+          extrasTotal += et
+          total += t
+          
+          if (contract.status === 'closed') {
+            closedContracts++
+          }
+        })
+        
+        setAnnualStats({
+          total: Math.round(total * 100) / 100,
+          bikesTotal: Math.round(bikesTotal * 100) / 100,
+          insuranceTotal: Math.round(insuranceTotal * 100) / 100,
+          extrasTotal: Math.round(extrasTotal * 100) / 100,
+          closedContracts
+        })
       } catch (error) {
         console.error('Errore caricamento tutti i contratti:', error)
       }
