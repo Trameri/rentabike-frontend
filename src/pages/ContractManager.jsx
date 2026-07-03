@@ -583,6 +583,9 @@ const processReturns = async () => {
     if (!contract || !contract.items || contract.items.length === 0) {
       return {
         finalTotal: 0,
+        bikesTotal: 0,
+        insuranceTotal: 0,
+        extrasTotal: 0,
         items: [],
         duration: { hours: 0, days: 0 },
         startDate: null,
@@ -594,6 +597,9 @@ const processReturns = async () => {
     if (contract.customFinalPrice && contract.customFinalPrice > 0) {
       return {
         finalTotal: parseFloat(contract.customFinalPrice),
+        bikesTotal: parseFloat(contract.customFinalPrice),
+        insuranceTotal: 0,
+        extrasTotal: 0,
         items: [{
           name: '🎯 Prezzo Personalizzato',
           duration: contract.customPriceReason || 'Prezzo modificato manualmente',
@@ -611,6 +617,9 @@ const processReturns = async () => {
 
     const now = new Date()
     let totalAmount = 0
+    let bikesTotal = 0
+    let insuranceTotal = 0
+    let extrasTotal = 0
     const billItems = []
     const contractStartDate = new Date(contract.startAt || contract.createdAt)
 
@@ -637,9 +646,10 @@ const processReturns = async () => {
         pricingLogic = 'hourly'
       }
 
+      bikesTotal += itemBasePrice
       const insuranceAmount = item.insurance ? 5 : 0
+      insuranceTotal += insuranceAmount
       const itemTotal = itemBasePrice + insuranceAmount
-
       totalAmount += itemTotal
 
       billItems.push({
@@ -660,6 +670,7 @@ const processReturns = async () => {
 
     if (contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0) {
       const contractInsurance = parseFloat(contract.insuranceFlat)
+      insuranceTotal += contractInsurance
       totalAmount += contractInsurance
       billItems.push({
         name: 'Assicurazione Contratto',
@@ -675,6 +686,7 @@ const processReturns = async () => {
       contract.extraCharges.forEach(charge => {
         const chargeAmount = parseFloat(charge.amount) || 0
         if (chargeAmount !== 0) {
+          extrasTotal += chargeAmount
           totalAmount += chargeAmount
           billItems.push({
             name: charge.description || 'Costo Extra',
@@ -690,6 +702,9 @@ const processReturns = async () => {
 
     return {
       finalTotal: Math.round(totalAmount * 100) / 100,
+      bikesTotal: Math.round(bikesTotal * 100) / 100,
+      insuranceTotal: Math.round(insuranceTotal * 100) / 100,
+      extrasTotal: Math.round(extrasTotal * 100) / 100,
       items: billItems,
       duration: { hours: aggregateDurationHours, days: aggregateDurationDays },
       startDate: contractStartDate,
@@ -761,7 +776,6 @@ const processReturns = async () => {
     setLoading(true)
     try {
       const bill = calculateDetailedBill(selectedContractForPayment)
-      let finalAmount = bill.finalTotal
       
       // Prepara i dati delle assicurazioni pagate in anticipo
       const itemInsurancePaidAdvanceData = {}
@@ -771,7 +785,7 @@ const processReturns = async () => {
         }
       })
 
-      // Ricalcola il totale finale escludendo le assicurazioni pagate in anticipo
+      // Calcola l'importo totale completo (con assicurazione) per i ricavi giornalieri
       const totalWithInsurance = bill.finalTotal
       let amountToPay = totalWithInsurance
       
@@ -796,9 +810,15 @@ const processReturns = async () => {
         paymentMethod,
         paymentNotes: paymentNotes || '',
         finalAmount: Math.max(0, amountToPay),
-        totalWithInsurance: totalWithInsurance,
+        totalWithInsurance: Math.round(totalWithInsurance * 100) / 100,
         itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
-        contractInsurancePaidAdvance: selectedContractInsurancePaidAdvance
+        contractInsurancePaidAdvance: selectedContractInsurancePaidAdvance,
+        totals: {
+          bikesTotal: bill.bikesTotal,
+          insuranceTotal: bill.insuranceTotal,
+          extrasTotal: bill.extrasTotal,
+          grandTotal: bill.finalTotal
+        }
       })
       
       showSuccess(`✅ Pagamento di €${amountToPay.toFixed(2)} completato e contratto chiuso!`)

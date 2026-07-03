@@ -305,8 +305,14 @@ const calculatePaymentDetails = () => {
         paymentNotes,
         finalAmount: parseFloat(finalAmount),
         totalWithInsurance: Math.round(totalWithInsurance * 100) / 100,
-         itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
-         contractInsurancePaidAdvance: contractInsurancePaidInAdvance
+        itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
+        contractInsurancePaidAdvance: contractInsurancePaidInAdvance,
+        totals: {
+          bikesTotal: paymentDetails.subtotal,
+          insuranceTotal: paymentDetails.insurance,
+          extrasTotal: paymentDetails.adjustments,
+          grandTotal: totalWithInsurance
+        }
       });
 
       alert('✅ Pagamento completato con successo!');
