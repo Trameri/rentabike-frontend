@@ -2723,7 +2723,7 @@ const processReturns = async () => {
 
                     {bill.items.map((item, idx) => {
                       const itemKey = item.itemId || idx
-                      const isEditableItem = !item.isContractInsurance && !item.isExtraCharge && item.pricingLogic !== 'custom_override'
+                      const isEditableItem = !item.isContractInsurance && !item.isExtraCharge && item.pricingLogic !== 'custom_override' && (item.kind === 'bike' || item.kind === 'accessory')
                       const currentTotalValue = itemPriceOverrides[itemKey] !== undefined && itemPriceOverrides[itemKey] !== null
                         ? parseFloat(itemPriceOverrides[itemKey])
                         : item.total
@@ -2793,9 +2793,35 @@ const processReturns = async () => {
                           <div style={{ 
                             fontSize: '14px',
                             color: '#374151',
-                            fontWeight: '500'
+                            fontWeight: '500',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '8px'
                           }}>
-                            Noleggio: €{item.basePrice.toFixed(2)}
+                            <span>Noleggio: €{item.basePrice.toFixed(2)}</span>
+                            {isEditableItem && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingItemPriceKey(itemKey)
+                                  setItemPriceDrafts(prev => ({ ...prev, [itemKey]: (currentTotalValue || item.total).toFixed(2) }))
+                                }}
+                                style={{
+                                  border: 'none',
+                                  background: '#fef3c7',
+                                  color: '#92400e',
+                                  borderRadius: '999px',
+                                  padding: '4px 8px',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: '600'
+                                }}
+                                title="Modifica il prezzo finale di questa voce"
+                              >
+                                ✏️
+                              </button>
+                            )}
                           </div>
                           
                           {item.insurance > 0 && (
@@ -2821,28 +2847,6 @@ Assicurazione: €{item.insurance.toFixed(2)}
                             gap: '6px'
                           }}>
                             <span>Totale: €{item.total.toFixed(2)}</span>
-                            {isEditableItem && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingItemPriceKey(itemKey)
-                                  setItemPriceDrafts(prev => ({ ...prev, [itemKey]: (currentTotalValue || item.total).toFixed(2) }))
-                                }}
-                                style={{
-                                  border: 'none',
-                                  background: '#fef3c7',
-                                  color: '#92400e',
-                                  borderRadius: '999px',
-                                  padding: '4px 8px',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                  fontWeight: '600'
-                                }}
-                                title="Modifica il prezzo finale di questa voce"
-                              >
-                                ✏️ Modifica
-                              </button>
-                            )}
                           </div>
 
                           {isEditableItem && isEditingThisItem && (
