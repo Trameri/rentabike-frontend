@@ -164,10 +164,11 @@ export default function NewContract(){
     }
 
     try {
-      // Calcola assicurazione totale dalle singole bici
       const totalInsurance = items.reduce((sum, item) => {
-        return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
+        return sum + (item.insurance ? 5 : 0);
       }, 0);
+      
+      const contractTotal = (calculatedPrice?.finalTotal || calculatedPrice?.total || 0) + totalInsurance;
       
       const payload = {
         customer, 
@@ -184,7 +185,7 @@ export default function NewContract(){
         endAt: endDate || null,
         calculatedPrice: calculatedPrice,
         totalInsurance: totalInsurance,
-        // Nuovi campi per i pagamenti
+        contractTotal: contractTotal,
         paymentLink: paymentLink || null,
         paymentNotes: paymentNotes || null,
         isReservation: isReservation

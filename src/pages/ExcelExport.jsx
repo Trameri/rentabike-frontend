@@ -89,7 +89,7 @@ const ExcelExport = () => {
       
       // Aggiungi assicurazione se presente
       if (item.insurance) {
-        contractTotal += parseFloat(item.insuranceFlat) || 5;
+        contractTotal += 5;
       }
     }
     
@@ -105,7 +105,7 @@ const ExcelExport = () => {
           itemValue = (contractItem.priceDaily || 0) * days;
         }
         if (contractItem.insurance) {
-          itemValue += parseFloat(contractItem.insuranceFlat) || 5;
+          itemValue += 5;
         }
         return sum + itemValue;
       }, 0);
@@ -120,7 +120,7 @@ const ExcelExport = () => {
           itemValue = (item.priceDaily || 0) * days;
         }
         if (item.insurance) {
-          itemValue += parseFloat(item.insuranceFlat) || 5;
+          itemValue += 5;
         }
         
         return (contractTotal * itemValue) / totalItemsValue;

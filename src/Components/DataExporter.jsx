@@ -89,7 +89,7 @@ const DataExporter = ({ user }) => {
                 // Calcola assicurazione items
                 contract.items?.forEach(item => {
                   if (item.insurance) {
-                    totalInsurance += parseFloat(item.insuranceFlat) || 5;
+                    totalInsurance += 5;
                   }
                 });
                 
@@ -159,7 +159,7 @@ const DataExporter = ({ user }) => {
               subtotalNoleggio += itemTotal;
               
               if (item.insurance) {
-                assicurazioneItems += parseFloat(item.insuranceFlat) || 5;
+                assicurazioneItems += 5;
               }
             });
             

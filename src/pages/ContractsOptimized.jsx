@@ -146,8 +146,10 @@ export default function ContractsOptimized(){
     setLoading(true)
     try {
       const totalInsurance = items.reduce((sum, item) => {
-        return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
+        return sum + (item.insurance ? 5 : 0);
       }, 0);
+      
+      const contractTotal = (calculatedPrice?.finalTotal || calculatedPrice?.total || 0) + totalInsurance;
       
       const payload = {
         customer, 
@@ -163,6 +165,7 @@ export default function ContractsOptimized(){
         endAt: endDate || null,
         calculatedPrice: calculatedPrice,
         totalInsurance: totalInsurance,
+        contractTotal: contractTotal,
         paymentLink: paymentLink || null,
         paymentNotes: paymentNotes || null,
         isReservation: isReservation,

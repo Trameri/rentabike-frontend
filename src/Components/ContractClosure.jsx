@@ -44,7 +44,7 @@ const ContractClosure = ({ contract, onClose, onComplete }) => {
           
           // Aggiungi assicurazione se presente
           if (item.insurance) {
-            insuranceTotal += item.insuranceFlat || 5;
+            insuranceTotal += 5;
           }
         }
       });

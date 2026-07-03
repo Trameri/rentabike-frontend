@@ -135,7 +135,7 @@ const BikeROIStats = () => {
       let totalInsurance = 0;
       contract.items?.forEach(contractItem => {
         if (contractItem.insurance) {
-          totalInsurance += parseFloat(contractItem.insuranceFlat) || 5;
+          totalInsurance += 5;
         }
       });
       if (contract.insuranceFlat) {

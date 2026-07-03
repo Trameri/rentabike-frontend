@@ -91,8 +91,10 @@ export default function Contracts(){
   async function createContract(){
     try {
       const totalInsurance = items.reduce((sum, item) => {
-        return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
+        return sum + (item.insurance ? 5 : 0);
       }, 0);
+      
+      const contractTotal = (calculatedPrice?.finalTotal || calculatedPrice?.total || 0) + totalInsurance;
       
       const payload = {
         customer, 
@@ -108,7 +110,8 @@ export default function Contracts(){
         startAt: startDate,
         endAt: endDate || null,
         calculatedPrice: calculatedPrice,
-        totalInsurance: totalInsurance
+        totalInsurance: totalInsurance,
+        contractTotal: contractTotal
       }
       
       console.log('Creazione contratto:', payload);
@@ -541,7 +544,7 @@ export default function Contracts(){
           })}
           startDate={startDate}
           endDate={endDate}
-          onPriceChange={setCalculatedPrice}
+          onPriceCalculated={setCalculatedPrice}
         />
       )}
 

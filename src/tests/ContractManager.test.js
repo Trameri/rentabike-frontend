@@ -101,7 +101,7 @@ console.log('Errori trovati:', invalidErrors.length > 0 ? invalidErrors.join(', 
        const hourlyTotal = priceHourly * oreFatturate
        const itemBasePrice = Math.min(hourlyTotal, priceDaily)
        
-       const insuranceAmount = item.insurance ? (parseFloat(item.insuranceFlat) || 5) : 0
+        const insuranceAmount = item.insurance ? 5 : 0
        const itemTotal = itemBasePrice + insuranceAmount
        
        totalAmount += itemTotal

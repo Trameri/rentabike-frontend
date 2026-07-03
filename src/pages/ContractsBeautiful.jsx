@@ -283,8 +283,26 @@ export default function ContractsBeautiful(){
 
       // Calcola assicurazione totale dalle singole bici
       const totalInsurance = items.reduce((sum, item) => {
-        return sum + (item.insurance ? (item.insuranceFlat || 5) : 0);
+        return sum + (item.insurance ? 5 : 0);
       }, 0);
+      
+      let baseRental = 0;
+      if (items.length > 0 && startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffMs = Math.max(0, end - start);
+        const diffMinutes = diffMs / (1000 * 60);
+        const oreFatturate = Math.max(1, Math.ceil(diffMinutes / 60));
+        
+        items.forEach(item => {
+          const priceHourly = parseFloat(item.priceHourly) || 0;
+          const priceDaily = parseFloat(item.priceDaily) || 0;
+          const hourlyTotal = priceHourly * oreFatturate;
+          baseRental += Math.min(hourlyTotal, priceDaily);
+        });
+      }
+      
+      const contractTotal = baseRental + totalInsurance + (insuranceFlat || 0);
       
       let payloadStartAt = startDate ? new Date(startDate).toISOString() : null
       let payloadEndAt = endDate ? new Date(endDate).toISOString() : null
@@ -308,6 +326,7 @@ export default function ContractsBeautiful(){
         ...(isReservation && reservationDate ? { reservationDate } : {}),
         calculatedPrice: calculatedPrice,
         totalInsurance: totalInsurance,
+        contractTotal: contractTotal,
         isReservation: isReservation
       }
       
@@ -1002,7 +1021,7 @@ export default function ContractsBeautiful(){
                     }}>
                       <strong>🛡️ Riepilogo Assicurazioni:</strong> {items.filter(item => item.insurance).length} bici assicurate
                       <div style={{ fontSize: 12, color: '#ea580c', marginTop: 4 }}>
-                        Totale assicurazione: €{items.reduce((sum, item) => sum + (item.insurance ? (item.insuranceFlat || 5) : 0), 0).toFixed(2)}
+                         Totale assicurazione: €{items.reduce((sum, item) => sum + (item.insurance ? 5 : 0), 0).toFixed(2)}
                       </div>
                     </div>
                   )}
