@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, clearToken } from '../services/api.js'
+import { api } from '../services/api.js'
 import { jwtDecode } from 'jwt-decode'
 import { calculateAnnualDashboardStats } from '../utils/dashboardStats.js'
 import LocationLogo from '../Components/LocationLogo.jsx'
@@ -32,26 +32,17 @@ export default function Dashboard(){
   }
 
   useEffect(()=>{
+    // Decodifica il token per ottenere info utente
     const token = localStorage.getItem('token')
-
-    if (!token) {
-      setUser(null)
-      return
-    }
-
-    try {
-      const decoded = jwtDecode(token)
-      if (!decoded?.username && !decoded?.id && !decoded?.role) {
-        throw new Error('Token JWT non valido o privo di dati utente')
+    if(token) {
+      try {
+        const decoded = jwtDecode(token)
+        setUser(decoded)
+      } catch(e) {
+        console.error('Errore decodifica token:', e)
       }
-      setUser(decoded)
-    } catch (e) {
-      console.error('Errore decodifica token:', e)
-      clearToken()
-      setUser(null)
-      navigate('/', { replace: true })
     }
-  }, [navigate])
+  }, [])
 
   const loadData = async () => {
     if(!user) return
