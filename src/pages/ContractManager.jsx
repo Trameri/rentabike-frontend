@@ -2924,15 +2924,46 @@ Assicurazione: €{item.insurance.toFixed(2)}
                       )
                     })}
                     
-                    {/* Insurance payment and three-distinct totals */}
+                    {/* Riepilogo contratto ricalcolato */}
                     {(() => {
-                      const bill = calculateDetailedBill(selectedContractForPayment)
+                      const bill = calculatePaymentTotals(selectedContractForPayment)
                       const hasContractInsurance = selectedContractForPayment.insuranceFlat && parseFloat(selectedContractForPayment.insuranceFlat) > 0
                       const insurancePaid = calculateInsurancePaidInAdvance(selectedContractForPayment)
                       const finalToPay = bill.finalTotal - insurancePaid
                       
                       return (
                         <>
+                          <div style={{
+                            marginTop: '16px',
+                            padding: '14px',
+                            background: '#ecfdf5',
+                            border: '1px solid #a7f3d0',
+                            borderRadius: '10px'
+                          }}>
+                            <div style={{ fontSize: '14px', fontWeight: '700', color: '#065f46', marginBottom: '8px' }}>
+                              🔄 Ricalcolo contratto finale
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                              <span style={{ color: '#6b7280' }}>Noleggio bici</span>
+                              <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.bikesTotal.toFixed(2)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                              <span style={{ color: '#6b7280' }}>Assicurazione</span>
+                              <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.insuranceTotal.toFixed(2)}</span>
+                            </div>
+                            {bill.extrasTotal > 0 && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                <span style={{ color: '#6b7280' }}>Extra</span>
+                                <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.extrasTotal.toFixed(2)}</span>
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', fontSize: '15px', fontWeight: '700', borderTop: '1px solid #a7f3d0', marginTop: '6px' }}>
+                              <span style={{ color: '#065f46' }}>Totale contratto</span>
+                              <span style={{ color: '#065f46' }}>€{bill.finalTotal.toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          {/* Insurance payment and three-distinct totals */}
                           {bill.items.map((item, idx) => {
                             const itemIndex = selectedContractForPayment.items?.findIndex(i => i._id === item._id)
                             if (!item.insurance || selectedItemInsurancePaidAdvance[itemIndex]) return null
