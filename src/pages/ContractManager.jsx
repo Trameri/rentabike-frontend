@@ -731,7 +731,7 @@ const processReturns = async () => {
 
     let adjustedFinalTotal = baseBill.finalTotal
     const adjustedItems = baseBill.items.map((item) => {
-      if (item.kind !== 'bike') return item
+      if (item.kind !== 'bike' && item.kind !== 'accessory') return item
 
       const itemKey = item.itemId || item.name
       const overrideValue = itemPriceOverrides[itemKey]
@@ -740,12 +740,17 @@ const processReturns = async () => {
       }
 
       const normalizedOverride = Math.max(0, parseFloat(overrideValue))
-      adjustedFinalTotal += normalizedOverride - item.total
+      const oldBasePrice = item.basePrice || 0
+      const insuranceAmount = item.insurance || 0
+      const newBasePrice = Math.round(normalizedOverride * 100) / 100
+      const newTotal = Math.round((newBasePrice + insuranceAmount) * 100) / 100
+
+      adjustedFinalTotal += newBasePrice - oldBasePrice
 
       return {
         ...item,
-        basePrice: Math.round(Math.max(0, normalizedOverride - (item.insurance || 0)) * 100) / 100,
-        total: Math.round(normalizedOverride * 100) / 100
+        basePrice: newBasePrice,
+        total: newTotal
       }
     })
 
@@ -2724,9 +2729,9 @@ const processReturns = async () => {
                     {bill.items.map((item, idx) => {
                       const itemKey = item.itemId || idx
                       const isEditableItem = !item.isContractInsurance && !item.isExtraCharge && item.pricingLogic !== 'custom_override' && (item.kind === 'bike' || item.kind === 'accessory')
-                      const currentTotalValue = itemPriceOverrides[itemKey] !== undefined && itemPriceOverrides[itemKey] !== null
+                      const currentRentalValue = itemPriceOverrides[itemKey] !== undefined && itemPriceOverrides[itemKey] !== null
                         ? parseFloat(itemPriceOverrides[itemKey])
-                        : item.total
+                        : item.basePrice
                       const isEditingThisItem = editingItemPriceKey === itemKey
 
                       return (
@@ -2805,7 +2810,7 @@ const processReturns = async () => {
                                 type="button"
                                 onClick={() => {
                                   setEditingItemPriceKey(itemKey)
-                                  setItemPriceDrafts(prev => ({ ...prev, [itemKey]: (currentTotalValue || item.total).toFixed(2) }))
+                                  setItemPriceDrafts(prev => ({ ...prev, [itemKey]: (currentRentalValue || item.basePrice || 0).toFixed(2) }))
                                 }}
                                 style={{
                                   border: 'none',
