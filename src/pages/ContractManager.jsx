@@ -64,6 +64,11 @@ export default function ContractManager(){
   const [selectedContractForPriceEdit, setSelectedContractForPriceEdit] = useState(null)
   const [customPrice, setCustomPrice] = useState('')
   const [priceReason, setPriceReason] = useState('')
+
+  // Stati per override del prezzo di singole bici nel pagamento
+  const [itemPriceOverrides, setItemPriceOverrides] = useState({})
+  const [editingItemPriceKey, setEditingItemPriceKey] = useState(null)
+  const [itemPriceDrafts, setItemPriceDrafts] = useState({})
   
   // Stati per visualizzazione immagini documenti
   const [showImageModal, setShowImageModal] = useState(false)
@@ -623,7 +628,7 @@ const processReturns = async () => {
     const billItems = []
     const contractStartDate = new Date(contract.startAt || contract.createdAt)
 
-    contract.items.forEach(item => {
+    contract.items.forEach((item, index) => {
       if (item.kind !== 'bike' && item.kind !== 'accessory') return
 
       const itemStartAt = item.startAt ? new Date(item.startAt) : contractStartDate
@@ -665,7 +670,9 @@ const processReturns = async () => {
         insurance: insuranceAmount,
         total: Math.round(itemTotal * 100) / 100,
         isReturned: !!item.returnedAt,
-        pricingLogic
+        pricingLogic,
+        itemId: item._id || item.id || `${item.name || 'item'}-${index}`,
+        kind: item.kind || 'bike'
       })
     })
 
@@ -719,6 +726,43 @@ const processReturns = async () => {
     }
   }
 
+  const calculatePaymentTotals = (contract) => {
+    const baseBill = calculateDetailedBill(contract)
+
+    let adjustedFinalTotal = baseBill.finalTotal
+    const adjustedItems = baseBill.items.map((item) => {
+      if (item.kind !== 'bike') return item
+
+      const itemKey = item.itemId || item.name
+      const overrideValue = itemPriceOverrides[itemKey]
+      if (overrideValue === undefined || overrideValue === null || Number.isNaN(parseFloat(overrideValue))) {
+        return item
+      }
+
+      const normalizedOverride = Math.max(0, parseFloat(overrideValue))
+      adjustedFinalTotal += normalizedOverride - item.total
+
+      return {
+        ...item,
+        basePrice: Math.round(Math.max(0, normalizedOverride - (item.insurance || 0)) * 100) / 100,
+        total: Math.round(normalizedOverride * 100) / 100
+      }
+    })
+
+    const adjustedInsuranceTotal = baseBill.insuranceTotal
+    const adjustedExtrasTotal = baseBill.extrasTotal
+    const adjustedBikesTotal = Math.max(0, adjustedFinalTotal - adjustedInsuranceTotal - adjustedExtrasTotal)
+
+    return {
+      ...baseBill,
+      finalTotal: Math.round(adjustedFinalTotal * 100) / 100,
+      bikesTotal: Math.round(adjustedBikesTotal * 100) / 100,
+      insuranceTotal: adjustedInsuranceTotal,
+      extrasTotal: adjustedExtrasTotal,
+      items: adjustedItems
+    }
+  }
+
   // Calcola il tempo preciso in secondi per ogni item (solo per visualizzazione)
   const calculatePreciseTime = (item, contract) => {
     const now = currentTime
@@ -765,6 +809,9 @@ const processReturns = async () => {
     setSelectedContractForPayment(contract)
     setPaymentMethod('cash')
     setPaymentNotes('')
+    setItemPriceOverrides({})
+    setEditingItemPriceKey(null)
+    setItemPriceDrafts({})
     setShowPaymentModal(true)
   }
 
@@ -781,7 +828,7 @@ const processReturns = async () => {
     
     setLoading(true)
     try {
-      const bill = calculateDetailedBill(selectedContractForPayment)
+      const bill = calculatePaymentTotals(selectedContractForPayment)
       
       // Prepara i dati delle assicurazioni pagate in anticipo
       const itemInsurancePaidAdvanceData = {}
@@ -832,6 +879,9 @@ const processReturns = async () => {
       setSelectedContractForPayment(null)
       setPaymentMethod('')
       setPaymentNotes('')
+      setItemPriceOverrides({})
+      setEditingItemPriceKey(null)
+      setItemPriceDrafts({})
       setSelectedItemInsurancePaidAdvance({})
       setSelectedContractInsurancePaidAdvance(false)
       await loadContracts()
@@ -2658,7 +2708,7 @@ const processReturns = async () => {
               </h3>
 
               {(() => {
-                const bill = calculateDetailedBill(selectedContractForPayment)
+                const bill = calculatePaymentTotals(selectedContractForPayment)
                 return (
                   <>
                     <div style={{ marginBottom: '16px', fontSize: '14px', color: '#6b7280' }}>
@@ -2667,14 +2717,27 @@ const processReturns = async () => {
                       <div>⏱️ Ore fatturate: {bill.duration.hours} (Totale: {bill.duration.days} giorni)</div>
                     </div>
 
-                    {bill.items.map((item, idx) => (
-                      <div key={idx} style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '12px 0',
-                        borderBottom: '1px solid #e5e7eb'
-                      }}>
+                    <div style={{ marginBottom: '12px', fontSize: '12px', color: '#6b7280' }}>
+                      ✏️ Se serve, puoi correggere il totale di ogni bici direttamente qui prima di confermare il pagamento.
+                    </div>
+
+                    {bill.items.map((item, idx) => {
+                      const itemKey = item.itemId || idx
+                      const isEditableBike = item.kind === 'bike'
+                      const currentTotalValue = itemPriceOverrides[itemKey] !== undefined && itemPriceOverrides[itemKey] !== null
+                        ? parseFloat(itemPriceOverrides[itemKey])
+                        : item.total
+                      const isEditingThisItem = editingItemPriceKey === itemKey
+
+                      return (
+                        <div key={idx} style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 0',
+                          borderBottom: '1px solid #e5e7eb',
+                          gap: '12px'
+                        }}>
                         <div style={{ flex: 1 }}>
                            <div style={{ 
                              fontWeight: '600', 
@@ -2722,7 +2785,7 @@ const processReturns = async () => {
 
                         <div style={{
                           textAlign: 'right',
-                          minWidth: '120px',
+                          minWidth: '180px',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '2px'
@@ -2751,13 +2814,97 @@ Assicurazione: €{item.insurance.toFixed(2)}
                             color: '#1e293b',
                             borderTop: '1px solid #e5e7eb',
                             paddingTop: '4px',
-                            marginTop: '4px'
+                            marginTop: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            gap: '6px'
                           }}>
-                            Totale: €{item.total.toFixed(2)}
+                            <span>Totale: €{item.total.toFixed(2)}</span>
+                            {isEditableBike && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingItemPriceKey(itemKey)
+                                  setItemPriceDrafts(prev => ({ ...prev, [itemKey]: (currentTotalValue || item.total).toFixed(2) }))
+                                }}
+                                style={{
+                                  border: 'none',
+                                  background: '#fef3c7',
+                                  color: '#92400e',
+                                  borderRadius: '999px',
+                                  width: '28px',
+                                  height: '28px',
+                                  cursor: 'pointer',
+                                  fontSize: '14px'
+                                }}
+                                title="Modifica il prezzo finale di questa bici"
+                              >
+                                ✏️
+                              </button>
+                            )}
                           </div>
+
+                          {isEditableBike && isEditingThisItem && (
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={itemPriceDrafts[itemKey] ?? ''}
+                                onChange={(e) => setItemPriceDrafts(prev => ({ ...prev, [itemKey]: e.target.value }))}
+                                style={{
+                                  width: '90px',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #cbd5e1',
+                                  fontSize: '12px'
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const parsedValue = parseFloat(itemPriceDrafts[itemKey])
+                                  if (!Number.isNaN(parsedValue) && parsedValue >= 0) {
+                                    setItemPriceOverrides(prev => ({ ...prev, [itemKey]: parsedValue }))
+                                  }
+                                  setEditingItemPriceKey(null)
+                                }}
+                                style={{
+                                  padding: '4px 8px',
+                                  background: '#16a34a',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  fontSize: '11px'
+                                }}
+                              >
+                                Salva
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingItemPriceKey(null)
+                                }}
+                                style={{
+                                  padding: '4px 8px',
+                                  background: '#e5e7eb',
+                                  color: '#374151',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  fontSize: '11px'
+                                }}
+                              >
+                                Annulla
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    ))}
+                      )
+                    })}
                     
                     {/* Insurance payment and three-distinct totals */}
                     {(() => {
