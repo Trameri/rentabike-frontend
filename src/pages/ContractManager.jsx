@@ -7,19 +7,6 @@ import moment from 'moment'
 import CompletedRevenueByDay from '../Components/CompletedRevenueByDay.jsx'
 
 export default function ContractManager(){
-  const readStoredInsuranceState = (storageKey, fallback = {}) => {
-    if (typeof window === 'undefined') return fallback
-    try {
-      const raw = localStorage.getItem(storageKey)
-      if (!raw) return fallback
-      const parsed = JSON.parse(raw)
-      return parsed && typeof parsed === 'object' ? parsed : fallback
-    } catch (error) {
-      console.warn('Errore lettura stato assicurazioni:', error)
-      return fallback
-    }
-  }
-
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('all')
@@ -47,8 +34,8 @@ export default function ContractManager(){
   const [selectedContractForPayment, setSelectedContractForPayment] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [paymentNotes, setPaymentNotes] = useState('')
-  const [selectedItemInsurancePaidAdvance, setSelectedItemInsurancePaidAdvance] = useState(() => readStoredInsuranceState('contractManagerItemInsuranceFlags', {}))
-  const [selectedContractInsurancePaidAdvance, setSelectedContractInsurancePaidAdvance] = useState(() => readStoredInsuranceState('contractManagerContractInsuranceFlags', {}))
+  const [selectedItemInsurancePaidAdvance, setSelectedItemInsurancePaidAdvance] = useState({})
+  const [selectedContractInsurancePaidAdvance, setSelectedContractInsurancePaidAdvance] = useState({})
 
   // Stato per timer di aggiornamento UI
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -139,18 +126,6 @@ export default function ContractManager(){
       return isInRange
     })
   }
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('contractManagerItemInsuranceFlags', JSON.stringify(selectedItemInsurancePaidAdvance))
-    }
-  }, [selectedItemInsurancePaidAdvance])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('contractManagerContractInsuranceFlags', JSON.stringify(selectedContractInsurancePaidAdvance))
-    }
-  }, [selectedContractInsurancePaidAdvance])
 
   useEffect(() => {
     const reserved = contracts.filter(c => c.status === 'reserved')
