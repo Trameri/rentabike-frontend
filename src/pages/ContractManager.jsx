@@ -35,7 +35,7 @@ export default function ContractManager(){
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [paymentNotes, setPaymentNotes] = useState('')
   const [selectedItemInsurancePaidAdvance, setSelectedItemInsurancePaidAdvance] = useState({})
-  const [selectedContractInsurancePaidAdvance, setSelectedContractInsurancePaidAdvance] = useState(false)
+  const [selectedContractInsurancePaidAdvance, setSelectedContractInsurancePaidAdvance] = useState({})
 
   // Stato per timer di aggiornamento UI
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -790,6 +790,37 @@ const processReturns = async () => {
     return `Tempo: ${hours} ora${hours !== 1 ? 'e' : ''} ${minutes} min ${seconds} sec`
   }
 
+  const getContractInsuranceKey = (contract) => contract?._id || contract?.id || 'default-contract'
+
+  const getItemInsuranceFlags = (contract) => {
+    const contractKey = getContractInsuranceKey(contract)
+    return selectedItemInsurancePaidAdvance[contractKey] || {}
+  }
+
+  const setItemInsuranceFlag = (contract, index, value) => {
+    const contractKey = getContractInsuranceKey(contract)
+    setSelectedItemInsurancePaidAdvance(prev => ({
+      ...prev,
+      [contractKey]: {
+        ...(prev[contractKey] || {}),
+        [index]: value
+      }
+    }))
+  }
+
+  const getContractInsuranceFlag = (contract) => {
+    const contractKey = getContractInsuranceKey(contract)
+    return !!selectedContractInsurancePaidAdvance[contractKey]
+  }
+
+  const setContractInsuranceFlag = (contract, value) => {
+    const contractKey = getContractInsuranceKey(contract)
+    setSelectedContractInsurancePaidAdvance(prev => ({
+      ...prev,
+      [contractKey]: value
+    }))
+  }
+
   // Calcola il totale delle assicurazioni pagate in anticipo
   const calculateInsurancePaidInAdvance = (contract) => {
     if (!contract || !contract.items) return 0
@@ -797,12 +828,12 @@ const processReturns = async () => {
     let totalPaid = 0
     
     contract.items.forEach((item, index) => {
-      if (item.insurance && selectedItemInsurancePaidAdvance[index]) {
+      if (item.insurance && getItemInsuranceFlags(contract)[index]) {
         totalPaid += 5
       }
     })
     
-    if (selectedContractInsurancePaidAdvance && contract.insuranceFlat) {
+    if (getContractInsuranceFlag(contract) && contract.insuranceFlat) {
       totalPaid += parseFloat(contract.insuranceFlat)
     }
     
@@ -843,7 +874,7 @@ const processReturns = async () => {
       // Prepara i dati delle assicurazioni pagate in anticipo
       const itemInsurancePaidAdvanceData = {}
       selectedContractForPayment.items.forEach((item, index) => {
-        if (selectedItemInsurancePaidAdvance[index]) {
+        if (getItemInsuranceFlags(selectedContractForPayment)[index]) {
           itemInsurancePaidAdvanceData[item._id || index] = true
         }
       })
@@ -862,7 +893,7 @@ const processReturns = async () => {
           }
         })
         
-        if (selectedContractInsurancePaidAdvance && selectedContractForPayment.insuranceFlat) {
+        if (getContractInsuranceFlag(selectedContractForPayment) && selectedContractForPayment.insuranceFlat) {
           insuranceToSubtract += parseFloat(selectedContractForPayment.insuranceFlat)
         }
         
@@ -875,7 +906,7 @@ const processReturns = async () => {
         finalAmount: Math.max(0, amountToPay),
         totalWithInsurance: Math.round(totalWithInsurance * 100) / 100,
         itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
-        contractInsurancePaidAdvance: selectedContractInsurancePaidAdvance,
+        contractInsurancePaidAdvance: getContractInsuranceFlag(selectedContractForPayment),
         totals: {
           bikesTotal: bill.bikesTotal,
           insuranceTotal: bill.insuranceTotal,
@@ -896,8 +927,6 @@ const processReturns = async () => {
       setItemPriceOverrides({})
       setEditingItemPriceKey(null)
       setItemPriceDrafts({})
-      setSelectedItemInsurancePaidAdvance({})
-      setSelectedContractInsurancePaidAdvance(false)
       await loadContracts()
       
     } catch (error) {
@@ -2231,36 +2260,37 @@ const processReturns = async () => {
                       📦 Rientro Bici
                     </button>
                      {contract.items?.some(item => item.insurance && !item.returnedAt) && (
-                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 10px', background: contract.items.every((item, idx) => !item.insurance || item.returnedAt || selectedItemInsurancePaidAdvance[idx]) ? '#fef3c7' : '#f0fdf4', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '500' }}>
+                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 10px', background: contract.items.every((item, idx) => !item.insurance || item.returnedAt || getItemInsuranceFlags(contract)[idx]) ? '#fef3c7' : '#f0fdf4', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '500' }}>
                          <input
                            type="checkbox"
-                           checked={contract.items.every((item, idx) => !item.insurance || item.returnedAt || selectedItemInsurancePaidAdvance[idx])}
+                           checked={contract.items.every((item, idx) => !item.insurance || item.returnedAt || getItemInsuranceFlags(contract)[idx])}
                            onChange={(e) => {
+                             const contractKey = getContractInsuranceKey(contract)
                              setSelectedItemInsurancePaidAdvance(prev => {
-                               const next = { ...prev }
+                               const next = { ...(prev[contractKey] || {}) }
                                contract.items.forEach((item, idx) => {
                                  if (item.insurance && !item.returnedAt) {
                                    next[idx] = e.target.checked
                                  }
                                })
-                               return next
+                               return { ...prev, [contractKey]: next }
                              })
                            }}
                          />
                          <span style={{ color: '#374151' }}>
-                           {contract.items.every((item, idx) => !item.insurance || item.returnedAt || selectedItemInsurancePaidAdvance[idx]) ? '✔ ' : ''}Assicurazione articoli pagata
+                           {contract.items.every((item, idx) => !item.insurance || item.returnedAt || getItemInsuranceFlags(contract)[idx]) ? '✔ ' : ''}Assicurazione articoli pagata
                          </span>
                        </label>
                      )}
                      {contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0 && (
-                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 10px', background: selectedContractInsurancePaidAdvance ? '#fef3c7' : '#f0fdf4', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '500' }}>
+                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 10px', background: getContractInsuranceFlag(contract) ? '#fef3c7' : '#f0fdf4', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '500' }}>
                          <input
                            type="checkbox"
-                           checked={!!selectedContractInsurancePaidAdvance}
-                           onChange={(e) => setSelectedContractInsurancePaidAdvance(e.target.checked)}
+                           checked={getContractInsuranceFlag(contract)}
+                           onChange={(e) => setContractInsuranceFlag(contract, e.target.checked)}
                          />
                          <span style={{ color: '#374151' }}>
-                           {selectedContractInsurancePaidAdvance ? '✔ ' : ''}Assicurazione contratto pagata
+                           {getContractInsuranceFlag(contract) ? '✔ ' : ''}Assicurazione contratto pagata
                          </span>
                        </label>
                      )}
@@ -2572,7 +2602,7 @@ const processReturns = async () => {
                         onClick={() => {
                           const itemIndex = selectedContractForReturn.items?.findIndex(i => i._id === item._id)
                           if (itemIndex !== -1) {
-                            setSelectedItemInsurancePaidAdvance(prev => ({ ...prev, [itemIndex]: true }))
+                            setItemInsuranceFlag(selectedContractForReturn, itemIndex, true)
                           }
                         }}
                         style={{
@@ -2627,7 +2657,7 @@ const processReturns = async () => {
                     🛡️ Assicurazione Contratto Flat: €{parseFloat(selectedContractForReturn.insuranceFlat).toFixed(2)}
                   </span>
                   <button
-                    onClick={() => setSelectedContractInsurancePaidAdvance(true)}
+                    onClick={() => setContractInsuranceFlag(selectedContractForReturn, true)}
                     style={{
                       padding: '6px 12px',
                       background: '#f59e0b',
@@ -2966,7 +2996,8 @@ Assicurazione: €{item.insurance.toFixed(2)}
                           {/* Insurance payment and three-distinct totals */}
                           {bill.items.map((item, idx) => {
                             const itemIndex = selectedContractForPayment.items?.findIndex(i => i._id === item._id)
-                            if (!item.insurance || selectedItemInsurancePaidAdvance[itemIndex]) return null
+                            const itemInsuranceFlags = getItemInsuranceFlags(selectedContractForPayment)
+                            if (!item.insurance || itemInsuranceFlags[itemIndex]) return null
                             return (
                               <div key={`insurance-${idx}`} style={{
                                 display: 'flex',
@@ -2981,7 +3012,7 @@ Assicurazione: €{item.insurance.toFixed(2)}
                                 <button
                                   onClick={() => {
                                     if (itemIndex !== -1) {
-                                      setSelectedItemInsurancePaidAdvance(prev => ({ ...prev, [itemIndex]: true }))
+                                      setItemInsuranceFlag(selectedContractForPayment, itemIndex, true)
                                     }
                                   }}
                                   style={{
@@ -3001,7 +3032,7 @@ Assicurazione: €{item.insurance.toFixed(2)}
                             )
                           })}
                           
-                          {hasContractInsurance && !selectedContractInsurancePaidAdvance && (
+                          {hasContractInsurance && !getContractInsuranceFlag(selectedContractForPayment) && (
                             <div style={{
                               display: 'flex',
                               justifyContent: 'space-between',
@@ -3013,7 +3044,7 @@ Assicurazione: €{item.insurance.toFixed(2)}
                                 🛡️ Assicurazione Contratto
                               </span>
                               <button
-                                onClick={() => setSelectedContractInsurancePaidAdvance(true)}
+                                onClick={() => setContractInsuranceFlag(selectedContractForPayment, true)}
                                 style={{
                                   padding: '4px 8px',
                                   background: '#f59e0b',
@@ -3030,7 +3061,7 @@ Assicurazione: €{item.insurance.toFixed(2)}
                             </div>
                           )}
                           
-                          {selectedContractInsurancePaidAdvance && (
+                          {getContractInsuranceFlag(selectedContractForPayment) && (
                             <div style={{
                               display: 'flex',
                               justifyContent: 'space-between',
