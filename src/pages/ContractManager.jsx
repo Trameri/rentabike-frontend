@@ -834,6 +834,11 @@ const processReturns = async () => {
     setLoading(true)
     try {
       const bill = calculatePaymentTotals(selectedContractForPayment)
+      const finalizedItems = bill.items.map((item) => ({
+        ...item,
+        rentalPrice: item.basePrice,
+        totalPrice: item.total
+      }))
       
       // Prepara i dati delle assicurazioni pagate in anticipo
       const itemInsurancePaidAdvanceData = {}
@@ -876,7 +881,11 @@ const processReturns = async () => {
           insuranceTotal: bill.insuranceTotal,
           extrasTotal: bill.extrasTotal,
           grandTotal: bill.finalTotal
-        }
+        },
+        adjustedItems: finalizedItems,
+        itemPriceOverrides: Object.fromEntries(
+          Object.entries(itemPriceOverrides).filter(([, value]) => value !== undefined && value !== null)
+        )
       })
       
       showSuccess(`✅ Pagamento di €${amountToPay.toFixed(2)} completato e contratto chiuso!`)
