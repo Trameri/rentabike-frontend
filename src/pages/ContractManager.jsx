@@ -632,6 +632,11 @@ const processReturns = async () => {
       const durationMinutes = durationMs / (1000 * 60)
       const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
 
+      const totalSeconds = Math.floor(durationMs / 1000)
+      const preciseHours = Math.floor(totalSeconds / 3600)
+      const preciseMinutes = Math.floor((totalSeconds % 3600) / 60)
+      const preciseSeconds = totalSeconds % 60
+
       const priceHourly = parseFloat(item.priceHourly) || 0
       const priceDaily = parseFloat(item.priceDaily) || 0
 
@@ -655,6 +660,7 @@ const processReturns = async () => {
       billItems.push({
         name: item.name || 'Item senza nome',
         duration: `${oreFatturate} ore`,
+        preciseTime: { hours: preciseHours, minutes: preciseMinutes, seconds: preciseSeconds },
         basePrice: Math.round(itemBasePrice * 100) / 100,
         insurance: insuranceAmount,
         total: Math.round(itemTotal * 100) / 100,
@@ -2689,9 +2695,12 @@ const processReturns = async () => {
                             display: 'grid',
                             gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
                             gap: '4px'
-                          }}>
-<div>⏱️ {item.duration}</div>
-                          </div>
+                           }}>
+                             <div>⏱️ {item.duration}</div>
+                             {item.preciseTime && (
+                               <div>🕐 {item.preciseTime.hours}h {item.preciseTime.minutes}m {item.preciseTime.seconds}s</div>
+                             )}
+                           </div>
                           
                            {item.pricingLogic && (
                              <div style={{ 
