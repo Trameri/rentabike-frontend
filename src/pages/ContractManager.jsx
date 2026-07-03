@@ -2723,7 +2723,7 @@ const processReturns = async () => {
 
                     {bill.items.map((item, idx) => {
                       const itemKey = item.itemId || idx
-                      const isEditableBike = item.kind === 'bike'
+                      const isEditableItem = !item.isContractInsurance && !item.isExtraCharge && item.pricingLogic !== 'custom_override'
                       const currentTotalValue = itemPriceOverrides[itemKey] !== undefined && itemPriceOverrides[itemKey] !== null
                         ? parseFloat(itemPriceOverrides[itemKey])
                         : item.total
@@ -2821,7 +2821,7 @@ Assicurazione: €{item.insurance.toFixed(2)}
                             gap: '6px'
                           }}>
                             <span>Totale: €{item.total.toFixed(2)}</span>
-                            {isEditableBike && (
+                            {isEditableItem && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2833,19 +2833,19 @@ Assicurazione: €{item.insurance.toFixed(2)}
                                   background: '#fef3c7',
                                   color: '#92400e',
                                   borderRadius: '999px',
-                                  width: '28px',
-                                  height: '28px',
+                                  padding: '4px 8px',
                                   cursor: 'pointer',
-                                  fontSize: '14px'
+                                  fontSize: '12px',
+                                  fontWeight: '600'
                                 }}
-                                title="Modifica il prezzo finale di questa bici"
+                                title="Modifica il prezzo finale di questa voce"
                               >
-                                ✏️
+                                ✏️ Modifica
                               </button>
                             )}
                           </div>
 
-                          {isEditableBike && isEditingThisItem && (
+                          {isEditableItem && isEditingThisItem && (
                             <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '4px' }}>
                               <input
                                 type="number"
