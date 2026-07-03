@@ -1980,17 +1980,44 @@ const processReturns = async () => {
                   </div>
                 </div>
 
-                {/* Prezzo finale se disponibile */}
+                {/* Riepilogo prezzo */}
                 {(() => {
                   const bill = calculateDetailedBill(contract)
+                  const baseTotal = Math.round(bill.items.filter(i => !i.isContractInsurance && !i.isExtraCharge).reduce((sum, i) => sum + i.basePrice, 0) * 100) / 100
+                  const insuranceTotal = Math.round(bill.items.reduce((sum, i) => sum + i.insurance, 0) * 100) / 100
+                  const extrasTotal = Math.round(bill.items.filter(i => i.isExtraCharge).reduce((sum, i) => sum + i.basePrice, 0) * 100) / 100
+                  const displayTotal = baseTotal + insuranceTotal + extrasTotal
+
                   return (
                     <div style={{
-                      fontSize: '18px', 
-                      fontWeight: 'bold', 
-                      color: '#059669',
-                      marginTop: '8px'
+                      marginTop: '8px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      border: '1px solid #e2e8f0'
                     }}>
-                      💰 Totale: €{bill.finalTotal.toFixed(2)}
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                        <tbody>
+                          <tr>
+                            <td style={{ padding: '4px 0', color: '#374151' }}>Quota base</td>
+                            <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '600', color: '#374151' }}>€{baseTotal.toFixed(2)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: '4px 0', color: '#059669' }}>Assicurazione</td>
+                            <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '600', color: '#059669' }}>€{insuranceTotal.toFixed(2)}</td>
+                          </tr>
+                          {extrasTotal > 0 && (
+                            <tr>
+                              <td style={{ padding: '4px 0', color: '#f59e0b' }}>Costi extra</td>
+                              <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '600', color: '#f59e0b' }}>€{extrasTotal.toFixed(2)}</td>
+                            </tr>
+                          )}
+                          <tr style={{ borderTop: '2px solid #e2e8f0' }}>
+                            <td style={{ padding: '4px 0', fontWeight: '700', color: '#1e293b' }}>Totale</td>
+                            <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '700', color: '#1e293b' }}>€{displayTotal.toFixed(2)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   )
                 })()}

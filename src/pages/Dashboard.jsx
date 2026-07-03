@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { jwtDecode } from 'jwt-decode'
+import { calculateSeparateTotals } from '../utils/contractCalculations.js'
 import LocationLogo from '../Components/LocationLogo.jsx'
 
 export default function Dashboard(){
@@ -697,14 +698,41 @@ export default function Dashboard(){
                     </div>
                   </div>
                   <div style={{
-                    background: '#10b981',
-                    color: 'white',
-                    padding: '4px 8px',
+                    background: '#f0fdf4',
+                    color: '#065f46',
+                    padding: '8px 12px',
                     borderRadius: '8px',
+                    border: '1px solid #10b981',
                     fontSize: '12px',
-                    fontWeight: '600'
+                    minWidth: '140px'
                   }}>
-                    €{contract.totalPrice?.toFixed(2) || '0.00'}
+                    {(() => {
+                      const { bikesTotal, insuranceTotal, extrasTotal, total } = calculateSeparateTotals(contract)
+                      return (
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <tbody>
+                            <tr>
+                              <td style={{ padding: '2px 0', color: '#374151' }}>Quota base</td>
+                              <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '600', color: '#374151' }}>€{bikesTotal.toFixed(2)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ padding: '2px 0', color: '#059669' }}>Assicurazione</td>
+                              <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '600', color: '#059669' }}>€{insuranceTotal.toFixed(2)}</td>
+                            </tr>
+                            {extrasTotal > 0 && (
+                              <tr>
+                                <td style={{ padding: '2px 0', color: '#f59e0b' }}>Extra</td>
+                                <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '600', color: '#f59e0b' }}>€{extrasTotal.toFixed(2)}</td>
+                              </tr>
+                            )}
+                            <tr style={{ borderTop: '1px solid #10b981' }}>
+                              <td style={{ padding: '2px 0', fontWeight: '700', color: '#065f46' }}>Totale</td>
+                              <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '700', color: '#065f46' }}>€{total.toFixed(2)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      )
+                    })()}
                   </div>
                 </div>
                 
