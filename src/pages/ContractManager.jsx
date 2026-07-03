@@ -808,6 +808,24 @@ const processReturns = async () => {
     }))
   }
 
+  const isContractItemInsurancePaid = (contract) => {
+    if (!contract?.items?.length) return false
+    return contract.items.every((item, idx) => !item.insurance || item.returnedAt || getItemInsuranceFlags(contract)[idx])
+  }
+
+  const setContractItemInsurancePaid = (contract, value) => {
+    const contractKey = getContractInsuranceKey(contract)
+    setSelectedItemInsurancePaidAdvance(prev => {
+      const next = { ...(prev[contractKey] || {}) }
+      contract.items?.forEach((item, idx) => {
+        if (item.insurance && !item.returnedAt) {
+          next[idx] = value
+        }
+      })
+      return { ...prev, [contractKey]: next }
+    })
+  }
+
   const getContractInsuranceFlag = (contract) => {
     const contractKey = getContractInsuranceKey(contract)
     return !!selectedContractInsurancePaidAdvance[contractKey]
@@ -2262,27 +2280,26 @@ const processReturns = async () => {
                       📦 Rientro Bici
                     </button>
                      {contract.items?.some(item => item.insurance && !item.returnedAt) && (
-                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 10px', background: contract.items.every((item, idx) => !item.insurance || item.returnedAt || getItemInsuranceFlags(contract)[idx]) ? '#fef3c7' : '#f0fdf4', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '500' }}>
-                         <input
-                           type="checkbox"
-                           checked={contract.items.every((item, idx) => !item.insurance || item.returnedAt || getItemInsuranceFlags(contract)[idx])}
-                           onChange={(e) => {
-                             const contractKey = getContractInsuranceKey(contract)
-                             setSelectedItemInsurancePaidAdvance(prev => {
-                               const next = { ...(prev[contractKey] || {}) }
-                               contract.items.forEach((item, idx) => {
-                                 if (item.insurance && !item.returnedAt) {
-                                   next[idx] = e.target.checked
-                                 }
-                               })
-                               return { ...prev, [contractKey]: next }
-                             })
-                           }}
-                         />
-                         <span style={{ color: '#374151' }}>
-                           {contract.items.every((item, idx) => !item.insurance || item.returnedAt || getItemInsuranceFlags(contract)[idx]) ? '✔ ' : ''}Assicurazione articoli pagata
-                         </span>
-                       </label>
+                       <button
+                         type="button"
+                         onClick={() => setContractItemInsurancePaid(contract, !isContractItemInsurancePaid(contract))}
+                         style={{
+                           display: 'flex',
+                           alignItems: 'center',
+                           gap: '6px',
+                           padding: '6px 10px',
+                           background: isContractItemInsurancePaid(contract) ? '#fef3c7' : '#f0fdf4',
+                           color: '#374151',
+                           border: '1px solid #e5e7eb',
+                           borderRadius: '6px',
+                           cursor: 'pointer',
+                           fontSize: '12px',
+                           fontWeight: '600'
+                         }}
+                       >
+                         <span>{isContractItemInsurancePaid(contract) ? '✔' : '○'}</span>
+                         <span>Assicurazione articoli pagata</span>
+                       </button>
                      )}
                      {contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0 && (
                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 10px', background: getContractInsuranceFlag(contract) ? '#fef3c7' : '#f0fdf4', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '500' }}>
