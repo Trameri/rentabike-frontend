@@ -17,6 +17,14 @@ export default function Dashboard(){
   const [loading, setLoading] = useState(false)
   const [notification, setNotification] = useState(null)
   const [systemInfo, setSystemInfo] = useState(null)
+  const [allContracts, setAllContracts] = useState([])
+  const [annualStats, setAnnualStats] = useState({
+    total: 0,
+    bikesTotal: 0,
+    insuranceTotal: 0,
+    extrasTotal: 0,
+    closedContracts: 0
+  })
 
   const showNotification = (message, type = 'info') => {
     setNotification({ message, type })
@@ -75,6 +83,49 @@ export default function Dashboard(){
       } catch (error) {
         console.error('Errore caricamento contratti attivi:', error)
         setActiveContracts([])
+      }
+
+      // Carica tutti i contratti per calcolare totali annui
+      try {
+        const allContractsResponse = await api.get('/api/contracts')
+        const contracts = allContractsResponse.data || []
+        setAllContracts(contracts)
+        
+        const currentYear = new Date().getFullYear()
+        
+        let total = 0
+        let bikesTotal = 0
+        let insuranceTotal = 0
+        let extrasTotal = 0
+        let closedContracts = 0
+        
+        contracts.forEach(contract => {
+          const startDate = contract.startAt ? new Date(contract.startAt) : (contract.createdAt ? new Date(contract.createdAt) : null)
+          if (!startDate) return
+          
+          const contractYear = startDate.getFullYear()
+          if (contractYear !== currentYear) return
+          
+          const { bikesTotal: bt, insuranceTotal: it, extrasTotal: et, total: t } = calculateSeparateTotals(contract)
+          bikesTotal += bt
+          insuranceTotal += it
+          extrasTotal += et
+          total += t
+          
+          if (contract.status === 'closed') {
+            closedContracts++
+          }
+        })
+        
+        setAnnualStats({
+          total: Math.round(total * 100) / 100,
+          bikesTotal: Math.round(bikesTotal * 100) / 100,
+          insuranceTotal: Math.round(insuranceTotal * 100) / 100,
+          extrasTotal: Math.round(extrasTotal * 100) / 100,
+          closedContracts
+        })
+      } catch (error) {
+        console.error('Errore caricamento tutti i contratti:', error)
       }
 
       // Carica informazioni di sistema
@@ -488,7 +539,7 @@ export default function Dashboard(){
           gap: '20px',
           marginBottom: '24px'
         }}>
-          {/* Fatturato */}
+          {/* Fatturato Totale Annuo */}
           <div style={{
             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
             borderRadius: '16px',
@@ -506,47 +557,15 @@ export default function Dashboard(){
               opacity: '0.2'
             }}>💰</div>
             <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              €{user.role === 'superadmin' 
-                ? superadminStats?.totals?.revenue?.toFixed(2) || '0.00'
-                : summary?.total?.toFixed(2) || '0.00'
-              }
+              €{annualStats.total.toFixed(2)}
             </div>
-            <div style={{fontSize: '16px', opacity: '0.9'}}>Fatturato Totale</div>
+            <div style={{fontSize: '16px', opacity: '0.9'}}>Fatturato Totale Annuo</div>
             <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
-              {user.role === 'superadmin' ? 'Tutti i punti noleggio' : 'Questa location'}
+              {new Date().getFullYear()} - Bici + Assicurazioni + Extra
             </div>
           </div>
 
-          {/* Contratti Attivi */}
-          <div style={{
-            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-            borderRadius: '16px',
-            padding: '24px',
-            color: 'white',
-            boxShadow: '0 8px 24px rgba(245, 158, 11, 0.3)',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              position: 'absolute',
-              top: '-20px',
-              right: '-20px',
-              fontSize: '4rem',
-              opacity: '0.2'
-            }}>🔄</div>
-            <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              {user.role === 'superadmin' 
-                ? superadminStats?.totals?.activeContracts || '0'
-                : activeContracts?.length || '0'
-              }
-            </div>
-            <div style={{fontSize: '16px', opacity: '0.9'}}>Contratti Attivi</div>
-            <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
-              In corso ora
-            </div>
-          </div>
-
-          {/* Contratti Chiusi */}
+          {/* Totale Bici */}
           <div style={{
             background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
             borderRadius: '16px',
@@ -562,16 +581,91 @@ export default function Dashboard(){
               right: '-20px',
               fontSize: '4rem',
               opacity: '0.2'
+            }}>🚲</div>
+            <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
+              €{annualStats.bikesTotal.toFixed(2)}
+            </div>
+            <div style={{fontSize: '16px', opacity: '0.9'}}>Totale Bici</div>
+            <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
+              {new Date().getFullYear()} - Solo noleggi bici
+            </div>
+          </div>
+
+          {/* Totale Assicurazioni */}
+          <div style={{
+            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+            borderRadius: '16px',
+            padding: '24px',
+            color: 'white',
+            boxShadow: '0 8px 24px rgba(245, 158, 11, 0.3)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: '-20px',
+              right: '-20px',
+              fontSize: '4rem',
+              opacity: '0.2'
+            }}>🛡️</div>
+            <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
+              €{annualStats.insuranceTotal.toFixed(2)}
+            </div>
+            <div style={{fontSize: '16px', opacity: '0.9'}}>Totale Assicurazioni</div>
+            <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
+              {new Date().getFullYear()} - Solo assicurazioni
+            </div>
+          </div>
+
+          {/* Contratti Attivi */}
+          <div style={{
+            background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+            borderRadius: '16px',
+            padding: '24px',
+            color: 'white',
+            boxShadow: '0 8px 24px rgba(6, 182, 212, 0.3)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: '-20px',
+              right: '-20px',
+              fontSize: '4rem',
+              opacity: '0.2'
+            }}>🔄</div>
+            <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
+              {activeContracts?.length || '0'}
+            </div>
+            <div style={{fontSize: '16px', opacity: '0.9'}}>Contratti Attivi</div>
+            <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
+              In corso ora
+            </div>
+          </div>
+
+          {/* Contratti Chiusi */}
+          <div style={{
+            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+            borderRadius: '16px',
+            padding: '24px',
+            color: 'white',
+            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.3)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: '-20px',
+              right: '-20px',
+              fontSize: '4rem',
+              opacity: '0.2'
             }}>✅</div>
             <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              {user.role === 'superadmin' 
-                ? superadminStats?.totals?.closedContracts || '0'
-                : summary?.count || '0'
-              }
+              {annualStats.closedContracts}
             </div>
             <div style={{fontSize: '16px', opacity: '0.9'}}>Contratti Chiusi</div>
             <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
-              Completati
+              Completati nel {new Date().getFullYear()}
             </div>
           </div>
 
@@ -593,21 +687,11 @@ export default function Dashboard(){
               opacity: '0.2'
             }}>📊</div>
             <div style={{fontSize: '2.5rem', fontWeight: '700', marginBottom: '8px'}}>
-              €{(() => {
-                if (user.role === 'superadmin') {
-                  const total = superadminStats?.totals?.revenue || 0;
-                  const count = superadminStats?.totals?.closedContracts || 0;
-                  return count > 0 ? (total / count).toFixed(2) : '0.00';
-                } else {
-                  const total = summary?.total || 0;
-                  const count = summary?.count || 0;
-                  return count > 0 ? (total / count).toFixed(2) : '0.00';
-                }
-              })()}
+              €{annualStats.closedContracts > 0 ? (annualStats.total / annualStats.closedContracts).toFixed(2) : '0.00'}
             </div>
             <div style={{fontSize: '16px', opacity: '0.9'}}>Media/Contratto</div>
             <div style={{fontSize: '12px', opacity: '0.7', marginTop: '4px'}}>
-              Valore medio
+              Valore medio {new Date().getFullYear()}
             </div>
           </div>
         </div>
