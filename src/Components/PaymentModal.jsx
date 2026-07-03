@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api.js';
 
-const PaymentModal = ({ contract, onPaymentComplete, onClose, initialItemInsurancePaidAdvance = {}, initialContractInsurancePaidAdvance = false }) => {
+const PaymentModal = ({
+  contract,
+  onPaymentComplete,
+  onClose,
+  initialItemInsurancePaidAdvance = {},
+  initialContractInsurancePaidAdvance = false,
+  onItemInsuranceFlagChange,
+  onContractInsuranceFlagChange
+}) => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [finalAmount, setFinalAmount] = useState('');
@@ -14,16 +22,21 @@ const PaymentModal = ({ contract, onPaymentComplete, onClose, initialItemInsuran
   });
   const [itemPrices, setItemPrices] = useState({});
   const [itemInsurances, setItemInsurances] = useState({});
-  const [itemInsurancePaidAdvance, setItemInsurancePaidAdvance] = useState(initialItemInsurancePaidAdvance || {});
 
-  const contractInsurancePaidInAdvance = initialContractInsurancePaidAdvance || contract.insurancePaidInAdvance || false;
+  const getContractInsuranceKey = (contractData) => contractData?._id || contractData?.id || 'default-contract';
+  const getItemInsurancePaidAdvanceForContract = (state, contractData) => state?.[getContractInsuranceKey(contractData)] || {};
+  const getContractInsurancePaidAdvanceForContract = (state, contractData) => !!state?.[getContractInsuranceKey(contractData)];
 
+  const [itemInsurancePaidAdvance, setItemInsurancePaidAdvance] = useState(() => getItemInsurancePaidAdvanceForContract(initialItemInsurancePaidAdvance, contract));
+  const contractInsurancePaidInAdvance = getContractInsurancePaidAdvanceForContract(initialContractInsurancePaidAdvance, contract) || contract?.insurancePaidInAdvance || false;
 
   useEffect(() => {
     if (contract) {
+      setItemInsurancePaidAdvance(getItemInsurancePaidAdvanceForContract(initialItemInsurancePaidAdvance, contract));
+      onContractInsuranceFlagChange?.(contract, getContractInsurancePaidAdvanceForContract(initialContractInsurancePaidAdvance, contract));
       calculatePaymentDetails();
     }
-  }, [contract]);
+  }, [contract, initialItemInsurancePaidAdvance, initialContractInsurancePaidAdvance]);
 
 const calculatePaymentDetails = () => {
     if (!contract) return;
@@ -252,7 +265,9 @@ const calculatePaymentDetails = () => {
 
   const toggleItemInsurancePaidAdvance = (index) => {
     setItemInsurancePaidAdvance(prev => {
-      const newState = { ...prev, [index]: !prev[index] };
+      const nextValue = !prev[index];
+      const newState = { ...prev, [index]: nextValue };
+      onItemInsuranceFlagChange?.(contract, index, nextValue);
       recalculateTotals(newState);
       return newState;
     });

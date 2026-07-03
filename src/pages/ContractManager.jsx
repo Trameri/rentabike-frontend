@@ -1748,6 +1748,8 @@ const processReturns = async () => {
           contract={selectedContractForPayment}
           initialItemInsurancePaidAdvance={selectedItemInsurancePaidAdvance}
           initialContractInsurancePaidAdvance={selectedContractInsurancePaidAdvance}
+          onItemInsuranceFlagChange={(contractData, index, value) => setItemInsuranceFlag(contractData, index, value)}
+          onContractInsuranceFlagChange={(contractData, value) => setContractInsuranceFlag(contractData, value)}
           onPaymentComplete={() => {
             setShowPaymentModal(false);
             setSelectedContractForPayment(null);
