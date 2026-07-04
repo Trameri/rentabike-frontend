@@ -1,8 +1,35 @@
+export const hasMeaningfulRevenueForStats = (contract) => {
+  if (!contract) return false;
+
+  const hasSavedTotals = Boolean(
+    contract?.totals && [contract.totals.bikesTotal, contract.totals.insuranceTotal, contract.totals.extrasTotal, contract.totals.grandTotal]
+      .some((value) => Number(value) > 0)
+  );
+
+  const hasItemsWithRevenue = Array.isArray(contract?.items) && contract.items.some((item) => {
+    const priceHourly = parseFloat(item?.priceHourly) || 0;
+    const priceDaily = parseFloat(item?.priceDaily) || 0;
+    return (item?.kind === 'bike' || item?.kind === 'accessory') && (priceHourly > 0 || priceDaily > 0);
+  });
+
+  const hasExtraCharges = Array.isArray(contract?.extraCharges) && contract.extraCharges.some((charge) => Number(charge?.amount) > 0);
+  const hasInsuranceFlat = Number(contract?.insuranceFlat) > 0;
+
+  return hasSavedTotals || hasItemsWithRevenue || hasExtraCharges || hasInsuranceFlat;
+};
+
 export const isContractClosedForStats = (contract) => {
+  if (!contract) return false;
+
   const status = String(contract?.status || '').toLowerCase();
   const completedStatuses = ['closed', 'completed', 'returned', 'finished', 'settled'];
+  const activeStatuses = ['in-use', 'reserved', 'active', 'pending', 'draft', 'new'];
 
-  if (completedStatuses.includes(status)) return true;
+  if (activeStatuses.includes(status)) return false;
+
+  if (completedStatuses.includes(status)) {
+    return hasMeaningfulRevenueForStats(contract);
+  }
 
   const hasCompletionSignal = Boolean(
     contract?.endAt ||
@@ -14,7 +41,7 @@ export const isContractClosedForStats = (contract) => {
 
   if (!hasCompletionSignal) return false;
 
-  return Boolean(contract?.paymentCompleted || contract?.paid || contract?.finalAmount || contract?.totals?.grandTotal);
+  return hasMeaningfulRevenueForStats(contract);
 };
 
 export const getContractStatsReferenceDate = (contract) => {
