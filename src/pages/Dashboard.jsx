@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { jwtDecode } from 'jwt-decode'
-import { calculateSeparateTotals } from '../utils/contractCalculations.js'
+import { calculateSeparateTotals, getContractStatsReferenceDate, isContractClosedForStats } from '../utils/contractCalculations.js'
 import LocationLogo from '../Components/LocationLogo.jsx'
 
 export default function Dashboard(){
@@ -100,21 +100,20 @@ export default function Dashboard(){
         let closedContracts = 0
         
         contracts.forEach(contract => {
-          const startDate = contract.startAt ? new Date(contract.startAt) : (contract.createdAt ? new Date(contract.createdAt) : null)
-          if (!startDate) return
-          
-          const contractYear = startDate.getFullYear()
+          const referenceDate = getContractStatsReferenceDate(contract)
+          if (!referenceDate) return
+
+          const contractYear = referenceDate.getFullYear()
           if (contractYear !== currentYear) return
-          
+
+          if (!isContractClosedForStats(contract)) return
+
           const { bikesTotal: bt, insuranceTotal: it, extrasTotal: et, total: t } = calculateSeparateTotals(contract)
           bikesTotal += bt
           insuranceTotal += it
           extrasTotal += et
           total += t
-          
-          if (contract.status === 'closed') {
-            closedContracts++
-          }
+          closedContracts++
         })
         
         setAnnualStats({

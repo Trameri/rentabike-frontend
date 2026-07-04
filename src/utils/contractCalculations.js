@@ -1,3 +1,31 @@
+export const isContractClosedForStats = (contract) => {
+  const status = String(contract?.status || '').toLowerCase();
+  const completedStatuses = ['closed', 'completed', 'returned', 'finished', 'settled'];
+
+  if (completedStatuses.includes(status)) return true;
+
+  const hasCompletionSignal = Boolean(
+    contract?.endAt ||
+    contract?.returnedAt ||
+    contract?.completedAt ||
+    contract?.paymentDate ||
+    contract?.closedAt
+  );
+
+  if (!hasCompletionSignal) return false;
+
+  return Boolean(contract?.paymentCompleted || contract?.paid || contract?.finalAmount || contract?.totals?.grandTotal);
+};
+
+export const getContractStatsReferenceDate = (contract) => {
+  const referenceDate = contract?.endAt || contract?.returnedAt || contract?.completedAt || contract?.paymentDate || contract?.closedAt || contract?.startAt || contract?.createdAt;
+
+  if (!referenceDate) return null;
+
+  const parsedDate = new Date(referenceDate);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
+
 export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}, contractInsurancePaidAdvance = false) => {
   let bikesTotal = 0;
   let insuranceTotal = 0;
