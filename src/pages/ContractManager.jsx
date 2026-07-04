@@ -108,19 +108,29 @@ export default function ContractManager(){
     const targetDateStr = `${year}-${month}-${day}`
     
     return contracts.filter(contract => {
-      if (contract.status === 'reserved') {
-        const contractDate = contract.startAt || contract.reservationDate
-        if (!contractDate) return false
-        // Convert backend UTC date to user's local date
+      const status = String(contract.status || '').toLowerCase()
+
+      if (status === 'reserved') {
+        const contractDate = contract.startAt || contract.reservationDate || contract.createdAt
+        if (!contractDate) return true
+
         const contractDateObj = new Date(contractDate)
+        if (Number.isNaN(contractDateObj.getTime())) return true
+
         const contractYear = contractDateObj.getFullYear()
         const contractMonth = String(contractDateObj.getMonth() + 1).padStart(2, '0')
         const contractDay = String(contractDateObj.getDate()).padStart(2, '0')
         const contractDateStr = `${contractYear}-${contractMonth}-${contractDay}`
         return contractDateStr === targetDateStr
       }
-      
-      const start = new Date(contract.startAt || contract.createdAt)
+
+      const startValue = contract.startAt || contract.createdAt || contract.endAt || contract.returnedAt || contract.completedAt || contract.paymentDate
+      const start = startValue ? new Date(startValue) : null
+
+      if (!startValue || Number.isNaN(start?.getTime())) {
+        return ['in-use', 'returned', 'completed', 'closed', 'reserved'].includes(status)
+      }
+
       const end = contract.endAt ? new Date(contract.endAt) : null
       const isInRange = start <= dayEnd && (!end || end >= dayStart)
       return isInRange
