@@ -53,6 +53,89 @@ export const getContractStatsReferenceDate = (contract) => {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 };
 
+export const isConcludedContract = (contract) => {
+  const status = String(contract?.status || '').toLowerCase();
+  return ['closed', 'completed', 'returned', 'finished', 'settled'].includes(status);
+};
+
+export const recalculateContractTotals = (contract) => {
+  if (!contract || !contract.items || contract.items.length === 0) {
+    return {
+      bikesTotal: 0,
+      insuranceTotal: 0,
+      extrasTotal: 0,
+      total: 0,
+      grandTotal: 0
+    };
+  }
+
+  const now = new Date();
+  let bikesTotal = 0;
+  let insuranceTotal = 0;
+  let extrasTotal = 0;
+  const contractStartDate = new Date(contract.startAt || contract.createdAt);
+
+  if (contract.customFinalPrice && parseFloat(contract.customFinalPrice) > 0) {
+    const customTotal = parseFloat(contract.customFinalPrice);
+    return {
+      bikesTotal: customTotal,
+      insuranceTotal: 0,
+      extrasTotal: 0,
+      total: customTotal,
+      grandTotal: customTotal
+    };
+  }
+
+  contract.items.forEach((item) => {
+    if (item.kind !== 'bike' && item.kind !== 'accessory') return;
+
+    const itemStartAt = item.startAt ? new Date(item.startAt) : contractStartDate;
+    const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || now);
+    const durationMs = Math.max(0, itemEndAt - itemStartAt);
+    const durationMinutes = durationMs / (1000 * 60);
+    const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
+
+    const priceHourly = parseFloat(item.priceHourly) || 0;
+    const priceDaily = parseFloat(item.priceDaily) || 0;
+
+    const hourlyTotal = oreFatturate * priceHourly;
+    const dailyTotal = priceDaily;
+
+    if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
+      bikesTotal += dailyTotal;
+    } else {
+      bikesTotal += hourlyTotal;
+    }
+
+    if (item.insurance) {
+      insuranceTotal += 5;
+    }
+  });
+
+  if (contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0) {
+    insuranceTotal += parseFloat(contract.insuranceFlat);
+  }
+
+  if (contract.extraCharges && Array.isArray(contract.extraCharges)) {
+    contract.extraCharges.forEach(charge => {
+      const chargeAmount = parseFloat(charge.amount) || 0;
+      if (chargeAmount !== 0) {
+        extrasTotal += chargeAmount;
+      }
+    });
+  }
+
+  const total = bikesTotal + insuranceTotal + extrasTotal;
+
+  return {
+    bikesTotal: Math.round(bikesTotal * 100) / 100,
+    insuranceTotal: Math.round(insuranceTotal * 100) / 100,
+    extrasTotal: Math.round(extrasTotal * 100) / 100,
+    total: Math.round(total * 100) / 100,
+    grandTotal: Math.round(total * 100) / 100
+  };
+};
+
 export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}, contractInsurancePaidAdvance = false) => {
   let bikesTotal = 0;
   let insuranceTotal = 0;

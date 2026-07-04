@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function ContractManagement({ contract, onUpdate, onClose }) {
+export default function ContractManagement({ contract, onUpdate, onClose, onRecalculate }) {
   const [formData, setFormData] = useState({
     customer: { name: '', phone: '' },
     notes: '',
@@ -55,6 +55,9 @@ export default function ContractManagement({ contract, onUpdate, onClose }) {
       if (response.ok) {
         const updatedContract = await response.json();
         onUpdate(updatedContract.contract);
+        if (onRecalculate && ['returned', 'completed', 'closed', 'finished', 'settled'].includes(String(updatedContract.contract?.status || '').toLowerCase())) {
+          onRecalculate(updatedContract.contract);
+        }
         alert('Contratto aggiornato con successo!');
       } else {
         const error = await response.json();

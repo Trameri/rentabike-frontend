@@ -5,6 +5,7 @@ import dateUtils from '../utils/dateUtils.js'
 import PaymentModal from '../Components/PaymentModal.jsx'
 import moment from 'moment'
 import CompletedRevenueByDay from '../Components/CompletedRevenueByDay.jsx'
+import { recalculateContractTotals, isConcludedContract } from '../utils/contractCalculations.js'
 
 export default function ContractManager(){
   const [contracts, setContracts] = useState([])
@@ -441,6 +442,27 @@ const getEndOfWeek = (date) => {
       showError(`Errore caricamento contratti: ${error.response?.data?.error || error.message}`)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const refreshConcludedContractTotals = async (contract) => {
+    if (!contract || !isConcludedContract(contract)) return null;
+    const newTotals = recalculateContractTotals(contract);
+    try {
+      await api.put(`/api/contracts/${contract._id}`, {
+        totals: {
+          bikesTotal: newTotals.bikesTotal,
+          insuranceTotal: newTotals.insuranceTotal,
+          extrasTotal: newTotals.extrasTotal,
+          grandTotal: newTotals.grandTotal
+        }
+      });
+      setContracts(prev => prev.map(c => c._id === contract._id ? { ...c, totals: newTotals } : c));
+      return newTotals;
+    } catch (error) {
+      console.error('Errore aggiornamento totali contratto concluso:', error);
+      showError(`Errore aggiornamento totali: ${error.response?.data?.error || error.message}`);
+      return null;
     }
   }
 
@@ -1129,6 +1151,9 @@ const processReturns = async () => {
       setSelectedContractForPriceEdit(null)
       setCustomPrice('')
       setPriceReason('')
+      if (isConcludedContract({ ...selectedContractForPriceEdit, customFinalPrice: priceValue })) {
+        await refreshConcludedContractTotals({ ...selectedContractForPriceEdit, customFinalPrice: priceValue })
+      }
       await loadContracts()
     } catch (error) {
       console.error('Errore aggiornamento prezzo:', error)
@@ -1155,6 +1180,9 @@ const processReturns = async () => {
       setSelectedContractForPriceEdit(null)
       setCustomPrice('')
       setPriceReason('')
+      if (isConcludedContract({ ...selectedContractForPriceEdit, customFinalPrice: null })) {
+        await refreshConcludedContractTotals({ ...selectedContractForPriceEdit, customFinalPrice: null })
+      }
       await loadContracts()
     } catch (error) {
       console.error('Errore reset prezzo:', error)

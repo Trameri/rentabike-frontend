@@ -135,3 +135,59 @@ console.log('\n=== TUTTI I TEST COMPLETATI ===')
 console.log('Contract Manager sembra funzionare correttamente! ✅')
 
 export { validateContract, calculateDetailedBill, testData }
+
+import { recalculateContractTotals, isConcludedContract } from '../utils/contractCalculations.js';
+
+console.log('\n=== TEST RICALCOLO TOTALI CONTRATTI CONCLUSI ===');
+
+const concludedContract = {
+  _id: 'concl1',
+  customer: { name: 'Test Concluso', phone: '123' },
+  status: 'completed',
+  startAt: new Date(Date.now() - 86400000).toISOString(),
+  endAt: new Date(Date.now() - 3600000).toISOString(),
+  insuranceFlat: 0,
+  extraCharges: [],
+  totals: {
+    bikesTotal: 100,
+    insuranceTotal: 10,
+    extrasTotal: 0,
+    grandTotal: 110
+  },
+  items: [
+    {
+      _id: 'item1',
+      name: 'Bici Test',
+      kind: 'bike',
+      priceHourly: 10,
+      priceDaily: 50,
+      returnedAt: new Date(Date.now() - 3600000).toISOString(),
+      insurance: true
+    }
+  ]
+};
+
+const concludedContractModified = {
+  ...concludedContract,
+  totals: undefined,
+  items: [
+    {
+      ...concludedContract.items[0],
+      priceHourly: 20,
+      returnedAt: new Date(Date.now() - 7200000).toISOString()
+    }
+  ]
+};
+
+const recalculated = recalculateContractTotals(concludedContractModified);
+console.log('Contratto modificato (prezzo orario 20):');
+console.log('- BiciTotal:', recalculated.bikesTotal.toFixed(2), '(atteso: 50.00 per daily cap)');
+console.log('- InsuranceTotal:', recalculated.insuranceTotal.toFixed(2), '(atteso: 5.00)');
+console.log('- Total:', recalculated.total.toFixed(2), '(atteso: 55.00)');
+console.log('- Esito:', recalculated.bikesTotal === 50 && recalculated.insuranceTotal === 5 ? '✅' : '❌');
+
+console.log('\nTest isConcludedContract:');
+console.log('Concluso:', isConcludedContract(concludedContract) ? '✅' : '❌');
+console.log('In-use:', !isConcludedContract({ status: 'in-use' }) ? '✅' : '❌');
+
+console.log('\n=== TEST COMPLETATI ===')
