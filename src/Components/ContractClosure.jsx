@@ -74,11 +74,22 @@ const ContractClosure = ({ contract, onClose, onComplete }) => {
     try {
       setLoading(true);
 
+      const bikePricesOnly = data.items
+        .filter(item => item.kind === 'bike')
+        .map(item => {
+          const index = data.items.indexOf(item)
+          const ip = perItemPrices[index]
+          return {
+            itemId: item._id,
+            price: ip ? Math.round(ip.price * 100) / 100 : 0
+          }
+        })
+
       const payload = {
         status: 'completed',
         endAt: new Date(),
         finalPrice: finalPrice,
-        itemPrices: perItemPrices,
+        itemPrices: bikePricesOnly,
         paymentMethod: isPaid ? paymentMethod : null,
         isPaid: isPaid,
         closureNotes: notes
