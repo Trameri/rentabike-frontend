@@ -111,6 +111,18 @@ const BikeROIStats = () => {
             const itemEnd = item.returnedAt || contract.endAt || contract.createdAt
             const itemHours = calculateHours(itemStart, itemEnd)
             const itemRevenue = calculateItemRevenue(contract, item)
+            console.log('[BikeROIStats item]', bikeId || 'UNKNOWN', contract.status, {
+              itemId: item._id,
+              name: item.name,
+              rentalPrice: item.rentalPrice,
+              basePrice: item.basePrice,
+              totalPrice: item.totalPrice,
+              lockedItemPrices: contract.lockedItemPrices,
+              finalAmount: contract.finalAmount,
+              revenue: itemRevenue,
+              hours: itemHours,
+              barcode: item.barcode
+            })
             bike.totalRevenue += itemRevenue
             bike.totalRentals += 1
             bike.totalHours += itemHours
