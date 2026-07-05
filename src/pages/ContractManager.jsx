@@ -35,8 +35,22 @@ export default function ContractManager(){
   const [selectedContractForPayment, setSelectedContractForPayment] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [paymentNotes, setPaymentNotes] = useState('')
-  const [selectedItemInsurancePaidAdvance, setSelectedItemInsurancePaidAdvance] = useState({})
-  const [selectedContractInsurancePaidAdvance, setSelectedContractInsurancePaidAdvance] = useState({})
+  const [selectedItemInsurancePaidAdvance, setSelectedItemInsurancePaidAdvance] = useState(() => {
+    try {
+      const saved = localStorage.getItem('itemInsurancePaidAdvance')
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
+  })
+  const [selectedContractInsurancePaidAdvance, setSelectedContractInsurancePaidAdvance] = useState(() => {
+    try {
+      const saved = localStorage.getItem('contractInsurancePaidAdvance')
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
+  })
 
   // Stato per timer di aggiornamento UI
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -880,7 +894,9 @@ const processReturns = async () => {
           next[idx] = value
         }
       })
-      return { ...prev, [contractKey]: next }
+      const updated = { ...prev, [contractKey]: next }
+      localStorage.setItem('itemInsurancePaidAdvance', JSON.stringify(updated))
+      return updated
     })
   }
 
@@ -891,10 +907,11 @@ const processReturns = async () => {
 
   const setContractInsuranceFlag = (contract, value) => {
     const contractKey = getContractInsuranceKey(contract)
-    setSelectedContractInsurancePaidAdvance(prev => ({
-      ...prev,
-      [contractKey]: value
-    }))
+    setSelectedContractInsurancePaidAdvance(prev => {
+      const updated = { ...prev, [contractKey]: value }
+      localStorage.setItem('contractInsurancePaidAdvance', JSON.stringify(updated))
+      return updated
+    })
   }
 
   // Calcola il totale delle assicurazioni pagate in anticipo
