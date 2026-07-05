@@ -828,33 +828,7 @@ export default function Dashboard(){
                     fontSize: '12px',
                     minWidth: '140px'
                   }}>
-                    {(() => {
-                      const { bikesTotal, insuranceTotal, extrasTotal, total } = calculateSeparateTotals(contract)
-                      return (
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <tbody>
-                            <tr>
-                              <td style={{ padding: '2px 0', color: '#374151' }}>Quota base</td>
-                              <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '600', color: '#374151' }}>€{bikesTotal.toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td style={{ padding: '2px 0', color: '#059669' }}>Assicurazione</td>
-                              <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '600', color: '#059669' }}>€{insuranceTotal.toFixed(2)}</td>
-                            </tr>
-                            {extrasTotal > 0 && (
-                              <tr>
-                                <td style={{ padding: '2px 0', color: '#f59e0b' }}>Extra</td>
-                                <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '600', color: '#f59e0b' }}>€{extrasTotal.toFixed(2)}</td>
-                              </tr>
-                            )}
-                            <tr style={{ borderTop: '1px solid #10b981' }}>
-                              <td style={{ padding: '2px 0', fontWeight: '700', color: '#065f46' }}>Totale</td>
-                              <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '700', color: '#065f46' }}>€{total.toFixed(2)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      )
-                    })()}
+                    🟢 Attivo
                   </div>
                 </div>
                 
