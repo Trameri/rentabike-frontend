@@ -69,19 +69,6 @@ const BikeROIStats = () => {
   };
 
   const calculateItemRevenue = (contract, item) => {
-    if (contract.finalAmount && contract.finalAmount > 0) {
-      if (contract.items && contract.items.length === 1) return contract.finalAmount;
-
-      const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
-      let thisItemValue = 0, totalItemsValue = 0;
-      contract.items.forEach(it => {
-        const val = hours <= 24 ? (it.priceHourly || 0) * hours : (it.priceDaily || 0) * Math.ceil(hours / 24);
-        totalItemsValue += val;
-        if (it.name === item.name) thisItemValue = val;
-      });
-      if (totalItemsValue > 0) return (contract.finalAmount * thisItemValue) / totalItemsValue;
-    }
-
     const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
     if (hours <= 24) return (item.priceHourly || 0) * hours;
     return (item.priceDaily || 0) * Math.ceil(hours / 24);
