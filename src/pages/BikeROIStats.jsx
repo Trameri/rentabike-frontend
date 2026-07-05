@@ -69,10 +69,24 @@ const BikeROIStats = () => {
   };
 
   const calculateItemRevenue = (contract, item) => {
-    const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
-    if (hours <= 24) return (item.priceHourly || 0) * hours;
-    return (item.priceDaily || 0) * Math.ceil(hours / 24);
-  };
+    const locked = parseFloat(item.rentalPrice || 0)
+    if (locked > 0) return locked
+
+    const now = new Date()
+    const contractStart = contract.startAt ? new Date(contract.startAt) : (contract.createdAt ? new Date(contract.createdAt) : null)
+    const itemStart = item.startAt ? new Date(item.startAt) : contractStart
+    const itemEnd = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : now)
+    if (!itemStart || Number.isNaN(itemStart.getTime())) return 0
+
+    const durationMs = Math.max(0, itemEnd - itemStart)
+    const durationMinutes = durationMs / (1000 * 60)
+    const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+
+    const priceHourly = parseFloat(item.priceHourly) || 0
+    const priceDaily = parseFloat(item.priceDaily) || 0
+    if (priceDaily > 0 && (priceHourly * oreFatturate) >= priceDaily) return priceDaily
+    return priceHourly * oreFatturate
+  }
 
   const bikeStats = useMemo(() => {
     if (!bikes.length || !contracts.length) return [];
@@ -83,32 +97,29 @@ const BikeROIStats = () => {
     });
 
     contracts.forEach(contract => {
-      const statusOk = ['completed', 'returned', 'closed', 'in-use'].includes(contract.status);
-      const hasPaymentFlag = contract.paymentCompleted || contract.paid;
-      const hasComputedTotals = (contract.finalAmount ?? 0) > 0 || (contract.totals?.grandTotal ?? 0) > 0;
-      const countForRevenue = contract.status === 'in-use' ? statusOk : (statusOk && (hasPaymentFlag || hasComputedTotals));
-
-      if (countForRevenue && contract.items) {
-        contract.items.forEach(item => {
-          if (item.kind === 'bike') {
-            let bikeId = item.refId;
-            let bike = stats[bikeId];
-            if (!bike && item.barcode) {
-              bikeId = Object.keys(stats).find(id => stats[id].barcode === item.barcode);
-              bike = stats[bikeId];
-            }
-            if (bike) {
-              const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
-              const itemRevenue = calculateItemRevenue(contract, item);
-              bike.totalRevenue += itemRevenue;
-              bike.totalRentals += 1;
-              bike.totalHours += hours;
-              const contractDate = new Date(contract.endAt || contract.createdAt);
-              if (!bike.lastRentalDate || contractDate > bike.lastRentalDate) bike.lastRentalDate = contractDate;
-            }
+      if (!['completed', 'returned', 'closed'].includes(contract.status)) return
+      if (!contract.items) return
+      contract.items.forEach(item => {
+        if (item.kind === 'bike') {
+          let bikeId = item.refId
+          let bike = stats[bikeId]
+          if (!bike && item.barcode) {
+            bikeId = Object.keys(stats).find(id => stats[id].barcode === item.barcode)
+            bike = stats[bikeId]
           }
-        });
-      }
+          if (bike) {
+            const itemStart = item.startAt || contract.startAt || contract.createdAt
+            const itemEnd = item.returnedAt || contract.endAt || contract.createdAt
+            const itemHours = calculateHours(itemStart, itemEnd)
+            const itemRevenue = calculateItemRevenue(contract, item)
+            bike.totalRevenue += itemRevenue
+            bike.totalRentals += 1
+            bike.totalHours += itemHours
+            const itemEndDate = new Date(itemEnd)
+            if (!bike.lastRentalDate || itemEndDate > bike.lastRentalDate) bike.lastRentalDate = itemEndDate
+          }
+        }
+      })
     });
 
     Object.keys(stats).forEach(bikeId => {
