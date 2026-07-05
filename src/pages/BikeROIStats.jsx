@@ -119,6 +119,12 @@ const BikeROIStats = () => {
           }
         }
       })
+    })
+    Object.keys(stats).forEach(bikeId => {
+      const s = stats[bikeId]
+      if (s.totalRevenue > 0 || s.purchasePrice > 0) {
+        console.log('[BikeROIStats]', bikeId, { revenue: Math.round(s.totalRevenue * 100) / 100, rentals: s.totalRentals, hours: Math.round(s.totalHours * 100) / 100 })
+      }
     });
 
     Object.keys(stats).forEach(bikeId => {
