@@ -645,53 +645,6 @@ const processReturns = async () => {
       }
     }
 
-    if (contract.customFinalPrice && contract.customFinalPrice > 0) {
-      // Calcola l'assicurazione e gli extra anche per i prezzi personalizzati
-      let itemInsuranceTotal = 0
-      let itemExtrasTotal = 0
-      
-      // Assicurazione dagli items
-      contract.items.forEach((item) => {
-        if (item.insurance && !item.returnedAt) {
-          itemInsuranceTotal += 5
-        }
-      })
-      
-      // Assicurazione flat del contratto
-      if (contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0) {
-        itemInsuranceTotal += parseFloat(contract.insuranceFlat)
-      }
-      
-      // Extra charges
-      if (contract.extraCharges && Array.isArray(contract.extraCharges)) {
-        contract.extraCharges.forEach(charge => {
-          const chargeAmount = parseFloat(charge.amount) || 0
-          if (chargeAmount !== 0) {
-            itemExtrasTotal += chargeAmount
-          }
-        })
-      }
-      
-      return {
-        finalTotal: parseFloat(contract.customFinalPrice),
-        bikesTotal: 0, // Sarà calcolato dinamicamente dal componente
-        insuranceTotal: Math.round(itemInsuranceTotal * 100) / 100,
-        extrasTotal: Math.round(itemExtrasTotal * 100) / 100,
-        items: [{
-          name: '🎯 Prezzo Personalizzato',
-          duration: contract.customPriceReason || 'Prezzo modificato manualmente',
-          basePrice: parseFloat(contract.customFinalPrice),
-          insurance: 0,
-          total: parseFloat(contract.customFinalPrice),
-          pricingLogic: 'custom_override'
-        }],
-        duration: { hours: 0, days: 0 },
-        startDate: new Date(contract.startAt || contract.createdAt),
-        endDate: new Date(contract.endAt || new Date()),
-        priceSource: 'custom'
-      }
-    }
-
     const now = new Date()
     let totalAmount = 0
     let bikesTotal = 0
@@ -803,7 +756,7 @@ const processReturns = async () => {
       computed.priceSource = contract.paymentCompleted ? 'payment' : 'calculated'
     }
 
-    return computed
+     return computed
   }
 
   const calculatePaymentTotals = (contract) => {
