@@ -2177,7 +2177,7 @@ const processReturns = async () => {
                   const extrasTotal = bill.extrasTotal
                   const displayTotal = bill.finalTotal
                   const baseTotal = hasCustomPrice || isPaymentTotal
-                    ? Math.max(0, Math.round((displayTotal - insuranceTotal - extrasTotal) * 100) / 100)
+                    ? Math.max(0, Math.round((displayTotal - insuranceTotal) * 100) / 100)
                     : bill.bikesTotal
 
                   return (
