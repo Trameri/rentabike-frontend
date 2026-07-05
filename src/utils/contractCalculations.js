@@ -22,26 +22,9 @@ export const isContractClosedForStats = (contract) => {
   if (!contract) return false;
 
   const status = String(contract?.status || '').toLowerCase();
-  const completedStatuses = ['closed', 'completed', 'returned', 'finished', 'settled'];
-  const activeStatuses = ['in-use', 'reserved', 'active', 'pending', 'draft', 'new'];
+  const explicitlyClosedStatuses = ['closed', 'completed'];
 
-  if (activeStatuses.includes(status)) return false;
-
-  if (completedStatuses.includes(status)) {
-    return hasMeaningfulRevenueForStats(contract);
-  }
-
-  const hasCompletionSignal = Boolean(
-    contract?.endAt ||
-    contract?.returnedAt ||
-    contract?.completedAt ||
-    contract?.paymentDate ||
-    contract?.closedAt
-  );
-
-  if (!hasCompletionSignal) return false;
-
-  return hasMeaningfulRevenueForStats(contract);
+  return explicitlyClosedStatuses.includes(status) && hasMeaningfulRevenueForStats(contract);
 };
 
 export const getContractStatsReferenceDate = (contract) => {
@@ -55,7 +38,7 @@ export const getContractStatsReferenceDate = (contract) => {
 
 export const isConcludedContract = (contract) => {
   const status = String(contract?.status || '').toLowerCase();
-  return ['closed', 'completed', 'returned', 'finished', 'settled'].includes(status);
+  return ['closed', 'completed'].includes(status);
 };
 
 export const recalculateContractTotals = (contract) => {

@@ -75,17 +75,6 @@ export default function Dashboard(){
         }
       }
       
-      // Carica contratti attivi
-      try {
-        const contractsResponse = await api.get('/api/contracts', {
-          params: { status: 'in-use', limit: 10 }
-        })
-        setActiveContracts(contractsResponse.data || [])
-      } catch (error) {
-        console.error('Errore caricamento contratti attivi:', error)
-        setActiveContracts([])
-      }
-
       // Carica tutti i contratti per calcolare totali annui
       try {
         const allContractsResponse = await api.get('/api/contracts')
@@ -116,6 +105,9 @@ export default function Dashboard(){
           total += t
           closedContracts++
         })
+
+        const notClosedContracts = contracts.filter(c => !isContractClosedForStats(c))
+        setActiveContracts(notClosedContracts.slice(0, 10))
         
         setAnnualStats({
           total: Math.round(total * 100) / 100,
