@@ -797,11 +797,10 @@ const processReturns = async () => {
       priceSource: 'calculated'
     }
 
-    const hasCustomPrice = contract.customFinalPrice && contract.customFinalPrice > 0
-    if (!hasCustomPrice && contract.paymentCompleted && contract.finalAmount > 0) {
+    if (contract.finalAmount > 0) {
       computed.finalTotal = Math.round(contract.finalAmount * 100) / 100
-      computed.bikesTotal = Math.round((computed.finalTotal - computed.insuranceTotal - computed.extrasTotal) * 100) / 100
-      computed.priceSource = 'payment'
+      computed.bikesTotal = Math.max(0, Math.round((computed.finalTotal - computed.insuranceTotal - computed.extrasTotal) * 100) / 100)
+      computed.priceSource = contract.paymentCompleted ? 'payment' : 'calculated'
     }
 
     return computed
