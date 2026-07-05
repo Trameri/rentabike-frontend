@@ -70,25 +70,20 @@ const BikeROIStats = () => {
 
   const calculateItemRevenue = (contract, item) => {
     if (contract.finalAmount && contract.finalAmount > 0) {
-      let totalInsurance = 0;
-      contract.items?.forEach(it => { if (it.insurance) totalInsurance += 5; });
-      if (contract.insuranceFlat) totalInsurance += parseFloat(contract.insuranceFlat);
-      
-      const totalBikeRevenue = contract.finalAmount - totalInsurance;
-      if (contract.items && contract.items.length === 1) return Math.max(0, totalBikeRevenue);
-      
+      if (contract.items && contract.items.length === 1) return contract.finalAmount;
+
       const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
       let thisItemValue = 0, totalItemsValue = 0;
       contract.items.forEach(it => {
-        const itemValue = hours <= 24 ? (it.priceHourly || 0) * hours : (it.priceDaily || 0) * Math.ceil(hours / 24);
-        totalItemsValue += itemValue;
-        if (it.name === item.name) thisItemValue = itemValue;
+        const val = hours <= 24 ? (it.priceHourly || 0) * hours : (it.priceDaily || 0) * Math.ceil(hours / 24);
+        totalItemsValue += val;
+        if (it.name === item.name) thisItemValue = val;
       });
-      if (totalItemsValue > 0) return (totalBikeRevenue * thisItemValue) / totalItemsValue;
+      if (totalItemsValue > 0) return (contract.finalAmount * thisItemValue) / totalItemsValue;
     }
-    
+
     const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
-    if (hours <= 24) return item.priceHourly || 0 * hours;
+    if (hours <= 24) return (item.priceHourly || 0) * hours;
     return (item.priceDaily || 0) * Math.ceil(hours / 24);
   };
 
@@ -171,7 +166,8 @@ const BikeROIStats = () => {
     else if (filterStatus === 'not-repaid') filtered = filtered.filter(stat => !stat.isRepaid && stat.purchasePrice > 0);
     else if (filterStatus === 'no-purchase-data') filtered = filtered.filter(stat => !stat.purchasePrice || stat.purchasePrice === 0);
     filtered.sort((a, b) => (sortOrder === 'desc' ? (b[sortBy] || 0) - (a[sortBy] || 0) : (a[sortBy] || 0) - (b[sortBy] || 0)));
-    return filtered;
+    const maxRevenue = filtered.length > 0 ? Math.max(...filtered.map(f => f.totalRevenue || 0)) : 0;
+    return { list: filtered, maxRevenue };
   }, [bikeStats, filterType, filterStatus, sortBy, sortOrder]);
 
   if (loading) {
@@ -284,7 +280,7 @@ const BikeROIStats = () => {
       {/* Tabella statistiche */}
       <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ padding: '16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>Dettaglio Bici ({filteredStats.length})</h3>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>Dettaglio Bici ({filteredStats.list.length})</h3>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -302,11 +298,14 @@ const BikeROIStats = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredStats.map((stat, index) => (
+              {filteredStats.list.map((stat, index) => (
                 <tr key={stat._id} style={{ background: index % 2 === 0 ? 'white' : '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
                   <td style={{ padding: '12px' }}>
                     <div>
-                      <div style={{ fontWeight: '600', color: '#1f2937' }}>{stat.name}</div>
+                      <div style={{ fontWeight: '600', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {stat.name}
+                        {stat.totalRevenue > 0 && stat.totalRevenue === filteredStats.maxRevenue && <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px' }}>🏆 TOP</span>}
+                      </div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>{stat.barcode}</div>
                     </div>
                   </td>
@@ -320,7 +319,9 @@ const BikeROIStats = () => {
                     </span>
                   </td>
                   <td style={{ padding: '12px', textAlign: 'right' }}>{stat.purchasePrice > 0 ? formatCurrency(stat.purchasePrice) : '-'}</td>
-                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#059669' }}>{formatCurrency(stat.totalRevenue)}</td>
+                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: '700', color: stat.totalRevenue > 0 && stat.totalRevenue === filteredStats.maxRevenue ? '#047857' : '#059669' }}>
+                    {formatCurrency(stat.totalRevenue)}
+                  </td>
                   <td style={{ padding: '12px', textAlign: 'right' }}>
                     {stat.purchasePrice > 0 ? (
                       <span style={{ color: stat.roiPercentage >= 100 ? '#059669' : '#dc2626', fontWeight: '600' }}>
@@ -349,7 +350,7 @@ const BikeROIStats = () => {
             </tbody>
           </table>
         </div>
-        {filteredStats.length === 0 && (
+        {filteredStats.list.length === 0 && (
           <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Nessuna bici trovata con i filtri selezionati</div>
         )}
       </div>
