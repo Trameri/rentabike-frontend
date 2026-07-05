@@ -69,23 +69,7 @@ const BikeROIStats = () => {
   };
 
   const calculateItemRevenue = (contract, item) => {
-    const locked = parseFloat(item.rentalPrice || 0)
-    if (locked > 0) return locked
-
-    const now = new Date()
-    const contractStart = contract.startAt ? new Date(contract.startAt) : (contract.createdAt ? new Date(contract.createdAt) : null)
-    const itemStart = item.startAt ? new Date(item.startAt) : contractStart
-    const itemEnd = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : now)
-    if (!itemStart || Number.isNaN(itemStart.getTime())) return 0
-
-    const durationMs = Math.max(0, itemEnd - itemStart)
-    const durationMinutes = durationMs / (1000 * 60)
-    const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
-
-    const priceHourly = parseFloat(item.priceHourly) || 0
-    const priceDaily = parseFloat(item.priceDaily) || 0
-    if (priceDaily > 0 && (priceHourly * oreFatturate) >= priceDaily) return priceDaily
-    return priceHourly * oreFatturate
+    return parseFloat(item.rentalPrice || 0)
   }
 
   const bikeStats = useMemo(() => {
