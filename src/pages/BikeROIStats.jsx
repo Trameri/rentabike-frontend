@@ -72,18 +72,24 @@ const BikeROIStats = () => {
     const locked = parseFloat(item.rentalPrice || 0)
     if (locked > 0) return locked
 
-    const itemStart = item.startAt || contract.startAt || contract.createdAt
-    const itemEnd = item.returnedAt || contract.endAt || contract.createdAt
-    if (!itemStart) return 0
+    if (contract.lockedItemPrices && Array.isArray(contract.lockedItemPrices) && contract.lockedItemPrices.length > 0) {
+      const found = contract.lockedItemPrices.find(lp => lp.itemId === item._id || lp.itemId === item.id || lp.itemId === item.name)
+      const lockedPrice = parseFloat(found?.basePrice || 0)
+      if (lockedPrice > 0) return lockedPrice
+    }
 
-    const durationMs = Math.max(0, new Date(itemEnd) - new Date(itemStart))
-    const durationMinutes = durationMs / (1000 * 60)
-    const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+    if (contract.finalAmount && contract.finalAmount > 0 && contract.items && contract.items.length > 0) {
+      let totalValue = 0, itemValue = 0
+      const hours = calculateHours(contract.startAt || contract.createdAt, contract.endAt || contract.createdAt) || 1
+      contract.items.forEach(it => {
+        const v = (it.priceHourly || 0) * hours + (it.priceDaily || 0)
+        totalValue += v
+        if (it._id === item._id || it.id === item.id || it.name === item.name) itemValue = v
+      })
+      if (totalValue > 0 && itemValue > 0) return (contract.finalAmount * itemValue) / totalValue
+    }
 
-    const priceHourly = parseFloat(item.priceHourly) || 0
-    const priceDaily = parseFloat(item.priceDaily) || 0
-    if (priceDaily > 0 && (priceHourly * oreFatturate) >= priceDaily) return priceDaily
-    return priceHourly * oreFatturate
+    return 0
   }
 
   const bikeStats = useMemo(() => {

@@ -8,6 +8,7 @@ const ContractClosure = ({ contract, onClose, onComplete }) => {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [contractDetails, setContractDetails] = useState(null);
+  const [perItemPrices, setPerItemPrices] = useState([]);
 
   useEffect(() => {
     if (contract) {
@@ -20,36 +21,44 @@ const ContractClosure = ({ contract, onClose, onComplete }) => {
       const { data } = await api.get(`/api/contracts/${contract._id}`);
       setContractDetails(data);
       
-      // Calcola prezzo finale basato su durata effettiva
       const now = new Date();
       const start = new Date(data.startAt);
-      const durationMs = now - start;
-      const durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
-      const durationDays = Math.ceil(durationHours / 24);
+      const end = data.endAt ? new Date(data.endAt) : now;
+      const durationMs = Math.max(0, end - start);
+      const durationHours = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60)));
+      const durationDays = Math.max(1, Math.ceil(durationHours / 24));
+      const durationMinutes = durationMs / (1000 * 60);
 
       let calculatedPrice = 0;
       let insuranceTotal = 0;
+      const itemPrices = [];
 
-      // Calcola prezzo per ogni item ancora attivo
-      data.items?.forEach(item => {
-        if (!item.returnedAt) { // Solo item non ancora restituiti
-          const hourlyPrice = item.priceHourly || 0;
-          const dailyPrice = item.priceDaily || 0;
-          
-          // Usa tariffa giornaliera se conviene
-          const hourlyTotal = hourlyPrice * durationHours;
-          const dailyTotal = dailyPrice * durationDays;
-          
-          calculatedPrice += Math.min(hourlyTotal, dailyTotal);
-          
-          // Aggiungi assicurazione se presente
-          if (item.insurance) {
-            insuranceTotal += 5;
-          }
+      data.items?.forEach((item) => {
+        const priceHourly = parseFloat(item.priceHourly) || 0;
+        const priceDaily = parseFloat(item.priceDaily) || 0;
+        const itemEnd = item.returnedAt ? new Date(item.returnedAt) : end;
+        const itemMs = Math.max(0, itemEnd - start);
+        const itemMinutes = itemMs / (1000 * 60);
+        const oreFatturate = Math.max(1, Math.ceil(itemMinutes / 60));
+
+        let itemPrice = 0;
+        if (priceDaily > 0 && (priceHourly * oreFatturate) >= priceDaily) {
+          itemPrice = priceDaily;
+        } else {
+          itemPrice = priceHourly * oreFatturate;
+        }
+        itemPrice = Math.round(itemPrice * 100) / 100;
+
+        calculatedPrice += itemPrice;
+        itemPrices.push({ itemId: item._id, price: itemPrice });
+
+        if (item.insurance) {
+          insuranceTotal += Math.round(5 * 100) / 100;
         }
       });
 
-      setFinalPrice(calculatedPrice + insuranceTotal);
+      setFinalPrice(Math.round((calculatedPrice + insuranceTotal) * 100) / 100);
+      setPerItemPrices(itemPrices);
       
     } catch (error) {
       console.error('Errore caricamento dettagli contratto:', error);
@@ -69,6 +78,7 @@ const ContractClosure = ({ contract, onClose, onComplete }) => {
         status: 'completed',
         endAt: new Date(),
         finalPrice: finalPrice,
+        itemPrices: perItemPrices,
         paymentMethod: isPaid ? paymentMethod : null,
         isPaid: isPaid,
         closureNotes: notes
@@ -198,73 +208,73 @@ const ContractClosure = ({ contract, onClose, onComplete }) => {
           </div>
         </div>
 
-        {/* Items attivi */}
-        {getActiveItems().length > 0 && (
+        {/* Items */}
+        {contractDetails?.items?.length > 0 && (
           <div style={{
             marginBottom: '20px',
             padding: '16px',
-            background: '#fef3c7',
-            border: '2px solid #f59e0b',
-            borderRadius: '8px'
+            background: '#f8fafc',
+            borderRadius: '8px',
+            border: '1px solid #e5e7eb'
           }}>
-            <h4 style={{ margin: '0 0 12px 0', color: '#92400e' }}>
-              ⚠️ Items Ancora Attivi ({getActiveItems().length})
+            <h4 style={{ margin: '0 0 12px 0', color: '#374151' }}>
+              🚲 Dettaglio Prezzi per Bici
             </h4>
-            <div style={{ fontSize: '14px', color: '#92400e', marginBottom: '12px' }}>
-              Questi items non sono ancora stati restituiti e verranno inclusi nel prezzo finale:
+            <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '12px' }}>
+              Modifica il prezzo di ogni bici • Viene considerato il prezzo finale
             </div>
-            {getActiveItems().map((item, index) => (
-              <div key={index} style={{
-                background: 'white',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                marginBottom: '8px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <strong>{item.kind === 'bike' ? '🚲' : '🎒'} {item.name}</strong>
-                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    {item.barcode} • €{item.priceHourly}/h • €{item.priceDaily}/giorno
-                    {item.insurance && ' • 🛡️ Assicurato'}
+            {contractDetails.items.map((item, index) => {
+              const ip = perItemPrices[index]
+              const itemPrice = ip ? ip.price : 0
+              const isReturned = !!item.returnedAt
+              return (
+                <div key={index} style={{
+                  background: isReturned ? '#f0fdf4' : '#fef3c7',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ flex: '1 1 200px' }}>
+                    <strong>{item.kind === 'bike' ? '🚲' : '🎒'} {item.name}</strong>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      {item.barcode} • €{item.priceHourly}/h • €{item.priceDaily}/giorno
+                      {isReturned && <span>• Restituito {new Date(item.returnedAt).toLocaleString('it-IT')}</span>}
+                      {item.insurance && <span>🛡️</span>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={itemPrice}
+                      onChange={(e) => {
+                        const v = Math.max(0, parseFloat(e.target.value) || 0)
+                        const next = [...perItemPrices]
+                        next[index] = { itemId: item._id, price: Math.round(v * 100) / 100 }
+                        setPerItemPrices(next)
+                        const newFinal = Math.round((next.reduce((s, p) => s + (p?.price || 0), 0) + (contractDetails.items.filter(i => i.insurance).length * 5)) * 100) / 100
+                        setFinalPrice(newFinal)
+                      }}
+                      style={{
+                        width: '100px',
+                        padding: '6px 8px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        textAlign: 'right',
+                        fontSize: '14px'
+                      }}
+                    />
+                    <span>€</span>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Items restituiti */}
-        {getReturnedItems().length > 0 && (
-          <div style={{
-            marginBottom: '20px',
-            padding: '16px',
-            background: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            borderRadius: '8px'
-          }}>
-            <h4 style={{ margin: '0 0 12px 0', color: '#059669' }}>
-              ✅ Items Restituiti ({getReturnedItems().length})
-            </h4>
-            {getReturnedItems().map((item, index) => (
-              <div key={index} style={{
-                background: 'white',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                marginBottom: '8px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <strong>{item.kind === 'bike' ? '🚲' : '🎒'} {item.name}</strong>
-                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    Restituito: {new Date(item.returnedAt).toLocaleString('it-IT')}
-                  </div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
