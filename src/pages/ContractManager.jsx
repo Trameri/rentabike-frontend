@@ -751,8 +751,9 @@ const processReturns = async () => {
     }
 
     if (contract.finalAmount > 0) {
-      computed.finalTotal = Math.round(contract.finalAmount * 100) / 100
-      computed.bikesTotal = Math.max(0, Math.round((computed.finalTotal - computed.insuranceTotal - computed.extrasTotal) * 100) / 100)
+      const baseAmount = Math.round(contract.finalAmount * 100) / 100
+      computed.bikesTotal = Math.max(0, baseAmount)
+      computed.finalTotal = Math.round((baseAmount + computed.insuranceTotal + computed.extrasTotal) * 100) / 100
       computed.priceSource = contract.paymentCompleted ? 'payment' : 'calculated'
     }
 
@@ -2220,7 +2221,7 @@ const processReturns = async () => {
                             </tr>
                           )}
                           <tr style={{ borderTop: '2px solid #e2e8f0' }}>
-                            <td style={{ padding: '4px 0', fontWeight: '700', color: isPaymentTotal ? '#059669' : (hasCustomPrice ? '#a21caf' : '#1e293b') }}>{isPaymentTotal ? 'Totale Pagato' : 'Totale'}</td>
+                            <td style={{ padding: '4px 0', fontWeight: '700', color: isPaymentTotal ? '#059669' : (hasCustomPrice ? '#a21caf' : '#1e293b') }}>Totale</td>
                             <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '700', color: isPaymentTotal ? '#059669' : (hasCustomPrice ? '#a21caf' : '#1e293b') }}>€{displayTotal.toFixed(2)}</td>
                           </tr>
                         </tbody>
