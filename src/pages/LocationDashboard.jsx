@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { jwtDecode } from 'jwt-decode'
-import { calculateSeparateTotals } from '../utils/contractCalculations.js'
+import { calculateSeparateTotals, getContractStatsReferenceDate, isContractClosedForStats } from '../utils/contractCalculations.js'
 import LocationLogo from '../Components/LocationLogo.jsx'
 
 export default function LocationDashboard() {
@@ -11,6 +11,7 @@ export default function LocationDashboard() {
   const [locationStat, setLocationStat] = useState(null)
   const [activeContracts, setActiveContracts] = useState([])
   const [closedContracts, setClosedContracts] = useState([])
+  const [locationBreakdown, setLocationBreakdown] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -39,7 +40,7 @@ export default function LocationDashboard() {
         const [{ data: statsData }, { data: activeData }, { data: closedData }] = await Promise.all([
           api.get('/api/reports/superadmin-stats'),
           api.get('/api/contracts', { params: { location: locationId, status: 'in-use', limit: 50 } }),
-          api.get('/api/contracts', { params: { location: locationId, status: 'closed', limit: 50 } })
+          api.get('/api/contracts', { params: { location: locationId, status: 'closed' } })
         ])
 
         const found = statsData.locations?.find(l => l.location._id === locationId)
@@ -51,6 +52,41 @@ export default function LocationDashboard() {
         }
         setActiveContracts(activeData.data || [])
         setClosedContracts(closedData.data || [])
+
+        const lb = {
+          annual: { bikes: 0, insurance: 0, extras: 0, total: 0, contracts: 0 },
+          daily: { bikes: 0, insurance: 0, extras: 0, total: 0, contracts: 0 }
+        }
+        ;(closedData.data || []).forEach(contract => {
+          const referenceDate = getContractStatsReferenceDate(contract)
+          if (!referenceDate || !isContractClosedForStats(contract)) return
+          const { bikesTotal, insuranceTotal, extrasTotal, total } = calculateSeparateTotals(contract)
+          const contractDate = new Date(referenceDate)
+          const currentYear = new Date().getFullYear()
+          const isAnnual = contractDate.getFullYear() === currentYear
+          const isDaily = contractDate.toDateString() === new Date().toDateString()
+          if (isAnnual) {
+            lb.annual.bikes += bikesTotal
+            lb.annual.insurance += insuranceTotal
+            lb.annual.extras += extrasTotal
+            lb.annual.total += total
+            lb.annual.contracts++
+          }
+          if (isDaily) {
+            lb.daily.bikes += bikesTotal
+            lb.daily.insurance += insuranceTotal
+            lb.daily.extras += extrasTotal
+            lb.daily.total += total
+            lb.daily.contracts++
+          }
+        })
+        ;['annual', 'daily'].forEach(period => {
+          lb[period].bikes = Math.round(lb[period].bikes * 100) / 100
+          lb[period].insurance = Math.round(lb[period].insurance * 100) / 100
+          lb[period].extras = Math.round(lb[period].extras * 100) / 100
+          lb[period].total = Math.round(lb[period].total * 100) / 100
+        })
+        setLocationBreakdown(lb)
       } catch (err) {
         console.error('Errore caricamento dati location:', err)
         setError('Errore nel caricamento dei dati')

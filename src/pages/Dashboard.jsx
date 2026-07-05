@@ -25,6 +25,7 @@ export default function Dashboard(){
     extrasTotal: 0,
     closedContracts: 0
   })
+  const [locationBreakdown, setLocationBreakdown] = useState({})
 
   const showNotification = (message, type = 'info') => {
     setNotification({ message, type })
@@ -123,6 +124,52 @@ export default function Dashboard(){
           extrasTotal: Math.round(extrasTotal * 100) / 100,
           closedContracts
         })
+
+        const locationBreakdown = {}
+        contracts.forEach(contract => {
+          const locId = contract.location?._id || contract.location || 'unknown'
+          if (!locationBreakdown[locId]) {
+            locationBreakdown[locId] = {
+              annual: { bikes: 0, insurance: 0, extras: 0, total: 0, contracts: 0 },
+              daily: { bikes: 0, insurance: 0, extras: 0, total: 0, contracts: 0 }
+            }
+          }
+
+          const referenceDate = getContractStatsReferenceDate(contract)
+          if (!referenceDate || !isContractClosedForStats(contract)) return
+
+          const { bikesTotal: b, insuranceTotal: i, extrasTotal: e, total: t } = calculateSeparateTotals(contract)
+          const contractDate = new Date(referenceDate)
+          const currentYear = new Date().getFullYear()
+          const isAnnual = contractDate.getFullYear() === currentYear
+          const isDaily = contractDate.toDateString() === new Date().toDateString()
+
+          if (isAnnual) {
+            locationBreakdown[locId].annual.bikes += b
+            locationBreakdown[locId].annual.insurance += i
+            locationBreakdown[locId].annual.extras += e
+            locationBreakdown[locId].annual.total += t
+            locationBreakdown[locId].annual.contracts++
+          }
+          if (isDaily) {
+            locationBreakdown[locId].daily.bikes += b
+            locationBreakdown[locId].daily.insurance += i
+            locationBreakdown[locId].daily.extras += e
+            locationBreakdown[locId].daily.total += t
+            locationBreakdown[locId].daily.contracts++
+          }
+        })
+
+        Object.values(locationBreakdown).forEach(lb => {
+          ['annual', 'daily'].forEach(period => {
+            lb[period].bikes = Math.round(lb[period].bikes * 100) / 100
+            lb[period].insurance = Math.round(lb[period].insurance * 100) / 100
+            lb[period].extras = Math.round(lb[period].extras * 100) / 100
+            lb[period].total = Math.round(lb[period].total * 100) / 100
+          })
+        })
+
+        setLocationBreakdown(locationBreakdown)
       } catch (error) {
         console.error('Errore caricamento tutti i contratti:', error)
       }
@@ -971,87 +1018,48 @@ export default function Dashboard(){
                   </div>
                 </div>
                 
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px'
-                }}>
-                  <div style={{textAlign: 'center', padding: '12px', background: 'white', borderRadius: '8px'}}>
-                    <div style={{
-                      fontSize: '1.5rem',
-                      fontWeight: '700',
-                      color: '#10b981',
-                      marginBottom: '4px'
-                    }}>
-                      €{locationStat.revenue.toFixed(2)}
+                {(function() {
+                  const locBd = locationBreakdown[locationStat.location._id] || {
+                    annual: { bikes: 0, insurance: 0, extras: 0, total: 0, contracts: 0 },
+                    daily: { bikes: 0, insurance: 0, extras: 0, total: 0, contracts: 0 }
+                  }
+                  const renderPeriod = (title, period, titleColor) => (
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ marginBottom: '12px', fontSize: '13px', fontWeight: '700', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {title}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
+                        <div style={{ textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#16a34a', marginBottom: '4px' }}>€{period.total.toFixed(2)}</div>
+                          <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>💰 Totale</div>
+                        </div>
+                        <div style={{ textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#2563eb', marginBottom: '4px' }}>€{period.bikes.toFixed(2)}</div>
+                          <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🚴 Solo Bici</div>
+                        </div>
+                        <div style={{ textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#d97706', marginBottom: '4px' }}>€{period.insurance.toFixed(2)}</div>
+                          <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🛡️ Assicurazione</div>
+                        </div>
+                        <div style={{ textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#9333ea', marginBottom: '4px' }}>€{period.extras.toFixed(2)}</div>
+                          <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📦 Extra</div>
+                        </div>
+                        <div style={{ textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>{period.contracts}</div>
+                          <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📋 Contratti</div>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#6b7280',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em'
-                    }}>
-                      💰 Fatturato
-                    </div>
-                  </div>
-                  
-                  <div style={{textAlign: 'center', padding: '12px', background: 'white', borderRadius: '8px'}}>
-                    <div style={{
-                      fontSize: '1.5rem',
-                      fontWeight: '700',
-                      color: '#3b82f6',
-                      marginBottom: '4px'
-                    }}>
-                      {locationStat.closedContracts}
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#6b7280',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em'
-                    }}>
-                      ✅ Contratti
-                    </div>
-                  </div>
-                  
-                  <div style={{textAlign: 'center', padding: '12px', background: 'white', borderRadius: '8px'}}>
-                    <div style={{
-                      fontSize: '1.5rem',
-                      fontWeight: '700',
-                      color: '#f59e0b',
-                      marginBottom: '4px'
-                    }}>
-                      {locationStat.activeContracts}
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#6b7280',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em'
-                    }}>
-                      🔄 Attivi
-                    </div>
-                  </div>
-                  
-                  <div style={{textAlign: 'center', padding: '12px', background: 'white', borderRadius: '8px'}}>
-                    <div style={{
-                      fontSize: '1.5rem',
-                      fontWeight: '700',
-                      color: '#8b5cf6',
-                      marginBottom: '4px'
-                    }}>
-                      €{locationStat.closedContracts > 0 ? (locationStat.revenue / locationStat.closedContracts).toFixed(2) : '0.00'}
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#6b7280',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em'
-                    }}>
-                      📊 Media
-                    </div>
-                  </div>
-                </div>
+                  )
+
+                  return (
+                    <>
+                      {renderPeriod('📅 Dati Annui', locBd.annual, '#16a34a')}
+                      {renderPeriod('📆 Dati Giornalieri', locBd.daily, '#d97706')}
+                    </>
+                  )
+                })()}
               </div>
             ))}
           </div>
