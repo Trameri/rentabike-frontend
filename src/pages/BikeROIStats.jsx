@@ -111,18 +111,6 @@ const BikeROIStats = () => {
             const itemEnd = item.returnedAt || contract.endAt || contract.createdAt
             const itemHours = calculateHours(itemStart, itemEnd)
             const itemRevenue = calculateItemRevenue(contract, item)
-            console.log('[BikeROIStats item]', bikeId || 'UNKNOWN', contract.status, {
-              itemId: item._id,
-              name: item.name,
-              rentalPrice: item.rentalPrice,
-              basePrice: item.basePrice,
-              totalPrice: item.totalPrice,
-              lockedItemPrices: contract.lockedItemPrices,
-              finalAmount: contract.finalAmount,
-              revenue: itemRevenue,
-              hours: itemHours,
-              barcode: item.barcode
-            })
             bike.totalRevenue += itemRevenue
             bike.totalRentals += 1
             bike.totalHours += itemHours
@@ -132,13 +120,6 @@ const BikeROIStats = () => {
         }
       })
     })
-    Object.keys(stats).forEach(bikeId => {
-      const s = stats[bikeId]
-      if (s.totalRevenue > 0 || s.purchasePrice > 0) {
-        console.log('[BikeROIStats]', bikeId, { revenue: Math.round(s.totalRevenue * 100) / 100, rentals: s.totalRentals, hours: Math.round(s.totalHours * 100) / 100 })
-      }
-    });
-
     Object.keys(stats).forEach(bikeId => {
       const stat = stats[bikeId];
       if (stat.purchasePrice > 0) {
@@ -333,12 +314,12 @@ const BikeROIStats = () => {
                   <div style={{ fontWeight: '700', marginBottom: '8px' }}>{c._id} • {c.status} • {formatCurrency(c.finalAmount || 0)}</div>
                   {c.items?.filter(it => it.kind === 'bike').map((it, idx) => (
                     <div key={idx} style={{ marginLeft: '8px', marginBottom: '4px', color: '#374151' }}>
-                      {it.name} | barcode: {it.barcode} | itemId: {it._id || it.id || it.name} | rentalPrice: {item?.rentalPrice ?? '—'} | basePrice: {item?.basePrice ?? '—'} | totalPrice: {item?.totalPrice ?? '—'}
+                      {it.name} | barcode: {it.barcode} | itemId: {it._id || it.id || it.name} | rentalPrice: {it?.rentalPrice ?? '—'} | basePrice: {it?.basePrice ?? '—'} | totalPrice: {it?.totalPrice ?? '—'}
                     </div>
                   ))}
-                  {contract.lockedItemPrices?.length > 0 && (
+                  {c.lockedItemPrices?.length > 0 && (
                     <div style={{ marginTop: '8px', color: '#6b7280' }}>
-                      lockedItemPrices: {JSON.stringify(contract.lockedItemPrices)}
+                      lockedItemPrices: {JSON.stringify(c.lockedItemPrices)}
                     </div>
                   )}
                 </div>
