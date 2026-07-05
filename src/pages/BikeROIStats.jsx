@@ -69,24 +69,19 @@ const BikeROIStats = () => {
   };
 
   const calculateItemRevenue = (contract, item) => {
-    const locked = parseFloat(item.rentalPrice || 0)
-    if (locked > 0) return locked
+    const lockedRental = parseFloat(item.rentalPrice || 0)
+    if (lockedRental > 0) return lockedRental
+
+    const explicitBase = parseFloat(item.basePrice || 0)
+    if (explicitBase > 0) return explicitBase
+
+    const explicitTotal = parseFloat(item.totalPrice || 0)
+    if (explicitTotal > 0) return explicitTotal
 
     if (contract.lockedItemPrices && Array.isArray(contract.lockedItemPrices) && contract.lockedItemPrices.length > 0) {
       const found = contract.lockedItemPrices.find(lp => lp.itemId === item._id || lp.itemId === item.id || lp.itemId === item.name)
       const lockedPrice = parseFloat(found?.basePrice || 0)
       if (lockedPrice > 0) return lockedPrice
-    }
-
-    if (contract.finalAmount && contract.finalAmount > 0 && contract.items && contract.items.length > 0) {
-      let totalValue = 0, itemValue = 0
-      const hours = calculateHours(contract.startAt || contract.createdAt, contract.endAt || contract.createdAt) || 1
-      contract.items.forEach(it => {
-        const v = (it.priceHourly || 0) * hours + (it.priceDaily || 0)
-        totalValue += v
-        if (it._id === item._id || it.id === item.id || it.name === item.name) itemValue = v
-      })
-      if (totalValue > 0 && itemValue > 0) return (contract.finalAmount * itemValue) / totalValue
     }
 
     return 0

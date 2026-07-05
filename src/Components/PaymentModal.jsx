@@ -315,6 +315,12 @@ const calculatePaymentDetails = () => {
       // Calcola l'importo totale completo (con assicurazione) per i ricavi giornalieri
       const totalWithInsurance = paymentDetails.subtotal + paymentDetails.insurance;
 
+      // Prepara i prezzi finali per ogni item
+      const itemPricesPayload = contract.items.map((item, index) => ({
+        itemId: item._id || index,
+        price: Math.round((parseFloat(itemPrices[index] || item.basePrice || 0) || 0) * 100) / 100
+      }))
+
       await api.post(`/api/contracts/${contract._id}/complete-payment`, {
         paymentMethod,
         paymentNotes,
@@ -327,7 +333,8 @@ const calculatePaymentDetails = () => {
           insuranceTotal: paymentDetails.insurance,
           extrasTotal: paymentDetails.adjustments,
           grandTotal: totalWithInsurance
-        }
+        },
+        itemPrices: itemPricesPayload
       });
 
       alert('✅ Pagamento completato con successo!');
