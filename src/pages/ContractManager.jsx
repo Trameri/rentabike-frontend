@@ -785,7 +785,7 @@ const processReturns = async () => {
       })
     }
 
-    return {
+    const computed = {
       finalTotal: Math.round(totalAmount * 100) / 100,
       bikesTotal: Math.round(bikesTotal * 100) / 100,
       insuranceTotal: Math.round(insuranceTotal * 100) / 100,
@@ -796,6 +796,14 @@ const processReturns = async () => {
       endDate: aggregateEndDate,
       priceSource: 'calculated'
     }
+
+    if (!hasCustomPrice && contract.paymentCompleted && contract.finalAmount > 0) {
+      computed.finalTotal = Math.round(contract.finalAmount * 100) / 100
+      computed.bikesTotal = Math.round((computed.finalTotal - computed.insuranceTotal - computed.extrasTotal) * 100) / 100
+      computed.priceSource = 'payment'
+    }
+
+    return computed
   }
 
   const calculatePaymentTotals = (contract) => {
@@ -2210,22 +2218,22 @@ const processReturns = async () => {
                 {(() => {
                   const bill = calculateDetailedBill(contract)
                   const hasCustomPrice = contract.customFinalPrice && contract.customFinalPrice > 0
+                  const isPaymentTotal = bill.priceSource === 'payment'
                   
-                  // Per i prezzi personalizzati, ricalcola la quota base sottraendo assicurazione e extra dal totale custom
                   const insuranceTotal = bill.insuranceTotal
                   const extrasTotal = bill.extrasTotal
                   const displayTotal = bill.finalTotal
-                  const baseTotal = hasCustomPrice
-                    ? Math.round((displayTotal - insuranceTotal - extrasTotal) * 100) / 100
+                  const baseTotal = hasCustomPrice || isPaymentTotal
+                    ? Math.max(0, Math.round((displayTotal - insuranceTotal - extrasTotal) * 100) / 100)
                     : bill.bikesTotal
 
                   return (
                     <div style={{
                       marginTop: '8px',
-                      background: hasCustomPrice ? '#fdf4ff' : '#f8fafc',
+                      background: isPaymentTotal ? '#f0fdf4' : (hasCustomPrice ? '#fdf4ff' : '#f8fafc'),
                       borderRadius: '8px',
                       padding: '12px',
-                      border: hasCustomPrice ? '2px dashed #c084fc' : '1px solid #e2e8f0'
+                      border: isPaymentTotal ? '2px solid #10b981' : (hasCustomPrice ? '2px dashed #c084fc' : '1px solid #e2e8f0')
                     }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                         <tbody>
@@ -2234,6 +2242,13 @@ const processReturns = async () => {
                               <td style={{ padding: '4px 0', color: '#a21caf', fontStyle: 'italic' }} colSpan="2">
                                 🎯 Prezzo personalizzato attivo
                                 {contract.customPriceReason && ` (${contract.customPriceReason})`}
+                              </td>
+                            </tr>
+                          )}
+                          {isPaymentTotal && (
+                            <tr>
+                              <td style={{ padding: '4px 0', color: '#059669', fontStyle: 'italic' }} colSpan="2">
+                                💳 Totale aggiornato dal pagamento
                               </td>
                             </tr>
                           )}
@@ -2252,8 +2267,8 @@ const processReturns = async () => {
                             </tr>
                           )}
                           <tr style={{ borderTop: '2px solid #e2e8f0' }}>
-                            <td style={{ padding: '4px 0', fontWeight: '700', color: hasCustomPrice ? '#a21caf' : '#1e293b' }}>Totale</td>
-                            <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '700', color: hasCustomPrice ? '#a21caf' : '#1e293b' }}>€{displayTotal.toFixed(2)}</td>
+                            <td style={{ padding: '4px 0', fontWeight: '700', color: isPaymentTotal ? '#059669' : (hasCustomPrice ? '#a21caf' : '#1e293b') }}>{isPaymentTotal ? 'Totale Pagato' : 'Totale'}</td>
+                            <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '700', color: isPaymentTotal ? '#059669' : (hasCustomPrice ? '#a21caf' : '#1e293b') }}>€{displayTotal.toFixed(2)}</td>
                           </tr>
                         </tbody>
                       </table>
