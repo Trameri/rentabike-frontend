@@ -632,11 +632,37 @@ const processReturns = async () => {
     }
 
     if (contract.customFinalPrice && contract.customFinalPrice > 0) {
+      // Calcola l'assicurazione e gli extra anche per i prezzi personalizzati
+      let itemInsuranceTotal = 0
+      let itemExtrasTotal = 0
+      
+      // Assicurazione dagli items
+      contract.items.forEach((item) => {
+        if (item.insurance && !item.returnedAt) {
+          itemInsuranceTotal += 5
+        }
+      })
+      
+      // Assicurazione flat del contratto
+      if (contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0) {
+        itemInsuranceTotal += parseFloat(contract.insuranceFlat)
+      }
+      
+      // Extra charges
+      if (contract.extraCharges && Array.isArray(contract.extraCharges)) {
+        contract.extraCharges.forEach(charge => {
+          const chargeAmount = parseFloat(charge.amount) || 0
+          if (chargeAmount !== 0) {
+            itemExtrasTotal += chargeAmount
+          }
+        })
+      }
+      
       return {
         finalTotal: parseFloat(contract.customFinalPrice),
-        bikesTotal: parseFloat(contract.customFinalPrice),
-        insuranceTotal: 0,
-        extrasTotal: 0,
+        bikesTotal: 0, // Sarà calcolato dinamicamente dal componente
+        insuranceTotal: Math.round(itemInsuranceTotal * 100) / 100,
+        extrasTotal: Math.round(itemExtrasTotal * 100) / 100,
         items: [{
           name: '🎯 Prezzo Personalizzato',
           duration: contract.customPriceReason || 'Prezzo modificato manualmente',
@@ -1174,6 +1200,13 @@ const processReturns = async () => {
         priceModifiedAt: null
       })
 
+      // Aggiornamento ottimistico dello stato
+      setContracts(prev => prev.map(c => 
+        c._id === selectedContractForPriceEdit._id 
+          ? { ...c, customFinalPrice: null, customPriceReason: null }
+          : c
+      ))
+
       const customerName = selectedContractForPriceEdit.customer?.name || 'Cliente'
       showSuccess(`🔄 Prezzo di ${customerName} ripristinato al calcolo automatico`)
       setShowPriceEditModal(false)
@@ -1183,7 +1216,6 @@ const processReturns = async () => {
       if (isConcludedContract({ ...selectedContractForPriceEdit, customFinalPrice: null })) {
         await refreshConcludedContractTotals({ ...selectedContractForPriceEdit, customFinalPrice: null })
       }
-      await loadContracts()
     } catch (error) {
       console.error('Errore reset prezzo:', error)
       showError(`Errore reset prezzo: ${error.response?.data?.error || error.message}`)
@@ -2151,30 +2183,40 @@ const processReturns = async () => {
                                 </button>
                               </>
                             )}
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
 
                 {/* Riepilogo prezzo */}
                 {(() => {
                   const bill = calculateDetailedBill(contract)
-                  const baseTotal = Math.round(bill.items.filter(i => !i.isContractInsurance && !i.isExtraCharge).reduce((sum, i) => sum + i.basePrice, 0) * 100) / 100
-                  const insuranceTotal = Math.round(bill.items.reduce((sum, i) => sum + i.insurance, 0) * 100) / 100
-                  const extrasTotal = Math.round(bill.items.filter(i => i.isExtraCharge).reduce((sum, i) => sum + i.basePrice, 0) * 100) / 100
-                  const displayTotal = baseTotal + insuranceTotal + extrasTotal
+                  const hasCustomPrice = contract.customFinalPrice && contract.customFinalPrice > 0
+                  
+                  // Per i prezzi personalizzati, ricalcola la quota base sottraendo assicurazione e extra dal totale custom
+                  const insuranceTotal = bill.insuranceTotal
+                  const extrasTotal = bill.extrasTotal
+                  const displayTotal = bill.finalTotal
+                  const baseTotal = hasCustomPrice
+                    ? Math.round((displayTotal - insuranceTotal - extrasTotal) * 100) / 100
+                    : bill.bikesTotal
 
                   return (
                     <div style={{
                       marginTop: '8px',
-                      background: '#f8fafc',
+                      background: hasCustomPrice ? '#fdf4ff' : '#f8fafc',
                       borderRadius: '8px',
                       padding: '12px',
-                      border: '1px solid #e2e8f0'
+                      border: hasCustomPrice ? '2px dashed #c084fc' : '1px solid #e2e8f0'
                     }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                         <tbody>
+                          {hasCustomPrice && (
+                            <tr>
+                              <td style={{ padding: '4px 0', color: '#a21caf', fontStyle: 'italic' }} colSpan="2">
+                                🎯 Prezzo personalizzato attivo
+                                {contract.customPriceReason && ` (${contract.customPriceReason})`}
+                              </td>
+                            </tr>
+                          )}
                           <tr>
                             <td style={{ padding: '4px 0', color: '#374151' }}>Quota base</td>
                             <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '600', color: '#374151' }}>€{baseTotal.toFixed(2)}</td>
@@ -2190,8 +2232,8 @@ const processReturns = async () => {
                             </tr>
                           )}
                           <tr style={{ borderTop: '2px solid #e2e8f0' }}>
-                            <td style={{ padding: '4px 0', fontWeight: '700', color: '#1e293b' }}>Totale</td>
-                            <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '700', color: '#1e293b' }}>€{displayTotal.toFixed(2)}</td>
+                            <td style={{ padding: '4px 0', fontWeight: '700', color: hasCustomPrice ? '#a21caf' : '#1e293b' }}>Totale</td>
+                            <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '700', color: hasCustomPrice ? '#a21caf' : '#1e293b' }}>€{displayTotal.toFixed(2)}</td>
                           </tr>
                         </tbody>
                       </table>

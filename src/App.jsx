@@ -227,6 +227,8 @@ function Layout({ children }){
   )
 }
 
+import LocationDashboard from './pages/LocationDashboard.jsx'
+
 export default function App(){
   const token = getToken();
   return (
@@ -257,6 +259,7 @@ export default function App(){
               <Route path="/excel-export" element={<ExcelExport />} />
               <Route path="/daily-report" element={<DailyReport />} />
               <Route path="/users" element={<UserManagement />} />
+              <Route path="/location-dashboard/:locationId" element={<LocationDashboard />} />
               <Route path="/webcam-test" element={<WebcamTest />} />
               <Route path="/webcam-test-optimized" element={<WebcamTestOptimized />} />
               <Route path="/logo-test" element={<LogoTest />} />

@@ -895,43 +895,79 @@ export default function Dashboard(){
             gap: '20px'
           }}>
             {superadminStats.locations.map(locationStat => (
-              <div key={locationStat.location._id} style={{
-                background: '#f8fafc',
-                borderRadius: '12px',
-                padding: '20px',
-                border: '2px solid #e2e8f0'
-              }}>
+              <div
+                key={locationStat.location._id}
+                onClick={() => navigate(`/location-dashboard/${locationStat.location._id}`)}
+                style={{
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  border: '2px solid #e2e8f0',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#eef2ff'
+                  e.currentTarget.style.borderColor = '#3b82f6'
+                  e.currentTarget.style.transform = 'translateY(-4px)'
+                  e.currentTarget.style.boxShadow = '0 12px 24px rgba(59,130,246,0.15)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#f8fafc'
+                  e.currentTarget.style.borderColor = '#e2e8f0'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              >
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '16px',
+                  justifyContent: 'space-between',
                   marginBottom: '16px'
                 }}>
-                  <LocationLogo 
-                    locationName={locationStat.location.name} 
-                    size="small"
-                    style={{
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                  <div>
-                    <h3 style={{
-                      margin: 0,
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#1e293b'
-                    }}>
-                      {locationStat.location.name}
-                    </h3>
-                    <p style={{
-                      margin: '4px 0 0 0',
-                      fontSize: '12px',
-                      color: '#64748b',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em'
-                    }}>
-                      Punto Noleggio
-                    </p>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px'
+                  }}>
+                    <LocationLogo 
+                      locationName={locationStat.location.name} 
+                      size="small"
+                      style={{
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                      }}
+                    />
+                    <div>
+                      <h3 style={{
+                        margin: 0,
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#1e293b'
+                      }}>
+                        {locationStat.location.name}
+                      </h3>
+                      <p style={{
+                        margin: '4px 0 0 0',
+                        fontSize: '12px',
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }}>
+                        Punto Noleggio
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: '6px 12px',
+                    background: '#dbeafe',
+                    color: '#1e40af',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    Apri →
                   </div>
                 </div>
                 
