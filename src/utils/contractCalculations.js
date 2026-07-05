@@ -141,22 +141,38 @@ export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}
   let insuranceTotal = 0;
   let extrasTotal = 0;
 
-  // Se il contratto è completato e ha totali salvati, usali
   if (contract.totals && (contract.totals.bikesTotal !== undefined || contract.totals.insuranceTotal !== undefined || contract.totals.grandTotal !== undefined)) {
     bikesTotal = parseFloat(contract.totals.bikesTotal) || 0;
     insuranceTotal = parseFloat(contract.totals.insuranceTotal) || 0;
     extrasTotal = parseFloat(contract.totals.extrasTotal) || 0;
-    
-    // Per i ricavi, mostriamo sempre il totale completo
-    const grandTotal = contract.totals.grandTotal && contract.totals.grandTotal > 0 
-      ? parseFloat(contract.totals.grandTotal) 
+    const grandTotal = contract.totals.grandTotal && contract.totals.grandTotal > 0
+      ? parseFloat(contract.totals.grandTotal)
       : bikesTotal + insuranceTotal + extrasTotal;
-    
     return {
       bikesTotal: Math.round(bikesTotal * 100) / 100,
       insuranceTotal: Math.round(insuranceTotal * 100) / 100,
       extrasTotal: Math.round(extrasTotal * 100) / 100,
       total: Math.round(grandTotal * 100) / 100
+    };
+  }
+
+  if (contract.customFinalPrice && parseFloat(contract.customFinalPrice) > 0) {
+    const customTotal = parseFloat(contract.customFinalPrice);
+    return {
+      bikesTotal: customTotal,
+      insuranceTotal: 0,
+      extrasTotal: 0,
+      total: customTotal
+    };
+  }
+
+  const backendTotal = parseFloat(contract.finalAmount || contract.contractTotal || 0);
+  if (backendTotal > 0) {
+    return {
+      bikesTotal: backendTotal,
+      insuranceTotal: 0,
+      extrasTotal: 0,
+      total: backendTotal
     };
   }
 
