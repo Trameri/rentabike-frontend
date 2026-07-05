@@ -166,22 +166,12 @@ export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}
     };
   }
 
-  const backendTotal = parseFloat(contract.finalAmount || contract.contractTotal || 0);
-  if (backendTotal > 0) {
-    return {
-      bikesTotal: backendTotal,
-      insuranceTotal: 0,
-      extrasTotal: 0,
-      total: backendTotal
-    };
-  }
-
   if (contract.items && contract.items.length > 0) {
     contract.items.forEach((item) => {
-      const startDate = new Date(contract.startAt || contract.createdAt);
-      const endDate = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || new Date());
+      const itemStartAt = item.startAt ? new Date(item.startAt) : new Date(contract.startAt || contract.createdAt);
+      const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || new Date());
 
-      const durationMs = Math.max(0, endDate - startDate);
+      const durationMs = Math.max(0, itemEndAt - itemStartAt);
       const durationMinutes = durationMs / (1000 * 60);
       const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
 
@@ -198,7 +188,6 @@ export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}
           bikesTotal += hourlyTotal;
         }
 
-        // Per i ricavi, conteggiamo sempre l'assicurazione se presente
         if (item.insurance) {
           insuranceTotal += 5;
         }
@@ -220,15 +209,12 @@ export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}
   }
 
   const calculatedTotal = bikesTotal + insuranceTotal + extrasTotal;
-
-  // Per i ricavi mostriamo sempre il totale completo (bici + assicurazioni + extra)
-  // Non usiamo finalAmount come totale perché potrebbe escludere assicurazioni pagate in anticipo
-  const finalTotal = calculatedTotal;
+  const backendTotal = parseFloat(contract.finalAmount || contract.contractTotal || 0);
 
   return {
     bikesTotal: Math.round(bikesTotal * 100) / 100,
     insuranceTotal: Math.round(insuranceTotal * 100) / 100,
     extrasTotal: Math.round(extrasTotal * 100) / 100,
-    total: Math.round(finalTotal * 100) / 100
+    total: Math.round((backendTotal || calculatedTotal) * 100) / 100
   };
 };
