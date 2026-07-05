@@ -69,7 +69,21 @@ const BikeROIStats = () => {
   };
 
   const calculateItemRevenue = (contract, item) => {
-    return parseFloat(item.rentalPrice || 0)
+    const locked = parseFloat(item.rentalPrice || 0)
+    if (locked > 0) return locked
+
+    const itemStart = item.startAt || contract.startAt || contract.createdAt
+    const itemEnd = item.returnedAt || contract.endAt || contract.createdAt
+    if (!itemStart) return 0
+
+    const durationMs = Math.max(0, new Date(itemEnd) - new Date(itemStart))
+    const durationMinutes = durationMs / (1000 * 60)
+    const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+
+    const priceHourly = parseFloat(item.priceHourly) || 0
+    const priceDaily = parseFloat(item.priceDaily) || 0
+    if (priceDaily > 0 && (priceHourly * oreFatturate) >= priceDaily) return priceDaily
+    return priceHourly * oreFatturate
   }
 
   const bikeStats = useMemo(() => {
