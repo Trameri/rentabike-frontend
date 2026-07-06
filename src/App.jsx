@@ -16,6 +16,7 @@ import DailyReport from './pages/DailyReport.jsx'
 
 import ContractHistory from './pages/ContractHistory.jsx'
 import UserManagement from './pages/UserManagement.jsx'
+import UserCredentials from './pages/UserCredentials.jsx'
 import BarcodeManagement from './pages/BarcodeManagement.jsx'
 import BarcodeTest from './Components/BarcodeTest.jsx'
 import WebcamTest from './Components/WebcamTest.jsx'
@@ -67,6 +68,7 @@ function Layout({ children }){
     { path: '/bike-roi-debug', icon: '🔍', label: 'Debug ROI' },
     { path: '/excel-export', icon: '📊', label: 'Esporta Excel' },
     ...(user?.role === 'superadmin' ? [{ path: '/users', icon: '👥', label: 'Gestione Utenti' }] : []),
+    ...(user?.role === 'superadmin' ? [{ path: '/user-credentials', icon: '🔐', label: 'Credenziali Utenti' }] : []),
     ...(user?.role === 'admin' || user?.role === 'superadmin' ? [{ path: '/system-diagnostic', icon: '🔧', label: 'Diagnostica' }] : [])
   ];
 
@@ -259,6 +261,7 @@ export default function App(){
               <Route path="/excel-export" element={<ExcelExport />} />
               <Route path="/daily-report" element={<DailyReport />} />
               <Route path="/users" element={<UserManagement />} />
+              <Route path="/user-credentials" element={<UserCredentials />} />
               <Route path="/location-dashboard/:locationId" element={<LocationDashboard />} />
               <Route path="/webcam-test" element={<WebcamTest />} />
               <Route path="/webcam-test-optimized" element={<WebcamTestOptimized />} />
