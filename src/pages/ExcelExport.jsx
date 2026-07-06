@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api.js';
 import { jwtDecode } from 'jwt-decode';
-import { calculateSeparateTotals, isContractClosedForStats } from '../utils/contractCalculations.js';
+import { isContractClosedForStats, hasMeaningfulRevenueForStats } from '../utils/contractCalculations.js';
 import * as XLSX from 'xlsx';
 
 const formatCurrency = (amount) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount || 0);
@@ -102,23 +102,35 @@ const ExcelExport = () => {
       if (contractDate.getFullYear() !== selectedYear) return;
 
       const month = contractDate.getMonth() + 1;
-      let contractRevenue = 0, contractHours = 0;
+      const contractHours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
+      let contractBikeRevenue = 0;
 
       contract.items?.forEach(item => {
-        const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
-        const itemRevenue = calculateItemRevenue(contract, item);
-        contractRevenue += itemRevenue;
-        contractHours += hours;
+        if (item.kind !== 'bike' && item.kind !== 'accessory') return;
+
+        const itemStartAt = item.startAt ? new Date(item.startAt) : new Date(contract.startAt || contract.createdAt);
+        const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || new Date());
+        const durationMs = Math.max(0, itemEndAt - itemStartAt);
+        const durationMinutes = durationMs / (1000 * 60);
+        const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
+
+        const priceHourly = parseFloat(item.priceHourly) || 0;
+        const priceDaily = parseFloat(item.priceDaily) || 0;
+        const hourlyTotal = oreFatturate * priceHourly;
+        const dailyTotal = priceDaily;
+        const bikeRevenue = priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal;
+
+        contractBikeRevenue += bikeRevenue;
 
         if (item.kind === 'bike' && bikeUsageStats[item.refId]) {
           const bike = bikeUsageStats[item.refId];
           bike.totalRentals += 1;
-          bike.totalRevenue += itemRevenue;
-          bike.totalHours += hours;
+          bike.totalRevenue += bikeRevenue;
+          bike.totalHours += oreFatturate;
         }
       });
 
-      monthlyData[month].revenue += contractRevenue;
+      monthlyData[month].revenue += contractBikeRevenue;
       monthlyData[month].contracts += 1;
       monthlyData[month].hours += contractHours;
     });
@@ -193,7 +205,12 @@ const ExcelExport = () => {
      const workbook = XLSX.utils.book_new();
      const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
 
-      const closedContracts = contracts.filter(contract => isContractClosedForStats(contract));
+      const closedContracts = contracts.filter(contract => {
+        const status = String(contract.status || '').toLowerCase();
+        if (status === 'closed' || status === 'completed') return hasMeaningfulRevenueForStats(contract);
+        if (status === 'returned') return contract.paymentCompleted && hasMeaningfulRevenueForStats(contract);
+        return false;
+      });
 
      // Riepilogo mensile
      const monthlySummary = [];
@@ -211,41 +228,77 @@ const ExcelExport = () => {
 
       const monthlyDailyData = {};
 
-     closedContracts.forEach(contract => {
-       const startDate = new Date(contract.startAt || contract.createdAt);
-       if (startDate.getFullYear() !== selectedYear) return;
+      closedContracts.forEach(contract => {
+        const startDate = new Date(contract.startAt || contract.createdAt);
+        if (startDate.getFullYear() !== selectedYear) return;
 
-       const monthIdx = startDate.getMonth();
-       const totals = calculateSeparateTotals(contract);
-       const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
+        const monthIdx = startDate.getMonth();
 
-       monthlySummary[monthIdx].Contratti += 1;
-       monthlySummary[monthIdx]['Ore Totali'] = +(monthlySummary[monthIdx]['Ore Totali'] + hours).toFixed(1);
-       monthlySummary[monthIdx]['Fatturato Noleggio'] = +(monthlySummary[monthIdx]['Fatturato Noleggio'] + (totals.bikesTotal || 0)).toFixed(2);
-       monthlySummary[monthIdx]['Fatturato Assicurazioni'] = +(monthlySummary[monthIdx]['Fatturato Assicurazioni'] + (totals.insuranceTotal || 0)).toFixed(2);
-       monthlySummary[monthIdx]['Fatturato Extra'] = +(monthlySummary[monthIdx]['Fatturato Extra'] + (totals.extrasTotal || 0)).toFixed(2);
-       monthlySummary[monthIdx]['Fatturato Totale'] = +(monthlySummary[monthIdx]['Fatturato Totale'] + (totals.total || 0)).toFixed(2);
+        let bikesTotal = 0;
+        let insuranceTotal = 0;
+        let extrasTotal = 0;
 
-       const dayKey = startDate.toLocaleDateString('it-IT');
-       if (!monthlyDailyData[monthIdx]) monthlyDailyData[monthIdx] = {};
-       if (!monthlyDailyData[monthIdx][dayKey]) {
-         monthlyDailyData[monthIdx][dayKey] = {
-           'Data': dayKey,
-           'Contratti': 0,
-           'Ore Totali': 0,
-           'Fatturato Noleggio': 0,
-           'Fatturato Assicurazioni': 0,
-           'Fatturato Extra': 0,
-           'Fatturato Totale': 0
-         };
-       }
-       monthlyDailyData[monthIdx][dayKey].Contratti += 1;
-       monthlyDailyData[monthIdx][dayKey]['Ore Totali'] = +(monthlyDailyData[monthIdx][dayKey]['Ore Totali'] + hours).toFixed(1);
-       monthlyDailyData[monthIdx][dayKey]['Fatturato Noleggio'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Noleggio'] + (totals.bikesTotal || 0)).toFixed(2);
-       monthlyDailyData[monthIdx][dayKey]['Fatturato Assicurazioni'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Assicurazioni'] + (totals.insuranceTotal || 0)).toFixed(2);
-       monthlyDailyData[monthIdx][dayKey]['Fatturato Extra'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Extra'] + (totals.extrasTotal || 0)).toFixed(2);
-       monthlyDailyData[monthIdx][dayKey]['Fatturato Totale'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Totale'] + (totals.total || 0)).toFixed(2);
-     });
+        contract.items?.forEach(item => {
+          const priceHourly = parseFloat(item.priceHourly) || 0;
+          const priceDaily = parseFloat(item.priceDaily) || 0;
+
+          const itemStartAt = item.startAt ? new Date(item.startAt) : new Date(contract.startAt || contract.createdAt);
+          const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || new Date());
+          const durationMs = Math.max(0, itemEndAt - itemStartAt);
+          const durationMinutes = durationMs / (1000 * 60);
+          const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
+
+          if (item.kind === 'bike' || item.kind === 'accessory') {
+            const hourlyTotal = oreFatturate * priceHourly;
+            const dailyTotal = priceDaily;
+            const bikeRevenue = priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal;
+            bikesTotal += bikeRevenue;
+          }
+
+          if (item.insurance) insuranceTotal += 5;
+        });
+
+        if (contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0) {
+          insuranceTotal += parseFloat(contract.insuranceFlat);
+        }
+
+        if (contract.extraCharges && Array.isArray(contract.extraCharges)) {
+          contract.extraCharges.forEach(charge => {
+            const chargeAmount = parseFloat(charge.amount) || 0;
+            if (chargeAmount !== 0) extrasTotal += chargeAmount;
+          });
+        }
+
+        const total = bikesTotal + insuranceTotal + extrasTotal;
+        const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
+
+        monthlySummary[monthIdx].Contratti += 1;
+        monthlySummary[monthIdx]['Ore Totali'] = +(monthlySummary[monthIdx]['Ore Totali'] + hours).toFixed(1);
+        monthlySummary[monthIdx]['Fatturato Noleggio'] = +(monthlySummary[monthIdx]['Fatturato Noleggio'] + bikesTotal).toFixed(2);
+        monthlySummary[monthIdx]['Fatturato Assicurazioni'] = +(monthlySummary[monthIdx]['Fatturato Assicurazioni'] + insuranceTotal).toFixed(2);
+        monthlySummary[monthIdx]['Fatturato Extra'] = +(monthlySummary[monthIdx]['Fatturato Extra'] + extrasTotal).toFixed(2);
+        monthlySummary[monthIdx]['Fatturato Totale'] = +(monthlySummary[monthIdx]['Fatturato Totale'] + total).toFixed(2);
+
+        const dayKey = startDate.toLocaleDateString('it-IT');
+        if (!monthlyDailyData[monthIdx]) monthlyDailyData[monthIdx] = {};
+        if (!monthlyDailyData[monthIdx][dayKey]) {
+          monthlyDailyData[monthIdx][dayKey] = {
+            'Data': dayKey,
+            'Contratti': 0,
+            'Ore Totali': 0,
+            'Fatturato Noleggio': 0,
+            'Fatturato Assicurazioni': 0,
+            'Fatturato Extra': 0,
+            'Fatturato Totale': 0
+          };
+        }
+        monthlyDailyData[monthIdx][dayKey].Contratti += 1;
+        monthlyDailyData[monthIdx][dayKey]['Ore Totali'] = +(monthlyDailyData[monthIdx][dayKey]['Ore Totali'] + hours).toFixed(1);
+        monthlyDailyData[monthIdx][dayKey]['Fatturato Noleggio'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Noleggio'] + bikesTotal).toFixed(2);
+        monthlyDailyData[monthIdx][dayKey]['Fatturato Assicurazioni'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Assicurazioni'] + insuranceTotal).toFixed(2);
+        monthlyDailyData[monthIdx][dayKey]['Fatturato Extra'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Extra'] + extrasTotal).toFixed(2);
+        monthlyDailyData[monthIdx][dayKey]['Fatturato Totale'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Totale'] + total).toFixed(2);
+      });
 
      const sum = (rows, key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
 
@@ -279,34 +332,70 @@ const ExcelExport = () => {
        XLSX.utils.book_append_sheet(workbook, wsMonth, `${monthNames[m]} ${selectedYear}`);
      }
 
-     const detailRows = closedContracts
-       .filter(c => new Date(c.startAt || c.createdAt).getFullYear() === selectedYear)
-       .map(c => {
-         const startDate = new Date(c.startAt || c.createdAt);
-         const endDate = c.endAt ? new Date(c.endAt) : null;
-         const totals = calculateSeparateTotals(c);
-         const hours = calculateHours(c.startAt, c.endAt || c.createdAt);
-         return {
-           'ID': c._id,
-           'Cliente': c.customer?.name || '',
-           'Telefono': c.customer?.phone || '',
-           'Data Inizio': startDate.toLocaleDateString('it-IT'),
-           'Ora Inizio': startDate.toLocaleTimeString('it-IT'),
-           'Data Fine': endDate ? endDate.toLocaleDateString('it-IT') : 'In corso',
-           'Ora Fine': endDate ? endDate.toLocaleTimeString('it-IT') : '-',
-           'Durata Ore': +hours.toFixed(1),
-           'Stato': c.status === 'closed' || c.status === 'completed' ? 'Chiuso' : c.status,
-           'Tipo': (c.status === 'reserved' || c.isReservation) ? 'Prenotazione' : 'Noleggio',
-           'Noleggio': +totals.bikesTotal.toFixed(2),
-           'Assicurazioni': +totals.insuranceTotal.toFixed(2),
-           'Extra': +totals.extrasTotal.toFixed(2),
-           'Totale': +totals.total.toFixed(2),
-           'Metodo Pagamento': c.paymentMethod || '',
-           'Pagato': (c.paymentCompleted || c.paid) ? 'Sì' : 'No',
-           'Location': c.location?.name || '',
-           'Note': c.notes || ''
-         };
-       });
+      const detailRows = closedContracts
+        .filter(c => new Date(c.startAt || c.createdAt).getFullYear() === selectedYear)
+        .map(c => {
+          const startDate = new Date(c.startAt || c.createdAt);
+          const endDate = c.endAt ? new Date(c.endAt) : null;
+
+          let bikesTotal = 0;
+          let insuranceTotal = 0;
+          let extrasTotal = 0;
+
+          c.items?.forEach(item => {
+            const priceHourly = parseFloat(item.priceHourly) || 0;
+            const priceDaily = parseFloat(item.priceDaily) || 0;
+
+            const itemStartAt = item.startAt ? new Date(item.startAt) : new Date(c.startAt || c.createdAt);
+            const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(c.endAt || new Date());
+            const durationMs = Math.max(0, itemEndAt - itemStartAt);
+            const durationMinutes = durationMs / (1000 * 60);
+            const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
+
+            if (item.kind === 'bike' || item.kind === 'accessory') {
+              const hourlyTotal = oreFatturate * priceHourly;
+              const dailyTotal = priceDaily;
+              const bikeRevenue = priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal;
+              bikesTotal += bikeRevenue;
+            }
+
+            if (item.insurance) insuranceTotal += 5;
+          });
+
+          if (c.insuranceFlat && parseFloat(c.insuranceFlat) > 0) {
+            insuranceTotal += parseFloat(c.insuranceFlat);
+          }
+
+          if (c.extraCharges && Array.isArray(c.extraCharges)) {
+            c.extraCharges.forEach(charge => {
+              const chargeAmount = parseFloat(charge.amount) || 0;
+              if (chargeAmount !== 0) extrasTotal += chargeAmount;
+            });
+          }
+
+          const hours = calculateHours(c.startAt, c.endAt || c.createdAt);
+          const total = bikesTotal + insuranceTotal + extrasTotal;
+          return {
+            'ID': c._id,
+            'Cliente': c.customer?.name || '',
+            'Telefono': c.customer?.phone || '',
+            'Data Inizio': startDate.toLocaleDateString('it-IT'),
+            'Ora Inizio': startDate.toLocaleTimeString('it-IT'),
+            'Data Fine': endDate ? endDate.toLocaleDateString('it-IT') : 'In corso',
+            'Ora Fine': endDate ? endDate.toLocaleTimeString('it-IT') : '-',
+            'Durata Ore': +hours.toFixed(1),
+            'Stato': c.status === 'closed' || c.status === 'completed' ? 'Chiuso' : c.status,
+            'Tipo': (c.status === 'reserved' || c.isReservation) ? 'Prenotazione' : 'Noleggio',
+            'Noleggio': +bikesTotal.toFixed(2),
+            'Assicurazioni': +insuranceTotal.toFixed(2),
+            'Extra': +extrasTotal.toFixed(2),
+            'Totale': +total.toFixed(2),
+            'Metodo Pagamento': c.paymentMethod || '',
+            'Pagato': (c.paymentCompleted || c.paid) ? 'Sì' : 'No',
+            'Location': c.location?.name || '',
+            'Note': c.notes || ''
+          };
+        });
 
      const wsDetail = XLSX.utils.json_to_sheet(detailRows);
      XLSX.utils.book_append_sheet(workbook, wsDetail, 'Dettaglio Contratti');
