@@ -145,7 +145,8 @@ export default function Reports() {
               }
             }
             bikeMap[key].rentals++
-            bikeMap[key].revenue += totals.bikesTotal / (contract.items?.filter(i => i.kind === 'bike').length || 1)
+            const itemRevenue = calculateItemRevenueFromContract(contract, item)
+            bikeMap[key].revenue += itemRevenue
             if (item.insurance) bikeMap[key].insurance += 5
           }
         } else if (item.kind === 'accessory') {
@@ -161,7 +162,8 @@ export default function Reports() {
             }
           }
           accessoryMap[key].rentals++
-          accessoryMap[key].revenue += totals.bikesTotal / (contract.items?.filter(i => i.kind === 'accessory').length || 1)
+          const itemRevenue = calculateItemRevenueFromContract(contract, item)
+          accessoryMap[key].revenue += itemRevenue
         }
       })
     })
@@ -179,6 +181,27 @@ export default function Reports() {
     setDailyStats(Object.values(dailyMap).sort((a, b) => new Date(b.date) - new Date(a.date)))
     setBikeStats(Object.values(bikeMap).sort((a, b) => b.revenue - a.revenue).slice(0, 10))
     setAccessoryStats(Object.values(accessoryMap).sort((a, b) => b.revenue - a.revenue).slice(0, 10))
+  }
+
+  const calculateItemRevenueFromContract = (contract, item) => {
+    const startAt = new Date(item.startAt || contract.startAt || contract.createdAt)
+    const endAt = new Date(item.returnedAt || contract.endAt || new Date())
+    const durationMs = Math.max(0, endAt - startAt)
+    const durationMinutes = durationMs / (1000 * 60)
+    const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+    
+    const priceHourly = parseFloat(item.priceHourly) || 0
+    const priceDaily = parseFloat(item.priceDaily) || 0
+    
+    const isReservation = contract.status === 'reserved' || contract.isReservation
+    if (isReservation) {
+      const durationDays = Math.max(1, Math.ceil(oreFatturate / 24))
+      return priceDaily * durationDays
+    }
+    
+    const hourlyTotal = oreFatturate * priceHourly
+    const dailyTotal = priceDaily
+    return priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal
   }
 
   const exportToExcel = () => {

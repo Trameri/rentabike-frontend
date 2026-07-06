@@ -10,6 +10,27 @@ const ExcelReportGenerator = ({ user }) => {
     to: ''
   });
 
+  const calculateItemRevenue = (contract, item) => {
+    const startAt = new Date(item.startAt || contract.startAt || contract.createdAt);
+    const endAt = new Date(item.returnedAt || contract.endAt || new Date());
+    const durationMs = Math.max(0, endAt - startAt);
+    const durationMinutes = durationMs / (1000 * 60);
+    const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
+    
+    const priceHourly = parseFloat(item.priceHourly) || 0;
+    const priceDaily = parseFloat(item.priceDaily) || 0;
+    
+    const isReservation = contract.status === 'reserved' || contract.isReservation;
+    if (isReservation) {
+      const durationDays = Math.max(1, Math.ceil(oreFatturate / 24));
+      return priceDaily * durationDays;
+    }
+    
+    const hourlyTotal = oreFatturate * priceHourly;
+    const dailyTotal = priceDaily;
+    return priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal;
+  };
+
   const generateExcelReport = async () => {
     setIsGenerating(true);
     try {
@@ -60,7 +81,7 @@ const ExcelReportGenerator = ({ user }) => {
               const type = bike.type === 'electric' ? 'Elettrica' : 'Muscolare';
               const totals = calculateSeparateTotals(contract);
               bikeStats[type].totalContracts++;
-              bikeStats[type].totalRevenue += totals.bikesTotal / (contract.items?.filter(i => i.kind === 'bike').length || 1);
+              bikeStats[type].totalRevenue += calculateItemRevenue(contract, item);
             }
           }
         });
@@ -181,7 +202,7 @@ const ExcelReportGenerator = ({ user }) => {
             if (item.kind === 'bike') {
               const bike = bikes.find(b => b._id === (item.refId || item.bike));
               if (bike) {
-                const itemRevenue = totals.bikesTotal / (contract.items?.filter(i => i.kind === 'bike').length || 1);
+                const itemRevenue = calculateItemRevenue(contract, item);
                 if (bike.type === 'electric') monthlyTypeStats[month].elettriche += itemRevenue;
                 else monthlyTypeStats[month].muscolari += itemRevenue;
               }
@@ -228,12 +249,14 @@ const ExcelReportGenerator = ({ user }) => {
               if (!bikeUsage[bike._id]) {
                 bikeUsage[bike._id] = { name: bike.name, type: bike.type === 'electric' ? 'Elettrica' : 'Muscolare', barcode: bike.barcode, usageCount: 0, totalRevenue: 0 };
               }
+              
               bikeUsage[bike._id].usageCount++;
-              const totals = calculateSeparateTotals(contract);
-              bikeUsage[bike._id].totalRevenue += totals.bikesTotal / (contract.items?.filter(i => i.kind === 'bike').length || 1);
+              const itemRevenue = calculateItemRevenue(contract, item);
+              bikeUsage[bike._id].totalRevenue += itemRevenue;
             }
           }
         });
+      });
       });
 
       const topBikes = Object.values(bikeUsage)
