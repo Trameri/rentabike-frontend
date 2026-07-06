@@ -190,7 +190,7 @@ const DataExporter = ({ user }) => {
               'Prezzo Bloccato': contract.finalAmount ? 'Sì' : 'No',
               'Prezzo Personalizzato': contract.customFinalPrice ? 'Sì' : 'No',
               'Metodo Pagamento': contract.paymentMethod || 'Non specificato',
-              'Pagato': contract.paid ? 'Sì' : 'No',
+              'Pagato': (contract.paymentCompleted || contract.paid) ? 'Sì' : 'No',
               'Pagamento Completato': contract.paymentCompleted ? 'Sì' : 'No',
               'Data Pagamento': contract.paymentDate ? new Date(contract.paymentDate).toLocaleDateString('it-IT') : '',
               'Location': contract.location?.name || '',

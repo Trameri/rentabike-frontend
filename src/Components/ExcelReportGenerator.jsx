@@ -55,7 +55,7 @@ const ExcelReportGenerator = ({ user }) => {
       contracts.forEach(contract => {
         contract.items?.forEach(item => {
           if (item.kind === 'bike') {
-            const bike = bikes.find(b => b._id === item.bike);
+            const bike = bikes.find(b => b._id === (item.refId || item.bike));
             if (bike) {
               const type = bike.type === 'electric' ? 'Elettrica' : 'Muscolare';
               const totals = calculateSeparateTotals(contract);
@@ -179,7 +179,7 @@ const ExcelReportGenerator = ({ user }) => {
           
           contract.items?.forEach(item => {
             if (item.kind === 'bike') {
-              const bike = bikes.find(b => b._id === item.bike);
+              const bike = bikes.find(b => b._id === (item.refId || item.bike));
               if (bike) {
                 const itemRevenue = totals.bikesTotal / (contract.items?.filter(i => i.kind === 'bike').length || 1);
                 if (bike.type === 'electric') monthlyTypeStats[month].elettriche += itemRevenue;
@@ -223,7 +223,7 @@ const ExcelReportGenerator = ({ user }) => {
       contracts.forEach(contract => {
         contract.items?.forEach(item => {
           if (item.kind === 'bike') {
-            const bike = bikes.find(b => b._id === item.bike);
+            const bike = bikes.find(b => b._id === (item.refId || item.bike));
             if (bike) {
               if (!bikeUsage[bike._id]) {
                 bikeUsage[bike._id] = { name: bike.name, type: bike.type === 'electric' ? 'Elettrica' : 'Muscolare', barcode: bike.barcode, usageCount: 0, totalRevenue: 0 };
@@ -272,7 +272,7 @@ const ExcelReportGenerator = ({ user }) => {
           'Extra': totals.extrasTotal,
           'Totale': totals.total,
           'Pagamento': contract.paymentMethod || '',
-          'Pagato': contract.paid ? 'Sì' : 'No',
+          'Pagato': (contract.paymentCompleted || contract.paid) ? 'Sì' : 'No',
           'Location': contract.location?.name || '',
           'Operatore': contract.createdBy || ''
         };

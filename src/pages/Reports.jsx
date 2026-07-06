@@ -129,7 +129,8 @@ export default function Reports() {
       
       contract.items?.forEach(item => {
         if (item.kind === 'bike') {
-          const bike = bikesData.find(b => b._id === item.bike)
+          const refId = item.refId || item.bike
+          const bike = bikesData.find(b => b._id === refId)
           if (bike) {
             const key = bike._id
             if (!bikeMap[key]) {
@@ -148,9 +149,16 @@ export default function Reports() {
             if (item.insurance) bikeMap[key].insurance += 5
           }
         } else if (item.kind === 'accessory') {
-          const key = item.name || item._id
+          const refId = item.refId || item._id || item.name
+          const accessory = accessoriesData.find(a => a._id === refId)
+          const key = accessory ? accessory._id : refId
           if (!accessoryMap[key]) {
-            accessoryMap[key] = { name: item.name, rentals: 0, revenue: 0 }
+            accessoryMap[key] = { 
+              id: accessory ? accessory._id : key,
+              name: accessory ? accessory.name : (item.name || 'Accessorio'), 
+              rentals: 0, 
+              revenue: 0 
+            }
           }
           accessoryMap[key].rentals++
           accessoryMap[key].revenue += totals.bikesTotal / (contract.items?.filter(i => i.kind === 'accessory').length || 1)
@@ -264,7 +272,7 @@ export default function Reports() {
         Extra: totals.extrasTotal,
         Totale: totals.total,
         Pagamento: contract.paymentMethod || '',
-        Pagato: contract.paid ? 'Sì' : 'No',
+        Pagato: (contract.paymentCompleted || contract.paid) ? 'Sì' : 'No',
         Completato: contract.paymentCompleted ? 'Sì' : 'No',
         Location: contract.location?.name || '',
         Operatore: contract.createdBy || ''
