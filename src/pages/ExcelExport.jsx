@@ -7,21 +7,16 @@ import * as XLSX from 'xlsx';
 const formatCurrency = (amount) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount || 0);
 const formatDate = (date) => (!date ? 'Mai' : new Date(date).toLocaleDateString('it-IT'));
 
-const getTypeLabel = (type) => ({
-  'ebike-full': 'E-bike Full', 'ebike-front': 'E-bike Front',
-  'ebike-other': 'E-bike Altre', 'muscolare': 'Muscolare', 'altro': 'Altro'
-}[type] || type);
-
 const ExcelExport = () => {
   const [contracts, setContracts] = useState([]);
-  const [bikes, setBikes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [monthlyStats, setMonthlyStats] = useState({});
-  const [bikeStats, setBikeStats] = useState([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [locations, setLocations] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -29,6 +24,19 @@ const ExcelExport = () => {
       try { setUser(jwtDecode(token)); } catch (e) { console.error('Errore decodifica token:', e); }
     }
   }, []);
+
+  useEffect(() => {
+    if (user?.role === 'superadmin') {
+      (async () => {
+        try {
+          const { data } = await api.get('/api/locations');
+          setLocations(data || []);
+        } catch (e) {
+          console.error('Errore caricamento location:', e);
+        }
+      })();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) loadData();
@@ -40,16 +48,16 @@ const ExcelExport = () => {
     return () => clearInterval(interval);
   }, [autoRefresh, user, selectedYear]);
 
+  useEffect(() => {
+    if (!contracts.length || !user) return;
+    calculateStats(contracts);
+  }, [contracts, selectedYear, selectedLocation, user]);
+
   const loadData = async () => {
     try {
       setLoading(true);
-      const [contractsRes, bikesRes] = await Promise.all([
-        api.get('/api/contracts'),
-        api.get('/api/bikes')
-      ]);
+      const contractsRes = await api.get('/api/contracts');
       setContracts(contractsRes.data);
-      setBikes(bikesRes.data);
-      calculateStats(contractsRes.data, bikesRes.data);
       setLastUpdate(new Date());
     } catch (error) {
       console.error('Errore caricamento dati:', error);
@@ -82,19 +90,18 @@ const ExcelExport = () => {
     return contractTotal;
   };
 
-  const calculateStats = (contractsData, bikesData) => {
+  const calculateStats = (contractsData) => {
     const monthlyData = {};
-    const bikeUsageStats = {};
-    
     for (let month = 1; month <= 12; month++) {
       monthlyData[month] = { revenue: 0, contracts: 0, hours: 0 };
     }
 
-    bikesData.forEach(bike => {
-      bikeUsageStats[bike._id] = { ...bike, totalRentals: 0, totalRevenue: 0, totalHours: 0 };
-    });
+    let filtered = contractsData;
+    if (user?.role === 'superadmin' && selectedLocation) {
+      filtered = contractsData.filter(c => c.location?._id === selectedLocation);
+    }
 
-    contractsData.forEach(contract => {
+    filtered.forEach(contract => {
       const isCompleted = isContractClosedForStats(contract);
       if (!isCompleted) return;
 
@@ -121,13 +128,6 @@ const ExcelExport = () => {
         const bikeRevenue = priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal;
 
         contractBikeRevenue += bikeRevenue;
-
-        if (item.kind === 'bike' && bikeUsageStats[item.refId]) {
-          const bike = bikeUsageStats[item.refId];
-          bike.totalRentals += 1;
-          bike.totalRevenue += bikeRevenue;
-          bike.totalHours += oreFatturate;
-        }
       });
 
       monthlyData[month].revenue += contractBikeRevenue;
@@ -136,64 +136,6 @@ const ExcelExport = () => {
     });
 
     setMonthlyStats(monthlyData);
-    setBikeStats(Object.values(bikeUsageStats).sort((a, b) => b.totalRentals - a.totalRentals));
-  };
-
-  const exportToCSV = () => {
-    const csvData = [];
-    
-    csvData.push(['STATISTICHE NOLEGGIO BICI', selectedYear]);
-    csvData.push([]);
-    csvData.push(['FATTURATO MENSILE']);
-    csvData.push(['Mese', 'Fatturato €', 'Contratti', 'Ore Totali']);
-
-    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
-
-    let totalRevenue = 0, totalContracts = 0, totalHours = 0;
-    for (let month = 1; month <= 12; month++) {
-      const data = monthlyStats[month] || { revenue: 0, contracts: 0, hours: 0 };
-      csvData.push([monthNames[month - 1], data.revenue.toFixed(2), data.contracts, data.hours.toFixed(1)]);
-      totalRevenue += data.revenue;
-      totalContracts += data.contracts;
-      totalHours += data.hours;
-    }
-
-    csvData.push([]);
-    csvData.push(['TOTALE ANNO', totalRevenue.toFixed(2), totalContracts, totalHours.toFixed(1)]);
-    csvData.push([]);
-    csvData.push(['BICI PIÙ USATE']);
-    csvData.push(['Nome Bici', 'Tipo', 'Noleggi', 'Fatturato €', 'Ore Totali']);
-    
-    bikeStats.slice(0, 20).forEach(bike => {
-      csvData.push([bike.name, getTypeLabel(bike.type), bike.totalRentals, bike.totalRevenue.toFixed(2), bike.totalHours.toFixed(1)]);
-    });
-
-    csvData.push([]);
-    csvData.push(['STATISTICHE PER TIPO BICI']);
-    csvData.push(['Tipo', 'Noleggi Totali', 'Fatturato €']);
-    
-    const typeStats = {};
-    bikeStats.forEach(bike => {
-      if (!typeStats[bike.type]) typeStats[bike.type] = { count: 0, revenue: 0 };
-      typeStats[bike.type].count += bike.totalRentals;
-      typeStats[bike.type].revenue += bike.totalRevenue;
-    });
-    
-    Object.keys(typeStats).forEach(type => {
-      if (typeStats[type].count > 0) csvData.push([getTypeLabel(type), typeStats[type].count, typeStats[type].revenue.toFixed(2)]);
-    });
-
-    const csvContent = csvData.map(row => row.map(cell => `"${String(cell).includes(',') || String(cell).includes('"') ? `"${String(cell).replace(/"/g, '""')}"` : cell}`).join(',')).join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `statistiche_noleggio_${selectedYear}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
    const exportToExcel = () => {
@@ -205,12 +147,17 @@ const ExcelExport = () => {
      const workbook = XLSX.utils.book_new();
      const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
 
-      const closedContracts = contracts.filter(contract => {
+      const baseClosed = contracts.filter(contract => {
         const status = String(contract.status || '').toLowerCase();
         if (status === 'closed' || status === 'completed') return hasMeaningfulRevenueForStats(contract);
         if (status === 'returned') return contract.paymentCompleted && hasMeaningfulRevenueForStats(contract);
         return false;
       });
+
+      let exportContracts = baseClosed;
+      if (user?.role === 'superadmin' && selectedLocation) {
+        exportContracts = baseClosed.filter(c => c.location?._id === selectedLocation);
+      }
 
      // Riepilogo mensile
      const monthlySummary = [];
@@ -226,9 +173,9 @@ const ExcelExport = () => {
        });
      }
 
-      const monthlyDailyData = {};
+       const monthlyDailyData = {};
 
-      closedContracts.forEach(contract => {
+       exportContracts.forEach(contract => {
         const startDate = new Date(contract.startAt || contract.createdAt);
         if (startDate.getFullYear() !== selectedYear) return;
 
@@ -332,7 +279,7 @@ const ExcelExport = () => {
        XLSX.utils.book_append_sheet(workbook, wsMonth, `${monthNames[m]} ${selectedYear}`);
      }
 
-      const detailRows = closedContracts
+      const detailRows = exportContracts
         .filter(c => new Date(c.startAt || c.createdAt).getFullYear() === selectedYear)
         .map(c => {
           const startDate = new Date(c.startAt || c.createdAt);
@@ -400,8 +347,9 @@ const ExcelExport = () => {
      const wsDetail = XLSX.utils.json_to_sheet(detailRows);
      XLSX.utils.book_append_sheet(workbook, wsDetail, 'Dettaglio Contratti');
 
-     const fileName = `Report_Annuale_${selectedYear}.xlsx`;
-     XLSX.writeFile(workbook, fileName);
+      const locationLabel = selectedLocation ? (locations.find(l => l._id === selectedLocation)?.name || 'Tutte') : 'Tutte';
+      const fileName = `Report_Annuale_${locationLabel.replace(/[^A-Za-z0-9]/g, '_')}_${selectedYear}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
    };
 
    const getAvailableYears = () => {
@@ -426,7 +374,7 @@ const ExcelExport = () => {
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
       <div style={{ marginBottom: '24px' }}>
           <h1 style={{ margin: '0 0 8px 0', color: '#1f2937', fontSize: '2rem', fontWeight: '700' }}>📊 Esportazione Statistiche Excel</h1>
-         <p style={{ margin: 0, color: '#6b7280', fontSize: '16px' }}>Esporta statistiche dettagliate in CSV o Excel con riepilogo mensile e totali giornalieri</p>
+          <p style={{ margin: 0, color: '#6b7280', fontSize: '16px' }}>Esporta statistiche dettagliate in Excel con riepilogo mensile, totali giornalieri e dettaglio contratti</p>
       </div>
 
       {/* Controlli */}
@@ -442,6 +390,17 @@ const ExcelExport = () => {
             {getAvailableYears().map(year => <option key={year} value={year}>{year}</option>)}
           </select>
         </div>
+        {user?.role === 'superadmin' && (
+          <div>
+            <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', color: '#374151' }}>Location</label>
+            <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} style={{
+              padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', background: 'white', fontSize: '16px'
+            }}>
+              <option value="">Tutte le location</option>
+              {locations.map(loc => <option key={loc._id} value={loc._id}>{loc.name}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', color: '#374151' }}>Auto-refresh</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -450,16 +409,10 @@ const ExcelExport = () => {
           </div>
           {lastUpdate && <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>Ultimo aggiornamento: {lastUpdate.toLocaleTimeString()}</div>}
         </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <button onClick={exportToCSV} disabled={loading} style={{
-            padding: '12px 24px', background: '#10b981', color: 'white', border: 'none',
-            borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: '600'
-          }}>📄 Esporta CSV</button>
           <button onClick={exportToExcel} disabled={loading} style={{
             padding: '12px 24px', background: '#2563eb', color: 'white', border: 'none',
             borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: '600'
           }}>📊 Esporta Excel</button>
-        </div>
       </div>
 
       {/* Statistiche mensili */}
@@ -504,53 +457,8 @@ const ExcelExport = () => {
           </table>
         </div>
       </div>
-
-      {/* Top 10 bici più usate */}
-      <div style={{
-        background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb',
-        overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ padding: '16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>Top 10 Bici Più Usate ({selectedYear})</h3>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#f9fafb' }}>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>Bici</th>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>Tipo</th>
-                <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>Noleggi</th>
-                <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>Fatturato</th>
-                <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>Ore</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bikeStats.slice(0, 10).map((bike, index) => (
-                <tr key={bike._id} style={{ background: index % 2 === 0 ? 'white' : '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={{ padding: '12px' }}>
-                    <div style={{ fontWeight: '600' }}>{bike.name}</div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>{bike.barcode}</div>
-                  </td>
-                  <td style={{ padding: '12px' }}>
-                    <span style={{
-                      padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: '600',
-                      background: bike.type.includes('ebike') ? '#dbeafe' : '#f3f4f6',
-                      color: bike.type.includes('ebike') ? '#1e40af' : '#374151'
-                    }}>
-                      {getTypeLabel(bike.type)}
-                    </span>
-                  </td>
-                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>{bike.totalRentals}</td>
-                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#059669' }}>{formatCurrency(bike.totalRevenue)}</td>
-                  <td style={{ padding: '12px', textAlign: 'center' }}>{bike.totalHours.toFixed(0)}h</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
+     </div>
+   );
+ };
 
 export default ExcelExport;
