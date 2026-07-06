@@ -301,33 +301,7 @@ const BikeROIStats = () => {
                       <div style={{ fontWeight: '600', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {stat.name}
                         {stat.totalRevenue > 0 && stat.totalRevenue === filteredStats.maxRevenue && <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px' }}>🏆 TOP</span>}
-      </div>
-
-      {/* Debug dati contratti */}
-      {contracts.length > 0 && (
-        <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '24px', padding: '16px' }}>
-          <details>
-            <summary style={{ cursor: 'pointer', fontWeight: '700', color: '#374151' }}>🔍 Debug contratti ({contracts.length})</summary>
-            <div style={{ marginTop: '12px', display: 'grid', gap: '12px' }}>
-              {contracts.slice(0, 10).map(c => (
-                <div key={c._id} style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px', fontFamily: 'monospace' }}>
-                  <div style={{ fontWeight: '700', marginBottom: '8px' }}>{c._id} • {c.status} • {formatCurrency(c.finalAmount || 0)}</div>
-                  {c.items?.filter(it => it.kind === 'bike').map((it, idx) => (
-                    <div key={idx} style={{ marginLeft: '8px', marginBottom: '4px', color: '#374151' }}>
-                      {it.name} | barcode: {it.barcode} | itemId: {it._id || it.id || it.name} | rentalPrice: {it?.rentalPrice ?? '—'} | basePrice: {it?.basePrice ?? '—'} | totalPrice: {it?.totalPrice ?? '—'}
-                    </div>
-                  ))}
-                  {c.lockedItemPrices?.length > 0 && (
-                    <div style={{ marginTop: '8px', color: '#6b7280' }}>
-                      lockedItemPrices: {JSON.stringify(c.lockedItemPrices)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </details>
-        </div>
-      )}
+                      </div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>{stat.barcode}</div>
                     </div>
                   </td>
