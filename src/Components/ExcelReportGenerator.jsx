@@ -9,6 +9,8 @@ const ExcelReportGenerator = ({ user }) => {
     from: '',
     to: ''
   });
+  const [locations, setLocations] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState('');
 
   const calculateItemRevenue = (contract, item) => {
     const startAt = new Date(item.startAt || contract.startAt || contract.createdAt);
@@ -31,16 +33,29 @@ const ExcelReportGenerator = ({ user }) => {
     return priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal;
   };
 
+  useEffect(() => {
+    if (user?.role === 'superadmin') {
+      (async () => {
+        try {
+          const { data } = await api.get('/api/locations');
+          setLocations(data || []);
+        } catch (e) {
+          console.error('Errore caricamento location:', e);
+        }
+      })();
+    }
+  }, [user]);
+
   const generateExcelReport = async () => {
     setIsGenerating(true);
     try {
+      const params = {
+        dateFrom: dateRange.from,
+        dateTo: dateRange.to,
+        ...(user?.role === 'superadmin' && selectedLocation ? { location: selectedLocation } : {})
+      };
       const [contractsResponse, bikesResponse, accessoriesResponse] = await Promise.all([
-        api.get('/api/contracts/history', {
-          params: {
-            dateFrom: dateRange.from,
-            dateTo: dateRange.to
-          }
-        }),
+        api.get('/api/contracts/history', { params }),
         api.get('/api/bikes'),
         api.get('/api/accessories')
       ]);
@@ -306,7 +321,8 @@ const ExcelReportGenerator = ({ user }) => {
       const ws6 = XLSX.utils.json_to_sheet(contractDetails);
       XLSX.utils.book_append_sheet(workbook, ws6, "Dettaglio Contratti");
 
-      const fileName = `Report_Contabilita_${dateRange.from || 'tutti'}_${dateRange.to || new Date().toISOString().split('T')[0]}.xlsx`;
+      const locationLabel = user?.role === 'superadmin' ? (selectedLocation ? locations.find(l => l._id === selectedLocation)?.name : 'Tutte_le_location') : (user?.location?.name || 'Location');
+      const fileName = `Report_Contabilita_${locationLabel.replace(/[^A-Za-z0-9]/g, '_')}_${dateRange.from || 'tutti'}_${dateRange.to || new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
 
       alert('✅ Report Excel generato con successo!');
@@ -384,6 +400,21 @@ return (
             }}
           />
         </div>
+
+        {user?.role === 'superadmin' && (
+          <select value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)} style={{
+            padding: '8px 12px',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '14px',
+            background: 'white'
+          }}>
+            <option value="">Tutte le location</option>
+            {locations.map(loc => (
+              <option key={loc._id} value={loc._id}>{loc.name}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       <button

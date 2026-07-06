@@ -18,6 +18,8 @@ export default function Reports() {
   const [contracts, setContracts] = useState([])
   const [bikes, setBikes] = useState([])
   const [accessories, setAccessories] = useState([])
+  const [locations, setLocations] = useState([])
+  const [selectedLocation, setSelectedLocation] = useState('')
   const [summary, setSummary] = useState({
     totalRevenue: 0,
     totalBikesRevenue: 0,
@@ -44,8 +46,18 @@ export default function Reports() {
   }, [])
 
   useEffect(() => {
-    if (user) loadAllData()
-  }, [user, from, to])
+    if (!user) return
+    if (user.role === 'superadmin') {
+      (async () => {
+        try {
+          const { data } = await api.get('/api/locations')
+          setLocations(data || [])
+        } catch (e) {
+          console.error('Errore caricamento location:', e)
+        }
+      })()
+    }
+  }, [user])
 
   useEffect(() => {
     if (period === 'today') {
@@ -63,6 +75,10 @@ export default function Reports() {
     setLoading(true)
     try {
       const params = { from, to }
+      if (user?.role === 'superadmin' && selectedLocation) {
+        params.location = selectedLocation
+      }
+      
       const [contractsRes, bikesRes, accessoriesRes] = await Promise.all([
         api.get('/api/contracts/history', { params }).catch(() => ({ data: [] })),
         api.get('/api/bikes').catch(() => ({ data: [] })),
@@ -207,20 +223,11 @@ export default function Reports() {
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new()
     
-    const headerStyle = {
-      font: { bold: true, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: '1E3A8A' } },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border: {
-        top: { style: 'thin', color: { rgb: '000000' } },
-        bottom: { style: 'thin', color: { rgb: '000000' } },
-        left: { style: 'thin', color: { rgb: '000000' } },
-        right: { style: 'thin', color: { rgb: '000000' } }
-      }
-    }
+    const locationLabel = user?.role === 'superadmin' ? (selectedLocation ? locations.find(l => l._id === selectedLocation)?.name : 'Tutte le location') : (user?.location?.name || 'Location')
     
     const summaryData = [
       { Indicatore: 'PERIODO', Valore: from && to ? `${from} - ${to}` : 'Tutto' },
+      { Indicatore: 'Location', Valore: locationLabel },
       { Indicatore: 'Data di Esportazione', Valore: new Date().toLocaleDateString('it-IT') },
       { Indicatore: '', Valore: '' },
       { Indicatore: 'Ricavo Totale', Valore: summary.totalRevenue },
@@ -297,7 +304,7 @@ export default function Reports() {
     const ws4 = XLSX.utils.json_to_sheet(contractDetails)
     XLSX.utils.book_append_sheet(wb, ws4, 'Dettaglio Contratti')
     
-    const fileName = `Report_Contabilita_${from || 'tutto'}_${to || new Date().toISOString().split('T')[0]}.xlsx`
+    const fileName = `Report_Contabilita_${locationLabel.replace(/[^A-Za-z0-9]/g, '_') || 'tutto'}_${from || new Date().toISOString().split('T')[0]}.xlsx`
     XLSX.writeFile(wb, fileName)
   }
 
@@ -396,8 +403,23 @@ export default function Reports() {
             fontSize: '14px',
             fontWeight: '600'
           }}>
-            {loading ? '⏳ Caricamento...' : '🔄 Aggiorna'}
+            {loading ? '⏳ Caricamento...' : '🔄 Aggiorna report'}
           </button>
+
+          {user?.role === 'superadmin' && (
+            <select value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)} style={{
+              padding: '8px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '14px',
+              background: 'white'
+            }}>
+              <option value="">Tutte le location</option>
+              {locations.map(loc => (
+                <option key={loc._id} value={loc._id}>{loc.name}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
