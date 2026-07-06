@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api.js';
 import { jwtDecode } from 'jwt-decode';
+import { calculateSeparateTotals, isContractClosedForStats } from '../utils/contractCalculations.js';
+import * as XLSX from 'xlsx';
 
 const formatCurrency = (amount) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount || 0);
 const formatDate = (date) => (!date ? 'Mai' : new Date(date).toLocaleDateString('it-IT'));
@@ -93,10 +95,10 @@ const ExcelExport = () => {
     });
 
     contractsData.forEach(contract => {
-      const isCompleted = contract.status === 'completed' || (contract.status === 'returned' && contract.paymentCompleted);
+      const isCompleted = isContractClosedForStats(contract);
       if (!isCompleted) return;
 
-      const contractDate = new Date(contract.endAt || contract.createdAt);
+      const contractDate = new Date(contract.startAt || contract.createdAt);
       if (contractDate.getFullYear() !== selectedYear) return;
 
       const month = contractDate.getMonth() + 1;
@@ -182,7 +184,138 @@ const ExcelExport = () => {
     document.body.removeChild(link);
   };
 
-  const getAvailableYears = () => {
+   const exportToExcel = () => {
+     if (!contracts || contracts.length === 0) {
+       alert('Nessun dato da esportare');
+       return;
+     }
+
+     const workbook = XLSX.utils.book_new();
+     const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+
+      const closedContracts = contracts.filter(contract => isContractClosedForStats(contract));
+
+     // Riepilogo mensile
+     const monthlySummary = [];
+     for (let m = 0; m < 12; m++) {
+       monthlySummary.push({
+         'Mese': monthNames[m],
+         'Contratti': 0,
+         'Ore Totali': 0,
+         'Fatturato Noleggio': 0,
+         'Fatturato Assicurazioni': 0,
+         'Fatturato Extra': 0,
+         'Fatturato Totale': 0
+       });
+     }
+
+      const monthlyDailyData = {};
+
+     closedContracts.forEach(contract => {
+       const startDate = new Date(contract.startAt || contract.createdAt);
+       if (startDate.getFullYear() !== selectedYear) return;
+
+       const monthIdx = startDate.getMonth();
+       const totals = calculateSeparateTotals(contract);
+       const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
+
+       monthlySummary[monthIdx].Contratti += 1;
+       monthlySummary[monthIdx]['Ore Totali'] = +(monthlySummary[monthIdx]['Ore Totali'] + hours).toFixed(1);
+       monthlySummary[monthIdx]['Fatturato Noleggio'] = +(monthlySummary[monthIdx]['Fatturato Noleggio'] + (totals.bikesTotal || 0)).toFixed(2);
+       monthlySummary[monthIdx]['Fatturato Assicurazioni'] = +(monthlySummary[monthIdx]['Fatturato Assicurazioni'] + (totals.insuranceTotal || 0)).toFixed(2);
+       monthlySummary[monthIdx]['Fatturato Extra'] = +(monthlySummary[monthIdx]['Fatturato Extra'] + (totals.extrasTotal || 0)).toFixed(2);
+       monthlySummary[monthIdx]['Fatturato Totale'] = +(monthlySummary[monthIdx]['Fatturato Totale'] + (totals.total || 0)).toFixed(2);
+
+       const dayKey = startDate.toLocaleDateString('it-IT');
+       if (!monthlyDailyData[monthIdx]) monthlyDailyData[monthIdx] = {};
+       if (!monthlyDailyData[monthIdx][dayKey]) {
+         monthlyDailyData[monthIdx][dayKey] = {
+           'Data': dayKey,
+           'Contratti': 0,
+           'Ore Totali': 0,
+           'Fatturato Noleggio': 0,
+           'Fatturato Assicurazioni': 0,
+           'Fatturato Extra': 0,
+           'Fatturato Totale': 0
+         };
+       }
+       monthlyDailyData[monthIdx][dayKey].Contratti += 1;
+       monthlyDailyData[monthIdx][dayKey]['Ore Totali'] = +(monthlyDailyData[monthIdx][dayKey]['Ore Totali'] + hours).toFixed(1);
+       monthlyDailyData[monthIdx][dayKey]['Fatturato Noleggio'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Noleggio'] + (totals.bikesTotal || 0)).toFixed(2);
+       monthlyDailyData[monthIdx][dayKey]['Fatturato Assicurazioni'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Assicurazioni'] + (totals.insuranceTotal || 0)).toFixed(2);
+       monthlyDailyData[monthIdx][dayKey]['Fatturato Extra'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Extra'] + (totals.extrasTotal || 0)).toFixed(2);
+       monthlyDailyData[monthIdx][dayKey]['Fatturato Totale'] = +(monthlyDailyData[monthIdx][dayKey]['Fatturato Totale'] + (totals.total || 0)).toFixed(2);
+     });
+
+     const sum = (rows, key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+
+     monthlySummary.push({
+       'Mese': 'TOTALE ANNO',
+       'Contratti': sum(monthlySummary, 'Contratti'),
+       'Ore Totali': +sum(monthlySummary, 'Ore Totali').toFixed(1),
+       'Fatturato Noleggio': +sum(monthlySummary, 'Fatturato Noleggio').toFixed(2),
+       'Fatturato Assicurazioni': +sum(monthlySummary, 'Fatturato Assicurazioni').toFixed(2),
+       'Fatturato Extra': +sum(monthlySummary, 'Fatturato Extra').toFixed(2),
+       'Fatturato Totale': +sum(monthlySummary, 'Fatturato Totale').toFixed(2)
+     });
+
+     const wsRiepilogo = XLSX.utils.json_to_sheet(monthlySummary);
+     XLSX.utils.book_append_sheet(workbook, wsRiepilogo, 'Riepilogo Annuale');
+
+     for (let m = 0; m < 12; m++) {
+       if (!monthlyDailyData[m]) continue;
+       const days = Object.keys(monthlyDailyData[m]).sort();
+       const rows = days.map(day => monthlyDailyData[m][day]);
+       rows.push({
+         'Data': 'TOTALE MESE',
+         'Contratti': sum(rows, 'Contratti'),
+         'Ore Totali': +sum(rows, 'Ore Totali').toFixed(1),
+         'Fatturato Noleggio': +sum(rows, 'Fatturato Noleggio').toFixed(2),
+         'Fatturato Assicurazioni': +sum(rows, 'Fatturato Assicurazioni').toFixed(2),
+         'Fatturato Extra': +sum(rows, 'Fatturato Extra').toFixed(2),
+         'Fatturato Totale': +sum(rows, 'Fatturato Totale').toFixed(2)
+       });
+       const wsMonth = XLSX.utils.json_to_sheet(rows);
+       XLSX.utils.book_append_sheet(workbook, wsMonth, `${monthNames[m]} ${selectedYear}`);
+     }
+
+     const detailRows = closedContracts
+       .filter(c => new Date(c.startAt || c.createdAt).getFullYear() === selectedYear)
+       .map(c => {
+         const startDate = new Date(c.startAt || c.createdAt);
+         const endDate = c.endAt ? new Date(c.endAt) : null;
+         const totals = calculateSeparateTotals(c);
+         const hours = calculateHours(c.startAt, c.endAt || c.createdAt);
+         return {
+           'ID': c._id,
+           'Cliente': c.customer?.name || '',
+           'Telefono': c.customer?.phone || '',
+           'Data Inizio': startDate.toLocaleDateString('it-IT'),
+           'Ora Inizio': startDate.toLocaleTimeString('it-IT'),
+           'Data Fine': endDate ? endDate.toLocaleDateString('it-IT') : 'In corso',
+           'Ora Fine': endDate ? endDate.toLocaleTimeString('it-IT') : '-',
+           'Durata Ore': +hours.toFixed(1),
+           'Stato': c.status === 'closed' || c.status === 'completed' ? 'Chiuso' : c.status,
+           'Tipo': (c.status === 'reserved' || c.isReservation) ? 'Prenotazione' : 'Noleggio',
+           'Noleggio': +totals.bikesTotal.toFixed(2),
+           'Assicurazioni': +totals.insuranceTotal.toFixed(2),
+           'Extra': +totals.extrasTotal.toFixed(2),
+           'Totale': +totals.total.toFixed(2),
+           'Metodo Pagamento': c.paymentMethod || '',
+           'Pagato': (c.paymentCompleted || c.paid) ? 'Sì' : 'No',
+           'Location': c.location?.name || '',
+           'Note': c.notes || ''
+         };
+       });
+
+     const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+     XLSX.utils.book_append_sheet(workbook, wsDetail, 'Dettaglio Contratti');
+
+     const fileName = `Report_Annuale_${selectedYear}.xlsx`;
+     XLSX.writeFile(workbook, fileName);
+   };
+
+   const getAvailableYears = () => {
     const years = new Set();
     contracts.forEach(contract => years.add(new Date(contract.createdAt).getFullYear()));
     return Array.from(years).sort((a, b) => b - a);
@@ -203,8 +336,8 @@ const ExcelExport = () => {
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ margin: '0 0 8px 0', color: '#1f2937', fontSize: '2rem', fontWeight: '700' }}>📊 Esportazione Statistiche Excel</h1>
-        <p style={{ margin: 0, color: '#6b7280', fontSize: '16px' }}>Esporta statistiche dettagliate in formato CSV per Excel</p>
+          <h1 style={{ margin: '0 0 8px 0', color: '#1f2937', fontSize: '2rem', fontWeight: '700' }}>📊 Esportazione Statistiche Excel</h1>
+         <p style={{ margin: 0, color: '#6b7280', fontSize: '16px' }}>Esporta statistiche dettagliate in CSV o Excel con riepilogo mensile e totali giornalieri</p>
       </div>
 
       {/* Controlli */}
@@ -228,10 +361,16 @@ const ExcelExport = () => {
           </div>
           {lastUpdate && <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>Ultimo aggiornamento: {lastUpdate.toLocaleTimeString()}</div>}
         </div>
-        <button onClick={exportToCSV} disabled={loading} style={{
-          padding: '12px 24px', background: '#10b981', color: 'white', border: 'none',
-          borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: '600'
-        }}>📥 Esporta CSV per Excel</button>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <button onClick={exportToCSV} disabled={loading} style={{
+            padding: '12px 24px', background: '#10b981', color: 'white', border: 'none',
+            borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: '600'
+          }}>📄 Esporta CSV</button>
+          <button onClick={exportToExcel} disabled={loading} style={{
+            padding: '12px 24px', background: '#2563eb', color: 'white', border: 'none',
+            borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: '600'
+          }}>📊 Esporta Excel</button>
+        </div>
       </div>
 
       {/* Statistiche mensili */}
