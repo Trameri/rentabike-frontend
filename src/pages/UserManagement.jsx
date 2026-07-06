@@ -8,9 +8,11 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
+  const [username, setUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -47,43 +49,70 @@ export default function UserManagement() {
     }
   }
 
-  const handlePasswordChange = async () => {
-    if (!newPassword || !confirmPassword) {
-      alert('❌ Inserisci entrambe le password')
+  const handleSave = async () => {
+    if (!editingUser) return
+
+    const usernameChanged = username.trim() !== editingUser.username
+    const passwordChanged = newPassword.length > 0
+
+    if (!usernameChanged && !passwordChanged) {
+      alert('❌ Modifica almeno il nome utente o la password')
       return
     }
 
-    if (newPassword !== confirmPassword) {
-      alert('❌ Le password non coincidono')
-      return
-    }
-
-    if (newPassword.length < 6) {
-      alert('❌ La password deve essere di almeno 6 caratteri')
-      return
+    if (passwordChanged) {
+      if (newPassword.length < 6) {
+        alert('❌ La password deve essere di almeno 6 caratteri')
+        return
+      }
+      if (newPassword !== confirmPassword) {
+        alert('❌ Le password non coincidono')
+        return
+      }
     }
 
     try {
-      await api.put(`/api/users/${editingUser._id}/password`, {
-        newPassword: newPassword
-      })
-      
-      alert('✅ Password cambiata con successo!')
+      setSaving(true)
+
+      if (usernameChanged) {
+        await api.put(`/api/users/${editingUser._id}`, {
+          username: username.trim()
+        })
+      }
+
+      if (passwordChanged) {
+        await api.put(`/api/users/${editingUser._id}/password`, {
+          newPassword: newPassword
+        })
+      }
+
+      alert('✅ Credenziali aggiornate con successo!')
       setEditingUser(null)
-      setNewPassword('')
-      setConfirmPassword('')
-      setShowPassword(false)
+      loadUsers()
     } catch (error) {
-      console.error('Errore cambio password:', error)
-      alert('❌ Errore nel cambio password')
+      console.error('Errore aggiornamento credenziali:', error)
+      alert('❌ Errore nell\'aggiornamento delle credenziali')
+    } finally {
+      setSaving(false)
     }
   }
 
-  const resetForm = () => {
+  const resetModal = () => {
     setEditingUser(null)
+    setUsername('')
     setNewPassword('')
     setConfirmPassword('')
     setShowPassword(false)
+    setSaving(false)
+  }
+
+  const openModal = (userItem) => {
+    setEditingUser(userItem)
+    setUsername(userItem.username)
+    setNewPassword('')
+    setConfirmPassword('')
+    setShowPassword(false)
+    setSaving(false)
   }
 
   if (user?.role !== 'superadmin') {
@@ -170,10 +199,10 @@ export default function UserManagement() {
               fontWeight: '800',
               textShadow: '0 2px 4px rgba(0,0,0,0.3)'
             }}>
-              👥 Gestione Utenti
+              👥 Gestione Credenziali
             </h1>
             <p style={{ margin: 0, opacity: 0.9, fontSize: '18px' }}>
-              Gestisci password e permessi degli utenti
+              Modifica nome utente e password di tutte le location
             </p>
           </div>
         </div>
@@ -196,7 +225,7 @@ export default function UserManagement() {
           alignItems: 'center',
           gap: '12px'
         }}>
-          🔐 Utenti del Sistema
+          🔐 Credenziali del Sistema
         </h2>
 
         <div style={{
@@ -261,7 +290,7 @@ export default function UserManagement() {
               </div>
 
               <button
-                onClick={() => setEditingUser(userItem)}
+                onClick={() => openModal(userItem)}
                 style={{
                   background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
                   color: 'white',
@@ -285,14 +314,14 @@ export default function UserManagement() {
                   e.target.style.boxShadow = 'none'
                 }}
               >
-                🔑 Cambia Password
+                ✏️ Modifica Credenziali
               </button>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Modal Cambio Password */}
+      {/* Modal Modifica Credenziali */}
       {editingUser && (
         <div style={{
           position: 'fixed',
@@ -332,14 +361,14 @@ export default function UserManagement() {
                   fontWeight: '700',
                   color: '#1e293b'
                 }}>
-                  Cambia Password
+                  Modifica Credenziali
                 </h3>
                 <p style={{
                   margin: 0,
                   color: '#64748b',
                   textTransform: 'capitalize'
                 }}>
-                  Utente: {editingUser.username}
+                  {editingUser.username}
                 </p>
               </div>
             </div>
@@ -356,13 +385,38 @@ export default function UserManagement() {
                   fontWeight: '600',
                   color: '#374151'
                 }}>
+                  Nome Utente
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="Inserisci nome utente"
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontWeight: '600',
+                  color: '#374151'
+                }}>
                   Nuova Password
                 </label>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
-                  placeholder="Inserisci nuova password"
+                  placeholder="Lascia vuoto per non modificare"
                   style={{
                     width: '100%',
                     padding: '12px 16px',
@@ -425,11 +479,11 @@ export default function UserManagement() {
                 marginTop: '8px'
               }}>
                 <button
-                  onClick={handlePasswordChange}
-                  disabled={!newPassword || !confirmPassword || newPassword !== confirmPassword}
+                  onClick={handleSave}
+                  disabled={saving || !username.trim()}
                   style={{
                     flex: 1,
-                    background: (!newPassword || !confirmPassword || newPassword !== confirmPassword) ? 
+                    background: (saving || !username.trim()) ? 
                       '#9ca3af' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                     color: 'white',
                     border: 'none',
@@ -437,25 +491,26 @@ export default function UserManagement() {
                     padding: '14px 24px',
                     fontSize: '16px',
                     fontWeight: '600',
-                    cursor: (!newPassword || !confirmPassword || newPassword !== confirmPassword) ? 
+                    cursor: (saving || !username.trim()) ? 
                       'not-allowed' : 'pointer'
                   }}
                 >
-                  ✅ Cambia Password
+                  {saving ? 'Salvataggio...' : '✅ Salva Modifiche'}
                 </button>
 
                 <button
-                  onClick={resetForm}
+                  onClick={resetModal}
+                  disabled={saving}
                   style={{
                     flex: 1,
-                    background: '#ef4444',
+                    background: saving ? '#fca5a5' : '#ef4444',
                     color: 'white',
                     border: 'none',
                     borderRadius: '12px',
                     padding: '14px 24px',
                     fontSize: '16px',
                     fontWeight: '600',
-                    cursor: 'pointer'
+                    cursor: saving ? 'not-allowed' : 'pointer'
                   }}
                 >
                   ❌ Annulla
