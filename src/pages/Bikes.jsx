@@ -28,6 +28,21 @@ export default function Bikes(){
   const [showBarcodeGenerator, setShowBarcodeGenerator] = useState(false)
   const [showAdvancedView, setShowAdvancedView] = useState(false)
   const [showPurchaseFields, setShowPurchaseFields] = useState(false)
+  const [editingBike, setEditingBike] = useState(null)
+  const [editForm, setEditForm] = useState({
+    name:'',
+    type:'ebike-full',
+    priceHourly:5,
+    priceDaily:30,
+    photoUrl:'',
+    barcode:'',
+    model:'',
+    brand:'',
+    frameNumber:'',
+    purchaseDate:'',
+    purchasePrice:0
+  })
+  const [showEditFormModal, setShowEditFormModal] = useState(false)
 
   useEffect(()=>{
     // Decodifica il token per ottenere info utente
@@ -143,6 +158,51 @@ export default function Bikes(){
         alert('❌ Errore nell\'aggiunta della bici: ' + errorMessage);
       }
     }
+  }
+
+  function startEdit(bike) {
+    setEditingBike(bike)
+    setEditForm({
+      name: bike.name || '',
+      type: bike.type || 'ebike-full',
+      priceHourly: bike.priceHourly ?? 5,
+      priceDaily: bike.priceDaily ?? 30,
+      photoUrl: bike.photoUrl || '',
+      barcode: bike.barcode || '',
+      model: bike.model || '',
+      brand: bike.brand || '',
+      frameNumber: bike.frameNumber || '',
+      purchaseDate: bike.purchaseDate || '',
+      purchasePrice: bike.purchasePrice ?? 0,
+      location: bike.location || ''
+    })
+    setShowEditFormModal(true)
+  }
+
+  async function updateBike(e) {
+    e.preventDefault()
+    if (!editingBike) return
+
+    if (!editForm.name.trim()) {
+      alert('❌ Errore: Il nome della bici è obbligatorio')
+      return
+    }
+
+    try {
+      await api.put(`/api/bikes/${editingBike._id}`, editForm)
+      setShowEditFormModal(false)
+      setEditingBike(null)
+      await load()
+      alert('✅ Bici aggiornata con successo!')
+    } catch (e) {
+      const errorMessage = e.response?.data?.error || e.message || 'Errore sconosciuto';
+      alert('❌ Errore nell\'aggiornamento della bici: ' + errorMessage)
+    }
+  }
+
+  async function closeEditModal() {
+    setShowEditFormModal(false)
+    setEditingBike(null)
   }
 
   async function changeStatus(bikeId, newStatus) {
@@ -681,6 +741,22 @@ export default function Bikes(){
                       </select>
                       
                       <button
+                        onClick={() => startEdit(r)}
+                        style={{
+                          background: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                        title="Modifica bici"
+                      >
+                        ✏️
+                      </button>
+                      
+                      <button
                         onClick={() => deleteBike(r._id)}
                         style={{
                           background: '#ef4444',
@@ -711,6 +787,289 @@ export default function Bikes(){
           bikes={rows}
           onClose={() => setShowBarcodeGenerator(false)}
         />
+      )}
+
+      {/* Modal modifica bici */}
+      {showEditFormModal && editingBike && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            maxWidth: '900px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{
+              padding: '24px',
+              borderBottom: '2px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#1e293b' }}>
+                ✏️ Modifica Bici
+              </h2>
+              <button
+                onClick={closeEditModal}
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={updateBike} style={{ padding: '24px' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: user?.role === 'superadmin' ? 'repeat(2, 1fr)' : 'repeat(2, 1fr)',
+                gap: '16px',
+                marginBottom: '20px'
+              }}>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                    Nome Bici *
+                  </label>
+                  <input
+                    placeholder="Nome bici *"
+                    value={editForm.name}
+                    onChange={e=>setEditForm({...editForm, name:e.target.value})}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: !editForm.name.trim() ? '2px solid #ef4444' : '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                    Tipo
+                  </label>
+                  <select 
+                    value={editForm.type} 
+                    onChange={e=>setEditForm({...editForm, type:e.target.value})}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                  >
+                    <option value="ebike-full">E-bike Full</option>
+                    <option value="ebike-front">E-bike Front</option>
+                    <option value="ebike-other">E-bike (altre)</option>
+                    <option value="muscolare">Muscolare</option>
+                    <option value="altro">Altro</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                    Barcode
+                  </label>
+                  <input
+                    placeholder="Barcode (vuoto = auto)"
+                    value={editForm.barcode}
+                    onChange={e=>setEditForm({...editForm, barcode:e.target.value})}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                    €/h
+                  </label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={editForm.priceHourly} 
+                    onChange={e=>setEditForm({...editForm, priceHourly:Number(e.target.value)})}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                    €/giorno
+                  </label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={editForm.priceDaily} 
+                    onChange={e=>setEditForm({...editForm, priceDaily:Number(e.target.value)})}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                  />
+                </div>
+                
+                {user?.role === 'superadmin' && (
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                      Location
+                    </label>
+                    <select 
+                      value={editForm.location || ''} 
+                      onChange={e=>setEditForm({...editForm, location:e.target.value})}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                    >
+                      <option value="">Seleziona Location</option>
+                      {locations.map(loc => (
+                        <option key={loc._id} value={loc._id}>{loc.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              
+              {/* Sezione campi acquisto */}
+              <div style={{ marginBottom: '20px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPurchaseFields(!showPurchaseFields)}
+                  style={{
+                    padding: '10px 16px',
+                    background: showPurchaseFields ? '#ef4444' : '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '12px'
+                  }}
+                >
+                  {showPurchaseFields ? '❌ Nascondi Dati Acquisto' : '📊 Dati Acquisto'}
+                </button>
+                
+                {showPurchaseFields && (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '12px',
+                    padding: '16px',
+                    background: '#f8fafc',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                        Modello
+                      </label>
+                      <input
+                        placeholder="Es. Trek FX 3"
+                        value={editForm.model}
+                        onChange={e => setEditForm({...editForm, model: e.target.value})}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                        Marca
+                      </label>
+                      <input
+                        placeholder="Es. Trek, Specialized, Giant"
+                        value={editForm.brand}
+                        onChange={e => setEditForm({...editForm, brand: e.target.value})}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                        Numero Telaio
+                      </label>
+                      <input
+                        placeholder="Es. WTU123456789"
+                        value={editForm.frameNumber}
+                        onChange={e => setEditForm({...editForm, frameNumber: e.target.value})}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                        Data Acquisto
+                      </label>
+                      <input
+                        type="date"
+                        value={editForm.purchaseDate}
+                        onChange={e => setEditForm({...editForm, purchaseDate: e.target.value})}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#374151' }}>
+                        Prezzo Acquisto (€)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={editForm.purchasePrice}
+                        onChange={e => setEditForm({...editForm, purchasePrice: Number(e.target.value)})}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600'
+                  }}
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '12px 24px',
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600'
+                  }}
+                >
+                  💾 Salva Modifiche
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )
