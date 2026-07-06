@@ -261,16 +261,6 @@ export default function Reports() {
     const ws3 = XLSX.utils.json_to_sheet(bikeData)
     XLSX.utils.book_append_sheet(wb, ws3, 'Top Bici')
     
-    const accessoryData = accessoryStats.map((a, i) => ({
-      Posizione: i + 1,
-      'Nome Accessorio': a.name,
-      Noleggi: a.rentals,
-      'Ricavo Totale': a.revenue
-    }))
-    
-    const ws4 = XLSX.utils.json_to_sheet(accessoryData)
-    XLSX.utils.book_append_sheet(wb, ws4, 'Top Accessori')
-    
     const contractDetails = contracts.map(contract => {
       const totals = calculateSeparateTotals(contract)
       const startDate = new Date(contract.startAt || contract.createdAt)
@@ -297,13 +287,15 @@ export default function Reports() {
         Pagamento: contract.paymentMethod || '',
         Pagato: (contract.paymentCompleted || contract.paid) ? 'Sì' : 'No',
         Completato: contract.paymentCompleted ? 'Sì' : 'No',
+        'Note Compilazione': contract.notes || '',
+        'Note Chiusura/Pagamento': contract.paymentNotes || '',
         Location: contract.location?.name || '',
         Operatore: contract.createdBy || ''
       }
     })
     
-    const ws5 = XLSX.utils.json_to_sheet(contractDetails)
-    XLSX.utils.book_append_sheet(wb, ws5, 'Dettaglio Contratti')
+    const ws4 = XLSX.utils.json_to_sheet(contractDetails)
+    XLSX.utils.book_append_sheet(wb, ws4, 'Dettaglio Contratti')
     
     const fileName = `Report_Contabilita_${from || 'tutto'}_${to || new Date().toISOString().split('T')[0]}.xlsx`
     XLSX.writeFile(wb, fileName)
@@ -658,8 +650,7 @@ export default function Reports() {
           • Foglio 1: Riepilogo generale con totali
           • Foglio 2: Contratti giornalieri
           • Foglio 3: Top bici per ricavo
-          • Foglio 4: Top accessori per ricavo
-          • Foglio 5: Dettaglio completo contratti
+          • Foglio 4: Dettaglio completo contratti
         </p>
         <button onClick={exportToExcel} style={{
           padding: '12px 24px',

@@ -296,6 +296,8 @@ const ExcelReportGenerator = ({ user }) => {
           'Totale': totals.total,
           'Pagamento': contract.paymentMethod || '',
           'Pagato': (contract.paymentCompleted || contract.paid) ? 'Sì' : 'No',
+          'Note Compilazione': contract.notes || '',
+          'Note Chiusura/Pagamento': contract.paymentNotes || '',
           'Location': contract.location?.name || '',
           'Operatore': contract.createdBy || ''
         };
