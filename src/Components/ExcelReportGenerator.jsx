@@ -60,9 +60,14 @@ const ExcelReportGenerator = ({ user }) => {
         api.get('/api/accessories')
       ]);
 
-      const contracts = contractsResponse.data;
-      const bikes = bikesResponse.data;
-      const accessories = accessoriesResponse.data;
+      const closedContracts = contracts.filter(contract => {
+        const status = String(contract.status || '').toLowerCase();
+        return status === 'closed' || status === 'completed' || status === 'returned';
+      });
+      const activeOnlyContracts = contracts.filter(contract => {
+        const status = String(contract.status || '').toLowerCase();
+        return status !== 'closed' && status !== 'completed' && status !== 'returned';
+      });
 
       const workbook = XLSX.utils.book_new();
       const headerStyle = {
@@ -128,6 +133,7 @@ const ExcelReportGenerator = ({ user }) => {
           dailyStats[date] = { contracts: [], bikeRevenue: 0, insuranceRevenue: 0, contractCount: 0 };
         }
         const totals = calculateSeparateTotals(contract);
+        if (!['closed', 'completed', 'returned'].includes(String(contract.status || '').toLowerCase())) return;
         dailyStats[date].contracts.push(contract);
         dailyStats[date].bikeRevenue += totals.bikesTotal;
         dailyStats[date].insuranceRevenue += totals.insuranceTotal;
@@ -171,6 +177,7 @@ const ExcelReportGenerator = ({ user }) => {
       contracts.forEach(contract => {
         const contractDate = new Date(contract.startAt || contract.createdAt);
         const year = contractDate.getFullYear();
+        if (!['closed', 'completed', 'returned'].includes(String(contract.status || '').toLowerCase())) return;
         if (year === 2025 || year === 2024) {
           const month = contractDate.getMonth();
           const totals = calculateSeparateTotals(contract);
@@ -208,6 +215,7 @@ const ExcelReportGenerator = ({ user }) => {
 
       contracts.forEach(contract => {
         const contractDate = new Date(contract.startAt || contract.createdAt);
+        if (!['closed', 'completed', 'returned'].includes(String(contract.status || '').toLowerCase())) return;
         if (contractDate.getFullYear() >= 2024) {
           const month = contractDate.getMonth();
           const totals = calculateSeparateTotals(contract);
@@ -256,7 +264,7 @@ const ExcelReportGenerator = ({ user }) => {
       XLSX.utils.book_append_sheet(workbook, ws4, "Noleggi vs Assicurazioni");
 
       const bikeUsage = {};
-      contracts.forEach(contract => {
+      closedContracts.forEach(contract => {
         contract.items?.forEach(item => {
           if (item.kind === 'bike') {
             const bike = bikes.find(b => b._id === (item.refId || item.bike));
@@ -318,8 +326,13 @@ const ExcelReportGenerator = ({ user }) => {
         };
       });
 
-      const ws6 = XLSX.utils.json_to_sheet(contractDetails);
+      const ws6 = XLSX.utils.json_to_sheet(contractDetails.filter(row => row.Stato === 'Chiuso'));
       XLSX.utils.book_append_sheet(workbook, ws6, "Dettaglio Contratti");
+
+      if (contractDetails.some(row => row.Stato === 'Attivo')) {
+        const wsActive = XLSX.utils.json_to_sheet(contractDetails.filter(row => row.Stato === 'Attivo'));
+        XLSX.utils.book_append_sheet(workbook, wsActive, "Contratti Attivi");
+      }
 
       const locationLabel = user?.role === 'superadmin' ? (selectedLocation ? locations.find(l => l._id === selectedLocation)?.name : 'Tutte_le_location') : (user?.location?.name || 'Location');
       const fileName = `Report_Contabilita_${locationLabel.replace(/[^A-Za-z0-9]/g, '_')}_${dateRange.from || 'tutti'}_${dateRange.to || new Date().toISOString().split('T')[0]}.xlsx`;

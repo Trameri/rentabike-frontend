@@ -16,6 +16,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(false)
   
   const [contracts, setContracts] = useState([])
+  const [activeContracts, setActiveContracts] = useState([])
   const [bikes, setBikes] = useState([])
   const [accessories, setAccessories] = useState([])
   const [locations, setLocations] = useState([])
@@ -109,18 +110,33 @@ export default function Reports() {
   }
 
   const calculateStats = (contractsData, bikesData, accessoriesData) => {
+    const activeList = []
+    const closedList = []
+    
+    contractsData.forEach(contract => {
+      const status = String(contract.status || '').toLowerCase()
+      const isClosedStatus = status === 'closed' || status === 'completed' || status === 'returned'
+      if (isClosedStatus) {
+        closedList.push(contract)
+      } else {
+        activeList.push(contract)
+      }
+    })
+    
+    setActiveContracts(activeList)
+    
     let totalRevenue = 0
     let totalBikesRevenue = 0
     let totalInsuranceRevenue = 0
     let totalExtrasRevenue = 0
     let closedContracts = 0
-    let activeContracts = 0
+    let activeContractsCount = 0
     
     const dailyMap = {}
     const bikeMap = {}
     const accessoryMap = {}
     
-    contractsData.forEach(contract => {
+    closedList.forEach(contract => {
       const totals = calculateSeparateTotals(contract)
       
       totalRevenue += totals.total
@@ -130,8 +146,6 @@ export default function Reports() {
       
       if (contract.status === 'closed' || contract.status === 'completed') {
         closedContracts++
-      } else {
-        activeContracts++
       }
       
       const date = formatDate(contract.startAt || contract.createdAt)
@@ -184,14 +198,16 @@ export default function Reports() {
       })
     })
     
+    activeContractsCount = activeList.length
+    
     setSummary({
       totalRevenue,
       totalBikesRevenue,
       totalInsuranceRevenue,
       totalExtrasRevenue,
       closedContracts,
-      activeContracts,
-      totalContracts: contractsData.length
+      activeContracts: activeContractsCount,
+      totalContracts: closedList.length
     })
     
     setDailyStats(Object.values(dailyMap).sort((a, b) => new Date(b.date) - new Date(a.date)))
@@ -301,8 +317,16 @@ export default function Reports() {
       }
     })
     
-    const ws4 = XLSX.utils.json_to_sheet(contractDetails)
+    const activeOnly = contractDetails.filter(row => row.Stato !== 'Chiuso')
+    const closedOnly = contractDetails.filter(row => row.Stato === 'Chiuso')
+    
+    const ws4 = XLSX.utils.json_to_sheet(closedOnly)
     XLSX.utils.book_append_sheet(wb, ws4, 'Dettaglio Contratti')
+    
+    if (activeOnly.length > 0) {
+      const wsActive = XLSX.utils.json_to_sheet(activeOnly)
+      XLSX.utils.book_append_sheet(wb, wsActive, 'Contratti Attivi')
+    }
     
     const fileName = `Report_Contabilita_${locationLabel.replace(/[^A-Za-z0-9]/g, '_') || 'tutto'}_${from || new Date().toISOString().split('T')[0]}.xlsx`
     XLSX.writeFile(wb, fileName)
@@ -588,7 +612,7 @@ export default function Reports() {
         )}
       </div>
 
-      {contracts.length > 0 && (
+      {contracts.length > 0 && activeContracts.length > 0 && (
         <div style={{
           background: 'white',
           borderRadius: '12px',
@@ -598,7 +622,7 @@ export default function Reports() {
           border: '1px solid #e2e8f0'
         }}>
           <h2 style={{ margin: '0 0 16px 0', fontSize: '1.3rem', fontWeight: '600', color: '#1e293b' }}>
-            📋 Dettaglio Contratti
+            🔄 Contratti Attivi
           </h2>
           <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -614,7 +638,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {contracts.map(contract => {
+                {activeContracts.map(contract => {
                   const totals = calculateSeparateTotals(contract)
                   return (
                     <tr key={contract._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
@@ -642,10 +666,10 @@ export default function Reports() {
                           borderRadius: '4px',
                           fontSize: '11px',
                           fontWeight: '600',
-                          background: contract.status === 'closed' || contract.status === 'completed' ? '#d1fae5' : '#fee2e2',
-                          color: contract.status === 'closed' || contract.status === 'completed' ? '#065f46' : '#991b1b'
+                          background: '#fee2e2',
+                          color: '#991b1b'
                         }}>
-                          {contract.status === 'closed' || contract.status === 'completed' ? 'Chiuso' : 'Attivo'}
+                          Attivo
                         </span>
                       </td>
                     </tr>
