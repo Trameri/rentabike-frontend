@@ -702,7 +702,9 @@ const processReturns = async () => {
         isReturned: !!item.returnedAt,
         pricingLogic,
         itemId: item._id || item.id || `${item.name || 'item'}-${index}`,
-        kind: item.kind || 'bike'
+        kind: item.kind || 'bike',
+        priceHourly: parseFloat(item.priceHourly) || 0,
+        priceDaily: parseFloat(item.priceDaily) || 0
       })
     })
 
