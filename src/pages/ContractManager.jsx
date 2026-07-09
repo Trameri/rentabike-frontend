@@ -2897,10 +2897,15 @@ const processReturns = async () => {
                             gap: '4px'
                            }}>
                              <div>⏱️ {item.duration}</div>
-                             {item.preciseTime && (
-                               <div>🕐 {item.preciseTime.hours}h {item.preciseTime.minutes}m {item.preciseTime.seconds}s</div>
-                             )}
-                           </div>
+                              {item.preciseTime && (
+                                <div>🕐 {item.preciseTime.hours}h {item.preciseTime.minutes}m {item.preciseTime.seconds}s</div>
+                              )}
+                              {(item.priceHourly || item.priceDaily) && (
+                                <div style={{ color: '#374151', fontWeight: '500' }}>
+                                  💰 €{item.priceHourly || 0}/h • €{item.priceDaily || 0}/g
+                                </div>
+                              )}
+                            </div>
                           
                            {item.pricingLogic && (
                              <div style={{ 
