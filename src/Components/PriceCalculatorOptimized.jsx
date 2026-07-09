@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { calculateItemPrice } from '../utils/contractCalculations.js'
 
 const PriceCalculatorOptimized = ({ 
   items = [], 
@@ -54,19 +55,18 @@ const PriceCalculatorOptimized = ({
       const priceHourly = item.priceHourly || 0
       const priceDaily = item.priceDaily || 0
       
-      // Scatto orario: calcola ore fatturate con Math.ceil(minutes/60)
-      const oreFatturate = Math.max(1, Math.ceil(diffMinutes / 60))
+      const itemStart = new Date(startDate)
+      const itemEnd = new Date(endDate)
+      const itemBasePrice = calculateItemPrice(priceHourly, priceDaily, itemStart, itemEnd)
+      const oreFatturate = Math.max(1, Math.ceil(Math.max(0, itemEnd - itemStart) / (1000 * 60)))
       const hourlyPrice = priceHourly * oreFatturate
       
-      // Per prenotazioni: usa sempre tariffa giornaliera
-      // Per contratti: scatto orario con blocco su giornaliero
       let bestPrice, bestType
       if (isReservation) {
-        bestPrice = priceDaily
+        bestPrice = itemBasePrice
         bestType = 'daily'
       } else {
-        // Blocco giornaliero: minimo tra orario e giornaliero
-        bestPrice = Math.min(hourlyPrice, priceDaily)
+        bestPrice = itemBasePrice
         bestType = hourlyPrice <= priceDaily ? 'hourly' : 'daily'
       }
       

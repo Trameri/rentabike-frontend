@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api.js';
+import { calculateItemPrice, getCalendarDays } from '../utils/contractCalculations.js';
 
 const PaymentModal = ({
   contract,
@@ -63,19 +64,14 @@ const calculatePaymentDetails = () => {
             insurances[index] = (lockedPrice.insurance || 0).toFixed(2);
             subtotalFromLocked += parseFloat(prices[index]);
           } else {
-            // Fallback: calcola per questa bici con scatto orario
-            let itemBasePrice = 0;
-            const priceHourly = parseFloat(item.priceHourly) || 0;
-            const priceDaily = parseFloat(item.priceDaily) || 0;
-            
             const itemEndTime = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
             const itemStartTime = new Date(contract.startAt || contract.createdAt);
-            const itemDurationMs = Math.max(0, itemEndTime - itemStartTime);
-            const itemDurationMinutes = itemDurationMs / (1000 * 60);
-            const oreFatturate = Math.max(1, Math.ceil(itemDurationMinutes / 60));
-            
-            const hourlyTotal = priceHourly * oreFatturate;
-            itemBasePrice = Math.min(hourlyTotal, priceDaily);
+            const itemBasePrice = calculateItemPrice(
+              parseFloat(item.priceHourly) || 0,
+              parseFloat(item.priceDaily) || 0,
+              itemStartTime,
+              itemEndTime
+            );
             
             prices[index] = itemBasePrice.toFixed(2);
             insurances[index] = item.insurance ? '5.00' : '0.00';
@@ -99,23 +95,15 @@ const calculatePaymentDetails = () => {
         let totalInsurances = 0;
 
         contract.items.forEach((item, index) => {
-          const priceHourly = parseFloat(item.priceHourly) || 0;
-          const priceDaily = parseFloat(item.priceDaily) || 0;
+          const itemEndTime = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
+          const itemStartTime = new Date(contract.startAt || contract.createdAt);
           
-          let itemEndTime = new Date();
-          let itemStartTime = new Date(contract.startAt || contract.createdAt);
-          if (item.returnedAt) {
-            itemEndTime = new Date(item.returnedAt);
-          } else if (contract.endAt) {
-            itemEndTime = new Date(contract.endAt);
-          }
-          
-          const itemDurationMs = Math.max(0, itemEndTime - itemStartTime);
-          const itemDurationMinutes = itemDurationMs / (1000 * 60);
-          const oreFatturate = Math.max(1, Math.ceil(itemDurationMinutes / 60));
-          
-          const hourlyTotal = priceHourly * oreFatturate;
-          const itemBasePrice = Math.min(hourlyTotal, priceDaily);
+          const itemBasePrice = calculateItemPrice(
+            parseFloat(item.priceHourly) || 0,
+            parseFloat(item.priceDaily) || 0,
+            itemStartTime,
+            itemEndTime
+          );
 
           prices[index] = itemBasePrice.toFixed(2);
           totalBaseAmount += itemBasePrice;
@@ -158,9 +146,6 @@ const calculatePaymentDetails = () => {
     const insurances = {};
 
     contract.items.forEach((item, index) => {
-      const priceHourly = parseFloat(item.priceHourly) || 0;
-      const priceDaily = parseFloat(item.priceDaily) || 0;
-
       // Durata individuale per item: da startAt a returnedAt se restituito, altrimenti a endAt contratto
       let itemEndTime = new Date();
       let itemStartTime = new Date(contract.startAt || contract.createdAt);
@@ -170,13 +155,12 @@ const calculatePaymentDetails = () => {
         itemEndTime = new Date(contract.endAt);
       }
       
-      const itemDurationMs = Math.max(0, itemEndTime - itemStartTime);
-      const itemDurationMinutes = itemDurationMs / (1000 * 60);
-      const oreFatturate = Math.max(1, Math.ceil(itemDurationMinutes / 60));
-
-      // Scatto orario: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
-      const hourlyTotal = priceHourly * oreFatturate;
-      const itemBasePrice = Math.min(hourlyTotal, priceDaily);
+      const itemBasePrice = calculateItemPrice(
+        parseFloat(item.priceHourly) || 0,
+        parseFloat(item.priceDaily) || 0,
+        itemStartTime,
+        itemEndTime
+      );
 
       prices[index] = itemBasePrice.toFixed(2);
       subtotal += itemBasePrice;
@@ -497,12 +481,17 @@ const calculatePaymentDetails = () => {
             const itemHoursExact = Math.floor(itemDurationMinutes / 60);
             const itemMinutesExact = Math.floor(itemDurationMinutes % 60);
             const itemDays = Math.floor(oreFatturate / 24);
+            const calendarDays = getCalendarDays(itemStartTime, itemEndTime);
             const hourlyTotal = priceHourly * oreFatturate;
+            const itemBasePrice = calculateItemPrice(priceHourly, priceDaily, itemStartTime, itemEndTime);
 
             let pricingLogic = '';
             let timeDetail = '';
 
-            if (priceDaily > 0 && hourlyTotal >= priceDaily) {
+            if (calendarDays > 1) {
+              pricingLogic = '📅 Tariffa giornaliera per ' + calendarDays + ' giorni';
+              timeDetail = `${calendarDays} giorni (${oreFatturate}h totali)`;
+            } else if (priceDaily > 0 && hourlyTotal >= priceDaily) {
               pricingLogic = '⚡ Scatto orario: bloccato su tariffa giornaliera';
               timeDetail = `${oreFatturate} ore fatturate (${itemDays}g ${oreFatturate % 24}h)`;
             } else if (priceHourly > 0) {

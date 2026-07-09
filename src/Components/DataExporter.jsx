@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../services/api.js';
 import * as XLSX from 'xlsx';
+import { calculateItemPrice } from '../utils/contractCalculations.js';
 
 const DataExporter = ({ user }) => {
   const [isExporting, setIsExporting] = useState(false);
@@ -112,21 +113,17 @@ const DataExporter = ({ user }) => {
               const isReservation = contract.status === 'reserved' || contract.isReservation;
               let bikeRevenue = 0;
               
-              contract.items?.forEach(item => {
-                const priceHourly = parseFloat(item.priceHourly) || 0;
-                const priceDaily = parseFloat(item.priceDaily) || 0;
-                
-                let itemRevenue = 0;
-                if (isReservation) {
-                  itemRevenue = priceDaily * durationDays;
-                } else {
-                  const hourlyTotal = priceHourly * durationHours;
-                  const dailyTotal = priceDaily * durationDays;
-                  itemRevenue = (priceDaily > 0 && hourlyTotal >= dailyTotal) ? dailyTotal : hourlyTotal;
-                }
-                
-                bikeRevenue += itemRevenue;
-              });
+               contract.items?.forEach(item => {
+                 const priceHourly = parseFloat(item.priceHourly) || 0;
+                 const priceDaily = parseFloat(item.priceDaily) || 0;
+                 
+                 const itemStart = new Date(contract.startAt || contract.createdAt);
+                 const itemEnd = new Date(item.returnedAt || contract.endAt || new Date());
+                 
+                 const itemRevenue = calculateItemPrice(priceHourly, priceDaily, itemStart, itemEnd);
+                 
+                 bikeRevenue += itemRevenue;
+               });
               
               return bikeRevenue;
             };
@@ -143,18 +140,13 @@ const DataExporter = ({ user }) => {
             let assicurazioneItems = 0;
             
             contract.items?.forEach(item => {
-              // Conta TUTTI gli item (anche restituiti) per calcolare i ricavi generati
               const priceHourly = parseFloat(item.priceHourly) || 0;
               const priceDaily = parseFloat(item.priceDaily) || 0;
               
-              let itemTotal = 0;
-              if (isReservation) {
-                itemTotal = priceDaily * durationDays;
-              } else {
-                const hourlyTotal = priceHourly * durationHours;
-                const dailyTotal = priceDaily * durationDays;
-                itemTotal = (priceDaily > 0 && hourlyTotal >= dailyTotal) ? dailyTotal : hourlyTotal;
-              }
+              const itemStart = new Date(contract.startAt || contract.createdAt);
+              const itemEnd = new Date(item.returnedAt || contract.endAt || new Date());
+              
+              const itemTotal = calculateItemPrice(priceHourly, priceDaily, itemStart, itemEnd);
               
               subtotalNoleggio += itemTotal;
               

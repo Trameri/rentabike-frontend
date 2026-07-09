@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../services/api.js'
+import { calculateItemPrice } from '../utils/contractCalculations.js'
 import DocumentCapture from '../Components/DocumentCapture.jsx'
 import DocumentCaptureWithOCR from '../Components/DocumentCaptureWithOCR.jsx'
 import DocumentScanner from '../Components/DocumentScanner.jsx'
@@ -192,16 +193,12 @@ export default function Contracts(){
         const priceHourly = parseFloat(item.priceHourly) || 0;
         const priceDaily = parseFloat(item.priceDaily) || 0;
         
-        // Scatto orario: calcola durata in minuti per ogni item
         const startDate = new Date(contract.startAt || contract.createdAt);
         const endDate = item.returnedAt ? new Date(item.returnedAt) : (contract.endAt ? new Date(contract.endAt) : new Date());
-        const itemDurationMs = Math.max(0, endDate - startDate);
-        const itemDurationMinutes = itemDurationMs / (1000 * 60);
-        const oreFatturate = Math.max(1, Math.ceil(itemDurationMinutes / 60));
         
-        // Formula: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
-        const hourlyTotal = priceHourly * oreFatturate;
-        itemTotal = Math.min(hourlyTotal, priceDaily);
+        const itemBasePrice = calculateItemPrice(priceHourly, priceDaily, startDate, endDate);
+        
+        itemTotal = itemBasePrice;
         
         // Aggiungi assicurazione se presente
         if (item.insurance) {

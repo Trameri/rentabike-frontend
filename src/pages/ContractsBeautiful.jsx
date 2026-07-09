@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { api } from '../services/api.js'
+import { calculateItemPrice } from '../utils/contractCalculations.js'
 import DocumentCapture from '../Components/DocumentCapture.jsx'
 import BarcodeScannerSimple from '../Components/BarcodeScannerSimple.jsx'
 import BarcodeScanner from '../Components/BarcodeScanner.jsx'
@@ -290,15 +291,15 @@ export default function ContractsBeautiful(){
       if (items.length > 0 && startDate && endDate) {
         const start = new Date(startDate);
         const end = new Date(endDate);
-        const diffMs = Math.max(0, end - start);
-        const diffMinutes = diffMs / (1000 * 60);
-        const oreFatturate = Math.max(1, Math.ceil(diffMinutes / 60));
         
         items.forEach(item => {
-          const priceHourly = parseFloat(item.priceHourly) || 0;
-          const priceDaily = parseFloat(item.priceDaily) || 0;
-          const hourlyTotal = priceHourly * oreFatturate;
-          baseRental += Math.min(hourlyTotal, priceDaily);
+          const itemPrice = calculateItemPrice(
+            parseFloat(item.priceHourly) || 0,
+            parseFloat(item.priceDaily) || 0,
+            start,
+            end
+          );
+          baseRental += itemPrice;
         });
       }
       

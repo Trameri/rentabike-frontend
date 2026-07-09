@@ -1,5 +1,6 @@
 // Test per Contract Manager
 // Questo file contiene test manuali per verificare le funzionalità
+import { calculateItemPrice } from '../utils/contractCalculations.js';
 
 const testData = {
   validContract: {
@@ -87,19 +88,17 @@ console.log('Errori trovati:', invalidErrors.length > 0 ? invalidErrors.join(', 
      if ((item.kind === 'bike' || item.kind === 'accessory') && !item.returnedAt) {
        const startDate = new Date(contract.startAt || contract.createdAt)
        const endDate = new Date(contract.endAt || new Date())
-       const durationMs = Math.max(0, endDate - startDate)
-       const durationMinutes = durationMs / (1000 * 60)
-       
-       // Scatto orario: ore fatturate con Math.ceil(minutes/60)
-       const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
-       oreFatturateTotal = oreFatturate
-       
-       const priceHourly = parseFloat(item.priceHourly) || 0
-       const priceDaily = parseFloat(item.priceDaily) || 0
-       
-       // Formula: ore fatturate * prezzo orario, bloccata su prezzo giornaliero
-       const hourlyTotal = priceHourly * oreFatturate
-       const itemBasePrice = Math.min(hourlyTotal, priceDaily)
+        const durationMs = Math.max(0, endDate - startDate)
+        const durationMinutes = durationMs / (1000 * 60)
+        
+        // Scatto orario: ore fatturate con Math.ceil(minutes/60)
+        const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+        oreFatturateTotal = oreFatturate
+        
+        const priceHourly = parseFloat(item.priceHourly) || 0
+        const priceDaily = parseFloat(item.priceDaily) || 0
+        
+        const itemBasePrice = calculateItemPrice(priceHourly, priceDaily, startDate, endDate)
        
         const insuranceAmount = item.insurance ? 5 : 0
        const itemTotal = itemBasePrice + insuranceAmount

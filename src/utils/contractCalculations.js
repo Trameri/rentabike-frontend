@@ -1,3 +1,31 @@
+export const getCalendarDays = (startAt, endAt) => {
+  const start = new Date(startAt)
+  const end = new Date(endAt)
+  const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate())
+  const diffMs = endDate - startDate
+  const diffDays = diffMs / (1000 * 60 * 60 * 24)
+  return Math.max(1, Math.ceil(diffDays) + 1)
+}
+
+export const calculateItemPrice = (priceHourly, priceDaily, startAt, endAt) => {
+  const calendarDays = getCalendarDays(startAt, endAt)
+
+  if (calendarDays > 1) {
+    return calendarDays * priceDaily
+  }
+
+  const durationMs = Math.max(0, new Date(endAt) - new Date(startAt))
+  const durationMinutes = durationMs / (1000 * 60)
+  const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+  const hourlyTotal = oreFatturate * priceHourly
+
+  if (priceDaily > 0 && hourlyTotal >= priceDaily) {
+    return priceDaily
+  }
+  return hourlyTotal
+}
+
 export const hasMeaningfulRevenueForStats = (contract) => {
   if (!contract) return false;
 
@@ -72,23 +100,16 @@ export const recalculateContractTotals = (contract) => {
   contract.items.forEach((item) => {
     if (item.kind !== 'bike' && item.kind !== 'accessory') return;
 
-    const itemStartAt = item.startAt ? new Date(item.startAt) : contractStartDate;
-    const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || now);
-    const durationMs = Math.max(0, itemEndAt - itemStartAt);
-    const durationMinutes = durationMs / (1000 * 60);
-    const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
+    const itemStartAt = item.startAt ? new Date(item.startAt) : contractStartDate
+    const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || now)
+    const itemBasePrice = calculateItemPrice(
+      parseFloat(item.priceHourly) || 0,
+      parseFloat(item.priceDaily) || 0,
+      itemStartAt,
+      itemEndAt
+    )
 
-    const priceHourly = parseFloat(item.priceHourly) || 0;
-    const priceDaily = parseFloat(item.priceDaily) || 0;
-
-    const hourlyTotal = oreFatturate * priceHourly;
-    const dailyTotal = priceDaily;
-
-    if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
-      bikesTotal += dailyTotal;
-    } else {
-      bikesTotal += hourlyTotal;
-    }
+    bikesTotal += itemBasePrice
 
     if (item.insurance) {
       insuranceTotal += 5;
@@ -151,28 +172,21 @@ export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}
 
   if (contract.items && contract.items.length > 0) {
     contract.items.forEach((item) => {
-      const itemStartAt = item.startAt ? new Date(item.startAt) : new Date(contract.startAt || contract.createdAt);
-      const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || new Date());
-
-      const durationMs = Math.max(0, itemEndAt - itemStartAt);
-      const durationMinutes = durationMs / (1000 * 60);
-      const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
-
-      const priceHourly = parseFloat(item.priceHourly) || 0;
-      const priceDaily = parseFloat(item.priceDaily) || 0;
+      const itemStartAt = item.startAt ? new Date(item.startAt) : new Date(contract.startAt || contract.createdAt)
+      const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || new Date())
 
       if (item.kind === 'bike' || item.kind === 'accessory') {
-        const hourlyTotal = oreFatturate * priceHourly;
-        const dailyTotal = priceDaily;
+        const itemBasePrice = calculateItemPrice(
+          parseFloat(item.priceHourly) || 0,
+          parseFloat(item.priceDaily) || 0,
+          itemStartAt,
+          itemEndAt
+        )
 
-        if (priceDaily > 0 && hourlyTotal >= dailyTotal) {
-          bikesTotal += dailyTotal;
-        } else {
-          bikesTotal += hourlyTotal;
-        }
+        bikesTotal += itemBasePrice
 
         if (item.insurance) {
-          insuranceTotal += 5;
+          insuranceTotal += 5
         }
       }
     });

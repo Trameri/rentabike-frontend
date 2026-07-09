@@ -5,7 +5,7 @@ import dateUtils from '../utils/dateUtils.js'
 import PaymentModal from '../Components/PaymentModal.jsx'
 import moment from 'moment'
 import CompletedRevenueByDay from '../Components/CompletedRevenueByDay.jsx'
-import { recalculateContractTotals, isConcludedContract } from '../utils/contractCalculations.js'
+import { recalculateContractTotals, isConcludedContract, calculateItemPrice, getCalendarDays } from '../utils/contractCalculations.js'
 
 export default function ContractManager(){
   const [contracts, setContracts] = useState([])
@@ -658,11 +658,14 @@ const processReturns = async () => {
 
       const itemStartAt = item.startAt ? new Date(item.startAt) : contractStartDate
       const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : now
-      const durationMs = Math.max(0, itemEndAt - itemStartAt)
-      const durationMinutes = durationMs / (1000 * 60)
-      const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+      const itemBasePrice = calculateItemPrice(
+        parseFloat(item.priceHourly) || 0,
+        parseFloat(item.priceDaily) || 0,
+        itemStartAt,
+        itemEndAt
+      )
 
-      const totalSeconds = Math.floor(durationMs / 1000)
+      const totalSeconds = Math.floor(Math.max(0, itemEndAt - itemStartAt) / 1000)
       const preciseHours = Math.floor(totalSeconds / 3600)
       const preciseMinutes = Math.floor((totalSeconds % 3600) / 60)
       const preciseSeconds = totalSeconds % 60
@@ -670,15 +673,17 @@ const processReturns = async () => {
       const priceHourly = parseFloat(item.priceHourly) || 0
       const priceDaily = parseFloat(item.priceDaily) || 0
 
-      let itemBasePrice = 0
       let pricingLogic = 'hourly'
-
-      if (priceDaily > 0 && (priceHourly * oreFatturate) >= priceDaily) {
-        itemBasePrice = priceDaily
-        pricingLogic = 'hourly_capped_daily'
+      const calendarDays = getCalendarDays(itemStartAt, itemEndAt)
+      if (calendarDays > 1) {
+        pricingLogic = 'daily_multi_day'
       } else {
-        itemBasePrice = priceHourly * oreFatturate
-        pricingLogic = 'hourly'
+        const durationMs = Math.max(0, itemEndAt - itemStartAt)
+        const durationMinutes = durationMs / (1000 * 60)
+        const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
+        if (priceDaily > 0 && (priceHourly * oreFatturate) >= priceDaily) {
+          pricingLogic = 'hourly_capped_daily'
+        }
       }
 
       bikesTotal += itemBasePrice
@@ -689,7 +694,7 @@ const processReturns = async () => {
 
       billItems.push({
         name: item.name || 'Item senza nome',
-        duration: `${oreFatturate} ore`,
+        duration: `${Math.max(1, Math.ceil(Math.max(0, itemEndAt - itemStartAt) / (1000 * 60)))} ore`,
         preciseTime: { hours: preciseHours, minutes: preciseMinutes, seconds: preciseSeconds },
         basePrice: Math.round(itemBasePrice * 100) / 100,
         insurance: insuranceAmount,

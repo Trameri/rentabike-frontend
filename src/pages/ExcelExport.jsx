@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api.js';
 import { jwtDecode } from 'jwt-decode';
-import { isContractClosedForStats, hasMeaningfulRevenueForStats } from '../utils/contractCalculations.js';
+import { isContractClosedForStats, hasMeaningfulRevenueForStats, calculateItemPrice } from '../utils/contractCalculations.js';
 import * as XLSX from 'xlsx';
 
 const formatCurrency = (amount) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount || 0);
@@ -76,14 +76,26 @@ const ExcelExport = () => {
     
     if (contract.items && contract.items.length > 1) {
       const totalItemsValue = contract.items.reduce((sum, contractItem) => {
-        const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
-        const itemValue = hours <= 24 ? (contractItem.priceHourly || 0) * hours : (contractItem.priceDaily || 0) * Math.ceil(hours / 24);
+        const itemStart = new Date(contractItem.startAt || contract.startAt || contract.createdAt);
+        const itemEnd = new Date(contractItem.returnedAt || contract.endAt || contract.createdAt);
+        const itemValue = calculateItemPrice(
+          parseFloat(contractItem.priceHourly) || 0,
+          parseFloat(contractItem.priceDaily) || 0,
+          itemStart,
+          itemEnd
+        )
         return sum + (itemValue + (contractItem.insurance ? 5 : 0));
       }, 0);
       
       if (totalItemsValue > 0) {
-        const hours = calculateHours(contract.startAt, contract.endAt || contract.createdAt);
-        const itemValue = hours <= 24 ? (item.priceHourly || 0) * hours : (item.priceDaily || 0) * Math.ceil(hours / 24);
+        const itemStart = new Date(item.startAt || contract.startAt || contract.createdAt);
+        const itemEnd = new Date(item.returnedAt || contract.endAt || contract.createdAt);
+        const itemValue = calculateItemPrice(
+          parseFloat(item.priceHourly) || 0,
+          parseFloat(item.priceDaily) || 0,
+          itemStart,
+          itemEnd
+        )
         return (contractTotal * itemValue) / totalItemsValue;
       }
     }
@@ -117,17 +129,15 @@ const ExcelExport = () => {
 
         const itemStartAt = item.startAt ? new Date(item.startAt) : new Date(contract.startAt || contract.createdAt);
         const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || new Date());
-        const durationMs = Math.max(0, itemEndAt - itemStartAt);
-        const durationMinutes = durationMs / (1000 * 60);
-        const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
 
         const priceHourly = parseFloat(item.priceHourly) || 0;
         const priceDaily = parseFloat(item.priceDaily) || 0;
-        const hourlyTotal = oreFatturate * priceHourly;
-        const dailyTotal = priceDaily;
-        const bikeRevenue = priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal;
 
-        contractBikeRevenue += bikeRevenue;
+        if (item.kind === 'bike' || item.kind === 'accessory') {
+          const bikeRevenue = calculateItemPrice(priceHourly, priceDaily, itemStartAt, itemEndAt)
+
+          contractBikeRevenue += bikeRevenue;
+        }
       });
 
       monthlyData[month].revenue += contractBikeRevenue;
@@ -191,14 +201,9 @@ const ExcelExport = () => {
 
           const itemStartAt = item.startAt ? new Date(item.startAt) : new Date(contract.startAt || contract.createdAt);
           const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(contract.endAt || new Date());
-          const durationMs = Math.max(0, itemEndAt - itemStartAt);
-          const durationMinutes = durationMs / (1000 * 60);
-          const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
 
           if (item.kind === 'bike' || item.kind === 'accessory') {
-            const hourlyTotal = oreFatturate * priceHourly;
-            const dailyTotal = priceDaily;
-            const bikeRevenue = priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal;
+            const bikeRevenue = calculateItemPrice(priceHourly, priceDaily, itemStartAt, itemEndAt)
             bikesTotal += bikeRevenue;
           }
 
@@ -295,14 +300,9 @@ const ExcelExport = () => {
 
             const itemStartAt = item.startAt ? new Date(item.startAt) : new Date(c.startAt || c.createdAt);
             const itemEndAt = item.returnedAt ? new Date(item.returnedAt) : new Date(c.endAt || new Date());
-            const durationMs = Math.max(0, itemEndAt - itemStartAt);
-            const durationMinutes = durationMs / (1000 * 60);
-            const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60));
 
             if (item.kind === 'bike' || item.kind === 'accessory') {
-              const hourlyTotal = oreFatturate * priceHourly;
-              const dailyTotal = priceDaily;
-              const bikeRevenue = priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal;
+              const bikeRevenue = calculateItemPrice(priceHourly, priceDaily, itemStartAt, itemEndAt)
               bikesTotal += bikeRevenue;
             }
 

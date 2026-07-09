@@ -3,7 +3,7 @@ import { api } from '../services/api.js'
 import LocationLogo from '../Components/LocationLogo.jsx'
 import * as XLSX from 'xlsx'
 import { jwtDecode } from 'jwt-decode'
-import { calculateSeparateTotals } from '../utils/contractCalculations.js'
+import { calculateSeparateTotals, calculateItemPrice } from '../utils/contractCalculations.js'
 
 const formatCurrency = (amount) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount || 0)
 const formatDate = (date) => (!date ? 'Mai' : new Date(date).toLocaleDateString('it-IT'))
@@ -218,22 +218,23 @@ export default function Reports() {
   const calculateItemRevenueFromContract = (contract, item) => {
     const startAt = new Date(item.startAt || contract.startAt || contract.createdAt)
     const endAt = new Date(item.returnedAt || contract.endAt || new Date())
-    const durationMs = Math.max(0, endAt - startAt)
-    const durationMinutes = durationMs / (1000 * 60)
-    const oreFatturate = Math.max(1, Math.ceil(durationMinutes / 60))
-    
-    const priceHourly = parseFloat(item.priceHourly) || 0
-    const priceDaily = parseFloat(item.priceDaily) || 0
     
     const isReservation = contract.status === 'reserved' || contract.isReservation
     if (isReservation) {
-      const durationDays = Math.max(1, Math.ceil(oreFatturate / 24))
-      return priceDaily * durationDays
+      return calculateItemPrice(
+        parseFloat(item.priceHourly) || 0,
+        parseFloat(item.priceDaily) || 0,
+        startAt,
+        endAt
+      )
     }
     
-    const hourlyTotal = oreFatturate * priceHourly
-    const dailyTotal = priceDaily
-    return priceDaily > 0 && hourlyTotal >= dailyTotal ? dailyTotal : hourlyTotal
+    return calculateItemPrice(
+      parseFloat(item.priceHourly) || 0,
+      parseFloat(item.priceDaily) || 0,
+      startAt,
+      endAt
+    )
   }
 
   const exportToExcel = () => {

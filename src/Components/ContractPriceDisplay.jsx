@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { calculateItemPrice, getCalendarDays } from '../utils/contractCalculations.js';
 
 const ContractPriceDisplay = ({ contract, realTimeUpdate = false }) => {
   const [currentPricing, setCurrentPricing] = useState({
@@ -31,24 +32,34 @@ const ContractPriceDisplay = ({ contract, realTimeUpdate = false }) => {
     let dailyTotal = 0;
 
     contract.items.forEach(item => {
-      const hourlyPrice = (item.priceHourly || 0) * elapsedHours;
-      const dailyPrice = (item.priceDaily || 0) * Math.ceil(elapsedHours / 24);
-      
-      hourlyTotal += hourlyPrice;
-      dailyTotal += dailyPrice;
+      const hourlyPrice = (item.priceHourly || 0) * elapsedHours
+      const itemPrice = calculateItemPrice(
+        item.priceHourly || 0,
+        item.priceDaily || 0,
+        startTime,
+        currentTime
+      )
+
+      hourlyTotal += hourlyPrice
+      dailyTotal += itemPrice
     });
 
-    // Calcola il prezzo corrente (il più conveniente)
-    const currentTotal = Math.min(hourlyTotal, dailyTotal);
+    const currentTotal = dailyTotal
     
-    // Stima quando conviene passare alla tariffa giornaliera
-    const estimatedDailyBreakeven = contract.items.reduce((acc, item) => {
-      if (item.priceHourly && item.priceDaily) {
-        const breakeven = Math.ceil(item.priceDaily / item.priceHourly);
-        return Math.max(acc, breakeven);
-      }
-      return acc;
-    }, 0);
+    const startTimeDate = new Date(contract.startAt)
+    const calendarDays = getCalendarDays(startTimeDate, currentTime)
+    
+    let estimatedEnd = null
+    if (calendarDays <= 1) {
+      const estimatedDailyBreakeven = contract.items.reduce((acc, item) => {
+        if (item.priceHourly && item.priceDaily) {
+          const breakeven = Math.ceil(item.priceDaily / item.priceHourly);
+          return Math.max(acc, breakeven);
+        }
+        return acc;
+      }, 0);
+      estimatedEnd = estimatedDailyBreakeven
+    }
 
     setCurrentPricing({
       hourlyTotal,
@@ -73,6 +84,19 @@ const ContractPriceDisplay = ({ contract, realTimeUpdate = false }) => {
   };
 
   const getPriceStatus = () => {
+    const startTime = new Date(contract.startAt)
+    const currentTime = new Date()
+    const calendarDays = getCalendarDays(startTime, currentTime)
+    
+    if (calendarDays > 1) {
+      return {
+        type: 'daily',
+        color: '#3b82f6',
+        icon: '📅',
+        label: 'Tariffa Giornaliera (multi-giorno)'
+      };
+    }
+    
     if (currentPricing.hourlyTotal <= currentPricing.dailyTotal) {
       return {
         type: 'hourly',

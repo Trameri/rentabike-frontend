@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { calculateItemPrice, getCalendarDays } from '../utils/contractCalculations.js';
 
 const PriceCalculator = ({ 
   items = [], 
@@ -43,7 +44,7 @@ const PriceCalculator = ({
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffMs = end - start;
-    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    const diffHours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
     let hourlyTotal = 0;
@@ -52,14 +53,18 @@ const PriceCalculator = ({
 
     items.forEach(item => {
       const hourlyPrice = (item.priceHourly || 0) * diffHours;
-      const dailyPrice = (item.priceDaily || 0) * diffDays;
-      
-      // Per ogni item, usa il prezzo più conveniente
-      const bestPrice = Math.min(hourlyPrice, dailyPrice);
-      const bestType = hourlyPrice <= dailyPrice ? 'hourly' : 'daily';
+      const itemPrice = calculateItemPrice(
+        item.priceHourly || 0,
+        item.priceDaily || 0,
+        start,
+        end
+      );
+      const calendarDays = getCalendarDays(start, end)
+      const bestType = calendarDays > 1 ? 'daily' : (hourlyPrice <= (item.priceDaily || 0) ? 'hourly' : 'daily')
+      const bestPrice = itemPrice
       
       hourlyTotal += hourlyPrice;
-      dailyTotal += dailyPrice;
+      dailyTotal += itemPrice;
 
       breakdown.push({
         id: item._id,
@@ -74,9 +79,15 @@ const PriceCalculator = ({
       });
     });
 
-    // Calcola il prezzo raccomandato (più conveniente)
-    const recommendedPrice = Math.min(hourlyTotal, dailyTotal);
-    const recommendedType = hourlyTotal <= dailyTotal ? 'hourly' : 'daily';
+    // Calcola il prezzo raccomandato
+    const anyMultiDay = items.some(item => {
+      const itemStart = new Date(startDate)
+      const itemEnd = new Date(endDate)
+      const calendarDays = getCalendarDays(itemStart, itemEnd)
+      return calendarDays > 1
+    })
+    const recommendedPrice = dailyTotal
+    const recommendedType = anyMultiDay ? 'daily' : (hourlyTotal <= dailyTotal ? 'hourly' : 'daily')
 
     // Aggiungi assicurazione e prepagato
     const insurance = insuranceFlat || 0;
