@@ -489,8 +489,8 @@ const getEndOfWeek = (date) => {
         phone: contract.customer?.phone || '' 
       },
       notes: contract.notes || '',
-      startAt: contract.startAt ? new Date(contract.startAt).toISOString().slice(0, 16) : '',
-      endAt: contract.endAt ? new Date(contract.endAt).toISOString().slice(0, 16) : ''
+      startAt: contract.startAt ? dateUtils.toInputDateTime(contract.startAt) : '',
+      endAt: contract.endAt ? dateUtils.toInputDateTime(contract.endAt) : ''
     })
     setShowEditModal(true)
   }

@@ -8,6 +8,7 @@ import BarcodeScanner from '../components/BarcodeScanner.jsx'
 import PriceCalculator from '../components/PriceCalculator.jsx'
 import LocationLogo from '../components/LocationLogo.jsx'
 import { jwtDecode } from 'jwt-decode'
+import dateUtils from '../utils/dateUtils.js'
 
 export default function NewContract(){
   const navigate = useNavigate()
@@ -26,7 +27,7 @@ export default function NewContract(){
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [showDocumentCapture, setShowDocumentCapture] = useState(false)
   const [captureType, setCaptureType] = useState('')
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 16))
+  const [startDate, setStartDate] = useState(dateUtils.toInputDateTime(new Date()))
   const [endDate, setEndDate] = useState('')
   const [calculatedPrice, setCalculatedPrice] = useState(null)
   

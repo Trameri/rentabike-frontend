@@ -6,6 +6,7 @@ import PriceCalculatorOptimized from '../Components/PriceCalculatorOptimized.jsx
 import LocationLogo from '../Components/LocationLogo.jsx'
 import { jwtDecode } from 'jwt-decode'
 import { loadActiveContracts, isItemAvailableForDates } from '../utils/availabilityCheck.js'
+import dateUtils from '../utils/dateUtils.js'
 
 export default function ContractsOptimized(){
   const [items, setItems] = useState([])
@@ -19,7 +20,7 @@ export default function ContractsOptimized(){
   const [contracts, setContracts] = useState([])
   
   // Stati per gestione contratto
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 16))
+  const [startDate, setStartDate] = useState(dateUtils.toInputDateTime(new Date()))
   const [endDate, setEndDate] = useState('')
   const [calculatedPrice, setCalculatedPrice] = useState(null)
   const [isReservation, setIsReservation] = useState(false)
@@ -186,7 +187,7 @@ export default function ContractsOptimized(){
       setNotes(''); 
       setStatus('in-use'); 
       setPaymentMethod(null); 
-      setStartDate(new Date().toISOString().slice(0, 16)); 
+      setStartDate(dateUtils.toInputDateTime(new Date())); 
       setEndDate(''); 
       setCalculatedPrice(null);
       setCurrentStep(1);

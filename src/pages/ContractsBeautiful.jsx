@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { api } from '../services/api.js'
 import { calculateItemPrice } from '../utils/contractCalculations.js'
+import dateUtils from '../utils/dateUtils.js'
 import DocumentCapture from '../Components/DocumentCapture.jsx'
 import BarcodeScannerSimple from '../Components/BarcodeScannerSimple.jsx'
 import BarcodeScanner from '../Components/BarcodeScanner.jsx'
@@ -33,7 +34,7 @@ export default function ContractsBeautiful(){
   const [showContractClosure, setShowContractClosure] = useState(false)
   const [showContractManagement, setShowContractManagement] = useState(false)
   const [showQuickSwap, setShowQuickSwap] = useState(false)
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 16))
+  const [startDate, setStartDate] = useState(dateUtils.toInputDateTime(new Date()))
   const [endDate, setEndDate] = useState('')
   const [reservationDate, setReservationDate] = useState('')
   const [calculatedPrice, setCalculatedPrice] = useState(null)
@@ -346,7 +347,7 @@ export default function ContractsBeautiful(){
       setCustomer({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' }); 
       setNotes(''); 
       setStatus('in-use'); 
-      setStartDate(new Date().toISOString().slice(0, 16)); 
+      setStartDate(dateUtils.toInputDateTime(new Date())); 
       setEndDate(''); 
       setReservationDate('');
       setCalculatedPrice(null);
@@ -1121,7 +1122,7 @@ export default function ContractsBeautiful(){
                         type="button"
                         onClick={() => {
                           setIsReservation(false)
-                          setStartDate(new Date().toISOString().slice(0, 16))
+                           setStartDate(dateUtils.toInputDateTime(new Date()))
                           setEndDate('')
                           setReservationDate('')
                         }}

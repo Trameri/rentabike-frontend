@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../services/api.js'
 import { calculateItemPrice } from '../utils/contractCalculations.js'
+import dateUtils from '../utils/dateUtils.js'
 import DocumentCapture from '../Components/DocumentCapture.jsx'
 import DocumentCaptureWithOCR from '../Components/DocumentCaptureWithOCR.jsx'
 import DocumentScanner from '../Components/DocumentScanner.jsx'
@@ -36,7 +37,7 @@ export default function Contracts(){
   const [showBikeSwapper, setShowBikeSwapper] = useState(false)
   const [showBikeReturn, setShowBikeReturn] = useState(false)
   const [showContractClosure, setShowContractClosure] = useState(false)
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 16))
+  const [startDate, setStartDate] = useState(dateUtils.toInputDateTime(new Date()))
   const [endDate, setEndDate] = useState('')
   const [calculatedPrice, setCalculatedPrice] = useState(null)
   
@@ -125,7 +126,7 @@ export default function Contracts(){
       setStatus('in-use'); 
       setPaymentMethod(null); 
       setPrepaid(false);
-      setStartDate(new Date().toISOString().slice(0, 16)); 
+      setStartDate(dateUtils.toInputDateTime(new Date())); 
       setEndDate(''); 
       setCalculatedPrice(null);
 
