@@ -3,7 +3,7 @@ import { api } from '../services/api.js'
 import { calculateItemPrice } from '../utils/contractCalculations.js'
 import dateUtils from '../utils/dateUtils.js'
 import DocumentCapture from '../Components/DocumentCapture.jsx'
-import BarcodeScannerSimple from '../Components/BarcodeScannerSimple.jsx'
+
 import BarcodeScanner from '../Components/BarcodeScanner.jsx'
 import BarcodeGenerator from '../Components/BarcodeGenerator.jsx'
 import PriceCalculator from '../Components/PriceCalculator.jsx'
@@ -714,8 +714,6 @@ export default function ContractsBeautiful(){
               }}>
                 🚲 Scansiona Articoli
               </h3>
-              
-              <BarcodeScannerSimple onScan={handleBarcodeScanned} />
               
               {/* Inserimento rapido barcode */}
               <form onSubmit={handleQuickBarcodeSubmit} style={{
