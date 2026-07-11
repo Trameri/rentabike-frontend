@@ -5,7 +5,6 @@ import dateUtils from '../utils/dateUtils.js'
 import DocumentCapture from '../Components/DocumentCapture.jsx'
 import DocumentCaptureWithOCR from '../Components/DocumentCaptureWithOCR.jsx'
 import DocumentScanner from '../Components/DocumentScanner.jsx'
-import BarcodeScanner from '../Components/BarcodeScanner.jsx'
 import BarcodeGenerator from '../Components/BarcodeGenerator.jsx'
 import PriceCalculator from '../Components/PriceCalculator.jsx'
 import ContractMirror from '../Components/ContractMirror.jsx'
@@ -495,31 +494,6 @@ export default function Contracts(){
             </button>
           </>
         )}
-      </div>
-
-      {/* Scanner barcode per aggiungere items - Sempre visibile */}
-      <div style={{
-        marginBottom: '16px',
-        padding: '16px',
-        border: '2px solid #3b82f6',
-        borderRadius: '12px',
-        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
-      }}>
-        <h3 style={{
-          margin: '0 0 12px 0',
-          color: '#1e40af',
-          fontSize: '18px',
-          fontWeight: '700',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          🚲 Scansiona Articoli
-        </h3>
-        <BarcodeScanner
-          onScan={handleBarcodeScanned}
-          placeholder="Inserisci o scansiona barcode"
-        />
       </div>
 
       {/* Specchietto contratti e scanner */}
