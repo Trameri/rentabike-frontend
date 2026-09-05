@@ -837,7 +837,7 @@ const processReturns = async () => {
       if (item.kind !== 'bike') return
       const bikeType = bikeTypesMap[item.refId]
       const category = getBikeCategory(bikeType)
-      const itemTotal = item.total || 0
+      const itemTotal = item.basePrice || 0
       
       if (category === 'electric') electric += itemTotal
       else if (category === 'muscle') muscle += itemTotal
