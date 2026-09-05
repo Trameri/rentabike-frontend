@@ -824,6 +824,8 @@ const processReturns = async () => {
     const electricTypes = ['ebike-full', 'ebike-front', 'ebike-other', 'bike-front', 'bike-full', 'ebike-generale', 'electric', 'e-bike', 'ebike', 'elettrica', 'elettriche']
     if (electricTypes.some(t => normalized.includes(t))) return 'electric'
     if (/\b(muscolare|muscolari|bici|muscol)\b/.test(normalized)) return 'muscle'
+    if (/^[0-9]+e$/.test(normalized)) return 'electric'
+    if (/^[0-9]+$/.test(normalized)) return 'muscle'
     return 'other'
   }
 
