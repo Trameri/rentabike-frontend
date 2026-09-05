@@ -819,12 +819,11 @@ const processReturns = async () => {
     return `Tempo: ${hours} ora${hours !== 1 ? 'e' : ''} ${minutes} min ${seconds} sec`
   }
 
-  const getBikeCategory = (type) => {
-    const normalized = String(type || '').trim().toLowerCase()
-    const electricTypes = ['ebike-full', 'ebike-front', 'ebike-other', 'bike-front', 'bike-full', 'ebike-generale', 'electric']
+  const getBikeCategory = (typeOrName) => {
+    const normalized = String(typeOrName || '').trim().toLowerCase()
+    const electricTypes = ['ebike-full', 'ebike-front', 'ebike-other', 'bike-front', 'bike-full', 'ebike-generale', 'electric', 'e-bike', 'ebike', 'elettrica', 'elettriche']
     if (electricTypes.some(t => normalized.includes(t))) return 'electric'
-    if (/\b(muscolare|muscolari|bici)\b/.test(normalized)) return 'muscle'
-    if (normalized.includes('muscol')) return 'muscle'
+    if (/\b(muscolare|muscolari|bici|muscol)\b/.test(normalized)) return 'muscle'
     return 'other'
   }
 
@@ -838,7 +837,7 @@ const processReturns = async () => {
     bill.items.forEach((item) => {
       if (item.kind !== 'bike') return
       const bikeType = bikeTypesMap[item.refId]
-      const category = getBikeCategory(bikeType)
+      const category = getBikeCategory(bikeType || item.name)
       const itemTotal = item.basePrice || 0
       
       if (category === 'electric') electric += itemTotal
