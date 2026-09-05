@@ -35,23 +35,6 @@ export default function ContractManager(){
   const [selectedContractForPayment, setSelectedContractForPayment] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [paymentNotes, setPaymentNotes] = useState('')
-  const [selectedItemInsurancePaidAdvance, setSelectedItemInsurancePaidAdvance] = useState(() => {
-    try {
-      const saved = localStorage.getItem('itemInsurancePaidAdvance')
-      return saved ? JSON.parse(saved) : {}
-    } catch {
-      return {}
-    }
-  })
-  const [selectedContractInsurancePaidAdvance, setSelectedContractInsurancePaidAdvance] = useState(() => {
-    try {
-      const saved = localStorage.getItem('contractInsurancePaidAdvance')
-      return saved ? JSON.parse(saved) : {}
-    } catch {
-      return {}
-    }
-  })
-
   // Stato per timer di aggiornamento UI
   const [currentTime, setCurrentTime] = useState(new Date())
   
@@ -831,77 +814,6 @@ const processReturns = async () => {
     return `Tempo: ${hours} ora${hours !== 1 ? 'e' : ''} ${minutes} min ${seconds} sec`
   }
 
-  const getContractInsuranceKey = (contract) => contract?._id || contract?.id || 'default-contract'
-
-  const getItemInsuranceFlags = (contract) => {
-    const contractKey = getContractInsuranceKey(contract)
-    return selectedItemInsurancePaidAdvance[contractKey] || {}
-  }
-
-  const setItemInsuranceFlag = (contract, index, value) => {
-    const contractKey = getContractInsuranceKey(contract)
-    setSelectedItemInsurancePaidAdvance(prev => ({
-      ...prev,
-      [contractKey]: {
-        ...(prev[contractKey] || {}),
-        [index]: value
-      }
-    }))
-  }
-
-  const isContractItemInsurancePaid = (contract) => {
-    if (!contract?.items?.length) return false
-    return contract.items.every((item, idx) => !item.insurance || item.returnedAt || getItemInsuranceFlags(contract)[idx])
-  }
-
-  const setContractItemInsurancePaid = (contract, value) => {
-    const contractKey = getContractInsuranceKey(contract)
-    setSelectedItemInsurancePaidAdvance(prev => {
-      const next = { ...(prev[contractKey] || {}) }
-      contract.items?.forEach((item, idx) => {
-        if (item.insurance && !item.returnedAt) {
-          next[idx] = value
-        }
-      })
-      const updated = { ...prev, [contractKey]: next }
-      localStorage.setItem('itemInsurancePaidAdvance', JSON.stringify(updated))
-      return updated
-    })
-  }
-
-  const getContractInsuranceFlag = (contract) => {
-    const contractKey = getContractInsuranceKey(contract)
-    return !!selectedContractInsurancePaidAdvance[contractKey]
-  }
-
-  const setContractInsuranceFlag = (contract, value) => {
-    const contractKey = getContractInsuranceKey(contract)
-    setSelectedContractInsurancePaidAdvance(prev => {
-      const updated = { ...prev, [contractKey]: value }
-      localStorage.setItem('contractInsurancePaidAdvance', JSON.stringify(updated))
-      return updated
-    })
-  }
-
-  // Calcola il totale delle assicurazioni pagate in anticipo
-  const calculateInsurancePaidInAdvance = (contract) => {
-    if (!contract || !contract.items) return 0
-    
-    let totalPaid = 0
-    
-    contract.items.forEach((item, index) => {
-      if (item.insurance && getItemInsuranceFlags(contract)[index]) {
-        totalPaid += 5
-      }
-    })
-    
-    if (getContractInsuranceFlag(contract) && contract.insuranceFlat) {
-      totalPaid += parseFloat(contract.insuranceFlat)
-    }
-    
-    return Math.round(totalPaid * 100) / 100
-  }
-
   // STEP 4: PAGAMENTO (solo per collega ufficio)
   const openPaymentModal = (contract) => {
     setSelectedContractForPayment(contract)
@@ -933,42 +845,13 @@ const processReturns = async () => {
         totalPrice: item.total
       }))
       
-      // Prepara i dati delle assicurazioni pagate in anticipo
-      const itemInsurancePaidAdvanceData = {}
-      selectedContractForPayment.items.forEach((item, index) => {
-        if (getItemInsuranceFlags(selectedContractForPayment)[index]) {
-          itemInsurancePaidAdvanceData[item._id || index] = true
-        }
-      })
-
-      // Calcola l'importo totale completo (con assicurazione) per i ricavi giornalieri
-      const totalWithInsurance = bill.finalTotal
-      let amountToPay = totalWithInsurance
-      
-      if (Object.keys(itemInsurancePaidAdvanceData).length > 0 || selectedContractInsurancePaidAdvance) {
-        let insuranceToSubtract = 0
-        
-        Object.keys(itemInsurancePaidAdvanceData).forEach(key => {
-          const item = selectedContractForPayment.items.find(i => i._id === key || i._id === undefined)
-          if (item && item.insurance) {
-            insuranceToSubtract += 5
-          }
-        })
-        
-        if (getContractInsuranceFlag(selectedContractForPayment) && selectedContractForPayment.insuranceFlat) {
-          insuranceToSubtract += parseFloat(selectedContractForPayment.insuranceFlat)
-        }
-        
-        amountToPay = bill.finalTotal - insuranceToSubtract
-      }
+      const amountToPay = bill.finalTotal
       
       await api.post(`/api/contracts/${selectedContractForPayment._id}/complete-payment`, {
         paymentMethod,
         paymentNotes: paymentNotes || '',
         finalAmount: Math.max(0, amountToPay),
-        totalWithInsurance: Math.round(totalWithInsurance * 100) / 100,
-        itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
-        contractInsurancePaidAdvance: getContractInsuranceFlag(selectedContractForPayment),
+        totalWithInsurance: Math.round(bill.finalTotal * 100) / 100,
         totals: {
           bikesTotal: bill.bikesTotal,
           insuranceTotal: bill.insuranceTotal,
@@ -1112,6 +995,65 @@ const processReturns = async () => {
     } catch (error) {
       console.error('Errore sostituzione bici:', error)
       showError(`Errore sostituzione: ${error.response?.data?.error || error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // MODIFICA ASSICURAZIONE BICICLETTE
+  const toggleItemInsurance = async (contract, itemId) => {
+    setLoading(true)
+    try {
+      const item = contract.items.find(i => i._id === itemId)
+      if (!item || item.kind !== 'bike') return
+
+      const newInsurance = !item.insurance
+      const updatedItems = contract.items.map(i => {
+        if (i._id === itemId) {
+          return {
+            ...i,
+            insurance: newInsurance,
+            insuranceFlat: newInsurance ? 5 : 0
+          }
+        }
+        return i
+      })
+
+      await api.put(`/api/contracts/${contract._id}`, {
+        items: updatedItems
+      })
+
+      const updatedContract = { ...contract, items: updatedItems }
+      setContracts(prev => prev.map(c => c._id === contract._id ? updatedContract : c))
+
+      if (selectedContractForReturn && selectedContractForReturn._id === contract._id) {
+        setSelectedContractForReturn(updatedContract)
+      }
+      if (selectedContractForPayment && selectedContractForPayment._id === contract._id) {
+        setSelectedContractForPayment(updatedContract)
+      }
+      if (selectedContractForSwap && selectedContractForSwap._id === contract._id) {
+        setSelectedContractForSwap(updatedContract)
+      }
+      if (selectedContractForPriceEdit && selectedContractForPriceEdit._id === contract._id) {
+        setSelectedContractForPriceEdit(updatedContract)
+      }
+      if (selectedContractForDelete && selectedContractForDelete._id === contract._id) {
+        setSelectedContractForDelete(updatedContract)
+      }
+      if (selectedContractForStatusChange && selectedContractForStatusChange._id === contract._id) {
+        setSelectedContractForStatusChange(updatedContract)
+      }
+      if (selectedContractForPhoto && selectedContractForPhoto._id === contract._id) {
+        setSelectedContractForPhoto(updatedContract)
+      }
+      if (editingContract && editingContract._id === contract._id) {
+        setEditingContract(updatedContract)
+      }
+
+      showSuccess(newInsurance ? '✅ Assicurazione aggiunta' : '✅ Assicurazione rimossa')
+    } catch (error) {
+      showError(`Errore aggiornamento assicurazione: ${error.response?.data?.error || error.message}`)
     } finally {
       setLoading(false)
     }
@@ -1820,10 +1762,6 @@ const processReturns = async () => {
       {showPaymentModal && selectedContractForPayment && (
         <PaymentModal
           contract={selectedContractForPayment}
-          initialItemInsurancePaidAdvance={selectedItemInsurancePaidAdvance}
-          initialContractInsurancePaidAdvance={selectedContractInsurancePaidAdvance}
-          onItemInsuranceFlagChange={(contractData, index, value) => setItemInsuranceFlag(contractData, index, value)}
-          onContractInsuranceFlagChange={(contractData, value) => setContractInsuranceFlag(contractData, value)}
           onPaymentComplete={() => {
             setShowPaymentModal(false);
             setSelectedContractForPayment(null);
@@ -2124,6 +2062,27 @@ const processReturns = async () => {
                           }}>
                             {item.kind === 'bike' ? '🚴' : '🎒'} {item.name}
                             {item.returnedAt && ' ✅'}
+                            {item.kind === 'bike' && !item.returnedAt && !contract.paymentCompleted && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  toggleItemInsurance(contract, item._id)
+                                }}
+                                style={{
+                                  marginTop: '4px',
+                                  padding: '2px 8px',
+                                  background: item.insurance ? '#10b981' : '#6b7280',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  fontSize: '10px',
+                                  cursor: 'pointer',
+                                  fontWeight: '500'
+                                }}
+                              >
+                                🛡️ {item.insurance ? 'Assicurata' : 'Assicura'}
+                              </button>
+                            )}
                           </div>
                           {item.barcode && (
                             <div style={{
@@ -2355,42 +2314,9 @@ const processReturns = async () => {
                     >
                       📦 Rientro Bici
                     </button>
-                     {contract.items?.some(item => item.insurance && !item.returnedAt) && (
-                       <button
-                         type="button"
-                         onClick={() => setContractItemInsurancePaid(contract, !isContractItemInsurancePaid(contract))}
-                         style={{
-                           display: 'flex',
-                           alignItems: 'center',
-                           gap: '6px',
-                           padding: '6px 10px',
-                           background: isContractItemInsurancePaid(contract) ? '#fef3c7' : '#f0fdf4',
-                           color: '#374151',
-                           border: '1px solid #e5e7eb',
-                           borderRadius: '6px',
-                           cursor: 'pointer',
-                           fontSize: '12px',
-                           fontWeight: '600'
-                         }}
-                       >
-                         <span>{isContractItemInsurancePaid(contract) ? '✔' : '○'}</span>
-                         <span>Assicurazione articoli pagata</span>
-                       </button>
-                     )}
-                     {contract.insuranceFlat && parseFloat(contract.insuranceFlat) > 0 && (
-                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 10px', background: getContractInsuranceFlag(contract) ? '#fef3c7' : '#f0fdf4', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '500' }}>
-                         <input
-                           type="checkbox"
-                           checked={getContractInsuranceFlag(contract)}
-                           onChange={(e) => setContractInsuranceFlag(contract, e.target.checked)}
-                         />
-                         <span style={{ color: '#374151' }}>
-                           {getContractInsuranceFlag(contract) ? '✔ ' : ''}Assicurazione contratto pagata
-                         </span>
-                       </label>
-                     )}
-                  </>
-                )}
+                   </>
+
+                 )}
 
                 {/* STEP 3: Pagamento (solo per collega ufficio) */}
                 {contract.status === 'returned' && !contract.paymentCompleted && (
@@ -2692,30 +2618,7 @@ const processReturns = async () => {
                   </div>
 
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {item.insurance && (
-                      <button
-                        onClick={() => {
-                          const itemIndex = selectedContractForReturn.items?.findIndex(i => i._id === item._id)
-                          if (itemIndex !== -1) {
-                            setItemInsuranceFlag(selectedContractForReturn, itemIndex, true)
-                          }
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          background: '#f59e0b',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          cursor: 'pointer',
-                          fontWeight: '500'
-                        }}
-                      >
-                        💰 Pagamento Assicurazione
-                      </button>
-                    )}
-                    
-                    {item.selected && (
+                     {item.selected && (
                       <select
                         value={item.condition}
                         onChange={(e) => updateItemCondition(item._id, e.target.value)}
@@ -2737,38 +2640,6 @@ const processReturns = async () => {
                 </div>
               ))}
             </div>
-
-            {/* Assicurazione flat contratto nel modal del rientro */}
-            {selectedContractForReturn.insuranceFlat && parseFloat(selectedContractForReturn.insuranceFlat) > 0 && (
-              <div style={{
-                marginTop: '16px',
-                padding: '12px',
-                background: '#fef3c7',
-                borderRadius: '8px',
-                border: '1px solid #fde68a'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '14px', color: '#92400e', fontWeight: '500' }}>
-                    🛡️ Assicurazione Contratto Flat: €{parseFloat(selectedContractForReturn.insuranceFlat).toFixed(2)}
-                  </span>
-                  <button
-                    onClick={() => setContractInsuranceFlag(selectedContractForReturn, true)}
-                    style={{
-                      padding: '6px 12px',
-                      background: '#f59e0b',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      fontWeight: '500'
-                    }}
-                  >
-                    💰 Pagamento Assicurazione
-                  </button>
-                </div>
-              </div>
-            )}
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
@@ -3057,9 +2928,6 @@ Assicurazione: €{item.insurance.toFixed(2)}
                     {/* Riepilogo contratto ricalcolato */}
                     {(() => {
                       const bill = calculatePaymentTotals(selectedContractForPayment)
-                      const hasContractInsurance = selectedContractForPayment.insuranceFlat && parseFloat(selectedContractForPayment.insuranceFlat) > 0
-                      const insurancePaid = calculateInsurancePaidInAdvance(selectedContractForPayment)
-                      const finalToPay = bill.finalTotal - insurancePaid
                       
                       return (
                         <>
@@ -3093,123 +2961,6 @@ Assicurazione: €{item.insurance.toFixed(2)}
                             </div>
                           </div>
 
-                          {/* Insurance payment and three-distinct totals */}
-                          {bill.items.map((item, idx) => {
-                            const itemIndex = selectedContractForPayment.items?.findIndex(i => i._id === item._id)
-                            const itemInsuranceFlags = getItemInsuranceFlags(selectedContractForPayment)
-                            if (!item.insurance || itemInsuranceFlags[itemIndex]) return null
-                            return (
-                              <div key={`insurance-${idx}`} style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: '12px 0',
-                                borderBottom: '1px solid #e5e7eb'
-                              }}>
-                                <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                                  🛡️ Assicurazione {item.name}
-                                </span>
-                                <button
-                                  onClick={() => {
-                                    if (itemIndex !== -1) {
-                                      setItemInsuranceFlag(selectedContractForPayment, itemIndex, true)
-                                    }
-                                  }}
-                                  style={{
-                                    padding: '4px 8px',
-                                    background: '#f59e0b',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '11px',
-                                    cursor: 'pointer',
-                                    fontWeight: '500'
-                                  }}
-                                >
-                                  💰 Segna Pagata
-                                </button>
-                              </div>
-                            )
-                          })}
-                          
-                          {hasContractInsurance && !getContractInsuranceFlag(selectedContractForPayment) && (
-                            <div style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              padding: '12px 0',
-                              borderBottom: '1px solid #e5e7eb'
-                            }}>
-                              <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                                🛡️ Assicurazione Contratto
-                              </span>
-                              <button
-                                onClick={() => setContractInsuranceFlag(selectedContractForPayment, true)}
-                                style={{
-                                  padding: '4px 8px',
-                                  background: '#f59e0b',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  fontSize: '11px',
-                                  cursor: 'pointer',
-                                  fontWeight: '500'
-                                }}
-                              >
-                                💰 Segna Pagata
-                              </button>
-                            </div>
-                          )}
-                          
-                          {getContractInsuranceFlag(selectedContractForPayment) && (
-                            <div style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              padding: '12px 0',
-                              borderBottom: '1px solid #e5e7eb'
-                            }}>
-                              <span style={{ fontSize: '14px', color: '#059669' }}>
-                                ✅ Assicurazione Contratto (Pagata)
-                              </span>
-                              <span style={{ fontSize: '14px', color: '#059669' }}>
-                                €{parseFloat(selectedContractForPayment.insuranceFlat).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                          
-                          <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '12px 0',
-                            borderBottom: '1px solid #e5e7eb'
-                          }}>
-                            <span style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
-                              TOTALE CONTRATTO
-                            </span>
-                            <span style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b' }}>
-                              €{bill.finalTotal.toFixed(2)}
-                            </span>
-                          </div>
-                          
-                          {insurancePaid > 0 && (
-                            <div style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              padding: '12px 0',
-                              borderBottom: '1px solid #e5e7eb'
-                            }}>
-                              <span style={{ fontSize: '14px', color: '#059669', fontWeight: '500' }}>
-                                GIÀ PAGATO (Assicurazioni)
-                              </span>
-                              <span style={{ fontSize: '16px', fontWeight: '600', color: '#059669' }}>
-                                €{insurancePaid.toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                          
                           <div style={{
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -3218,10 +2969,10 @@ Assicurazione: €{item.insurance.toFixed(2)}
                             borderTop: '2px solid #1e293b',
                             fontSize: '1.2rem',
                             fontWeight: '700',
-                            color: '#dc2626'
+                            color: '#065f46'
                           }}>
-                            <span>DA PAGARE FINALE:</span>
-                            <span>€{finalToPay.toFixed(2)}</span>
+                            <span>TOTALE:</span>
+                            <span>€{bill.finalTotal.toFixed(2)}</span>
                           </div>
                         </>
                       )

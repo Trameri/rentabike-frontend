@@ -140,7 +140,7 @@ export const recalculateContractTotals = (contract) => {
   };
 };
 
-export const calculateSeparateTotals = (contract, itemsInsurancePaidAdvance = {}, contractInsurancePaidAdvance = false) => {
+export const calculateSeparateTotals = (contract) => {
   let bikesTotal = 0;
   let insuranceTotal = 0;
   let extrasTotal = 0;

@@ -5,11 +5,7 @@ import { calculateItemPrice, getCalendarDays } from '../utils/contractCalculatio
 const PaymentModal = ({
   contract,
   onPaymentComplete,
-  onClose,
-  initialItemInsurancePaidAdvance = {},
-  initialContractInsurancePaidAdvance = false,
-  onItemInsuranceFlagChange,
-  onContractInsuranceFlagChange
+  onClose
 }) => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentNotes, setPaymentNotes] = useState('');
@@ -24,26 +20,8 @@ const PaymentModal = ({
   const [itemPrices, setItemPrices] = useState({});
   const [itemInsurances, setItemInsurances] = useState({});
 
-  const getContractInsuranceKey = (contractData) => contractData?._id || contractData?.id || 'default-contract';
-  const getItemInsurancePaidAdvanceForContract = (state, contractData) => state?.[getContractInsuranceKey(contractData)] || {};
-  const getContractInsurancePaidAdvanceForContract = (state, contractData) => !!state?.[getContractInsuranceKey(contractData)];
-
-  const [itemInsurancePaidAdvance, setItemInsurancePaidAdvance] = useState(() => getItemInsurancePaidAdvanceForContract(initialItemInsurancePaidAdvance, contract));
-  const contractInsurancePaidInAdvance = getContractInsurancePaidAdvanceForContract(initialContractInsurancePaidAdvance, contract) || contract?.insurancePaidInAdvance || false;
-
-  useEffect(() => {
-    if (contract) {
-      setItemInsurancePaidAdvance(getItemInsurancePaidAdvanceForContract(initialItemInsurancePaidAdvance, contract));
-      onContractInsuranceFlagChange?.(contract, getContractInsurancePaidAdvanceForContract(initialContractInsurancePaidAdvance, contract));
-      calculatePaymentDetails();
-    }
-  }, [contract, initialItemInsurancePaidAdvance, initialContractInsurancePaidAdvance]);
-
-const calculatePaymentDetails = () => {
+  const calculatePaymentDetails = () => {
     if (!contract) return;
-
-    // Inizializza gli stati delle assicurazioni pagate in anticipo
-    const initialItemInsurancePaid = {};
 
     // Se c'è un finalAmount già calcolato, usa i prezzi individuali salvati o calcola individualmente
     if (contract.finalAmount && contract.finalAmount > 0) {
@@ -80,7 +58,7 @@ const calculatePaymentDetails = () => {
         });
         
         const total = parseFloat(contract.finalAmount);
-        const contractInsurance = contract.insuranceFlat && !contractInsurancePaidInAdvance ? parseFloat(contract.insuranceFlat) || 0 : 0;
+        const contractInsurance = contract.insuranceFlat ? parseFloat(contract.insuranceFlat) || 0 : 0;
         const totalInsurances = Object.values(insurances).reduce((sum, ins) => sum + parseFloat(ins), 0) + contractInsurance;
         
         setPaymentDetails({
@@ -114,7 +92,7 @@ const calculatePaymentDetails = () => {
         });
         
         const total = parseFloat(contract.finalAmount);
-        const contractInsurance = contract.insuranceFlat && !contractInsurancePaidInAdvance ? parseFloat(contract.insuranceFlat) || 0 : 0;
+        const contractInsurance = contract.insuranceFlat ? parseFloat(contract.insuranceFlat) || 0 : 0;
         const totalInsurancesWithContract = totalInsurances + contractInsurance;
         const baseTotal = total - totalInsurancesWithContract;
         
@@ -171,7 +149,7 @@ const calculatePaymentDetails = () => {
     });
 
     // Assicurazione flat del contratto
-    if (contract.insuranceFlat && !contractInsurancePaidInAdvance) {
+    if (contract.insuranceFlat) {
       insurance += parseFloat(contract.insuranceFlat);
     }
 
@@ -198,12 +176,9 @@ const calculatePaymentDetails = () => {
     let totalInsurance = 0;
     Object.keys(updatedPrices).forEach(idx => {
       newSubtotal += parseFloat(updatedPrices[idx]) || 0;
-      const insuranceVal = parseFloat(itemInsurances[idx]) || 0;
-      if (!itemInsurancePaidAdvance[idx]) {
-        totalInsurance += insuranceVal;
-      }
+      totalInsurance += parseFloat(itemInsurances[idx]) || 0;
     });
-    if (!contractInsurancePaidInAdvance && contract.insuranceFlat) {
+    if (contract.insuranceFlat) {
       totalInsurance += parseFloat(contract.insuranceFlat) || 0;
     }
 
@@ -247,27 +222,14 @@ const calculatePaymentDetails = () => {
     return { hours, minutes, seconds };
   };
 
-  const toggleItemInsurancePaidAdvance = (index) => {
-    setItemInsurancePaidAdvance(prev => {
-      const nextValue = !prev[index];
-      const newState = { ...prev, [index]: nextValue };
-      onItemInsuranceFlagChange?.(contract, index, nextValue);
-      recalculateTotals(newState);
-      return newState;
-    });
-  };
-
-  const recalculateTotals = (itemInsuranceStates) => {
+  const recalculateTotals = (itemPricesDraft) => {
     let newSubtotal = 0;
     let newInsurance = 0;
     Object.keys(itemPrices).forEach(idx => {
       newSubtotal += parseFloat(itemPrices[idx]) || 0;
-      const insuranceVal = parseFloat(itemInsurances[idx]) || 0;
-      if (!itemInsuranceStates[idx]) {
-        newInsurance += insuranceVal;
-      }
+      newInsurance += parseFloat(itemInsurances[idx]) || 0;
     });
-    if (!contractInsurancePaidInAdvance && contract.insuranceFlat) {
+    if (contract.insuranceFlat) {
       newInsurance += parseFloat(contract.insuranceFlat);
     }
     const newTotal = newSubtotal + newInsurance;
@@ -288,14 +250,6 @@ const calculatePaymentDetails = () => {
 
     setLoading(true);
     try {
-      // Prepara i dati delle assicurazioni pagate in anticipo
-      const itemInsurancePaidAdvanceData = {};
-      contract.items.forEach((item, index) => {
-        if (itemInsurancePaidAdvance[index]) {
-          itemInsurancePaidAdvanceData[item._id || index] = true;
-        }
-      });
-
       // Calcola l'importo totale completo (con assicurazione) per i ricavi giornalieri
       const totalWithInsurance = paymentDetails.subtotal + paymentDetails.insurance;
 
@@ -310,8 +264,6 @@ const calculatePaymentDetails = () => {
         paymentNotes,
         finalAmount: parseFloat(finalAmount),
         totalWithInsurance: Math.round(totalWithInsurance * 100) / 100,
-        itemInsurancePaidAdvance: itemInsurancePaidAdvanceData,
-        contractInsurancePaidAdvance: contractInsurancePaidInAdvance,
         totals: {
           bikesTotal: paymentDetails.subtotal,
           insuranceTotal: paymentDetails.insurance,
@@ -563,40 +515,12 @@ const calculatePaymentDetails = () => {
                           </div>
                         )}
                       </div>
-                      {itemInsurances[index] && parseFloat(itemInsurances[index]) > 0 && (
-                        <label style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          marginTop: '8px',
-                          padding: '6px 10px',
-                          background: itemInsurancePaidAdvance[index] ? '#fef3c7' : '#f0fdf4',
-                          borderRadius: '6px',
-                          border: '1px solid #fde047',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}>
-                          <input
-                            type="checkbox"
-                            checked={!!itemInsurancePaidAdvance[index]}
-                            onChange={() => toggleItemInsurancePaidAdvance(index)}
-                          />
-                          <span style={{ color: '#92400e', fontWeight: '500' }}>
-                            Assicurazione già pagata in anticipo
-                          </span>
-                        </label>
-                      )}
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>Totale Item:</div>
-                      <div style={{ fontWeight: '600', color: itemInsurancePaidAdvance[index] ? '#6b7280' : '#059669' }}>
-                        €{(parseFloat(itemPrices[index] || 0) + (itemInsurancePaidAdvance[index] ? 0 : parseFloat(itemInsurances[index] || 0))).toFixed(2)}
+                      <div style={{ fontWeight: '600', color: '#059669' }}>
+                        €{(parseFloat(itemPrices[index] || 0) + parseFloat(itemInsurances[index] || 0)).toFixed(2)}
                       </div>
-                      {itemInsurancePaidAdvance[index] && (
-                        <div style={{ fontSize: '10px', color: '#92400e', fontStyle: 'italic' }}>
-                          (Assicurazione scontata)
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
