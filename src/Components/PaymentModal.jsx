@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api.js';
 import { calculateItemPrice, getCalendarDays } from '../utils/contractCalculations.js';
 
@@ -19,6 +19,74 @@ const PaymentModal = ({
   });
   const [itemPrices, setItemPrices] = useState({});
   const [itemInsurances, setItemInsurances] = useState({});
+  const [bikeTypesMap, setBikeTypesMap] = useState({});
+
+  const getBikeCategory = (type) => {
+    const electricTypes = ['ebike-full', 'ebike-front', 'ebike-other', 'bike-front', 'bike-full', 'ebike-generale', 'electric'];
+    if (electricTypes.includes(type)) return 'electric';
+    if (type === 'muscolare' || type === 'muscolari' || type === 'bici') return 'muscle';
+    return 'other';
+  };
+
+  const bikeCategoryTotals = useMemo(() => {
+    if (!contract || !contract.items) return { electric: 0, muscle: 0, other: 0 };
+    
+    let electric = 0;
+    let muscle = 0;
+    let other = 0;
+    
+    contract.items.forEach((item, index) => {
+      if (item.kind === 'bike') {
+        const bikeType = bikeTypesMap[item.refId];
+        const category = getBikeCategory(bikeType);
+        const itemTotal = parseFloat(itemPrices[index] || 0) + parseFloat(itemInsurances[index] || 0);
+        
+        if (category === 'electric') electric += itemTotal;
+        else if (category === 'muscle') muscle += itemTotal;
+        else other += itemTotal;
+      }
+    });
+    
+    return { 
+      electric: Math.round(electric * 100) / 100, 
+      muscle: Math.round(muscle * 100) / 100, 
+      other: Math.round(other * 100) / 100 
+    };
+  }, [contract, bikeTypesMap, itemPrices, itemInsurances]);
+
+  useEffect(() => {
+    const fetchBikeTypes = async () => {
+      if (!contract || !contract.items) return;
+      
+      const bikeRefIds = [...new Set(
+        contract.items
+          .filter(item => item.kind === 'bike' && item.refId)
+          .map(item => item.refId)
+      )];
+
+      if (bikeRefIds.length === 0) {
+        setBikeTypesMap({});
+        return;
+      }
+
+      const typesMap = {};
+      await Promise.all(
+        bikeRefIds.map(async (refId) => {
+          try {
+            const response = await api.get(`/api/bikes/${refId}`);
+            typesMap[refId] = response.data?.type || null;
+          } catch (error) {
+            console.warn(`Errore caricamento tipo bici ${refId}:`, error);
+            typesMap[refId] = null;
+          }
+        })
+      );
+
+      setBikeTypesMap(typesMap);
+    };
+
+    fetchBikeTypes();
+  }, [contract]);
 
   const calculatePaymentDetails = () => {
     if (!contract) return;
@@ -538,6 +606,29 @@ const PaymentModal = ({
           border: '2px solid #10b981'
         }}>
           <h3 style={{ margin: '0 0 16px 0', color: '#065f46' }}>💰 Riepilogo Costi</h3>
+          
+          {(bikeCategoryTotals.electric > 0 || bikeCategoryTotals.muscle > 0 || bikeCategoryTotals.other > 0) && (
+            <>
+              {bikeCategoryTotals.electric > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>⚡ Biciclette elettriche:</span>
+                  <span style={{ fontWeight: '600' }}>€{bikeCategoryTotals.electric.toFixed(2)}</span>
+                </div>
+              )}
+              {bikeCategoryTotals.muscle > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>💪 Biciclette muscolari:</span>
+                  <span style={{ fontWeight: '600' }}>€{bikeCategoryTotals.muscle.toFixed(2)}</span>
+                </div>
+              )}
+              {bikeCategoryTotals.other > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>🚲 Altre biciclette:</span>
+                  <span style={{ fontWeight: '600' }}>€{bikeCategoryTotals.other.toFixed(2)}</span>
+                </div>
+              )}
+            </>
+          )}
           
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span>Subtotale noleggio:</span>
