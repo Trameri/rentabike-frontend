@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { api } from '../services/api.js'
 import { useNotifications } from '../Components/NotificationSystem.jsx'
 import dateUtils from '../utils/dateUtils.js'
@@ -67,6 +67,10 @@ export default function ContractManager(){
   const [itemPriceOverrides, setItemPriceOverrides] = useState({})
   const [editingItemPriceKey, setEditingItemPriceKey] = useState(null)
   const [itemPriceDrafts, setItemPriceDrafts] = useState({})
+  
+  // Stati per classificazione tipi bici nel pagamento
+  const [bikeTypesMap, setBikeTypesMap] = useState({})
+  const [loadingBikeTypes, setLoadingBikeTypes] = useState(false)
   
   // Stati per visualizzazione immagini documenti
   const [showImageModal, setShowImageModal] = useState(false)
@@ -687,7 +691,8 @@ const processReturns = async () => {
         itemId: item._id || item.id || `${item.name || 'item'}-${index}`,
         kind: item.kind || 'bike',
         priceHourly: parseFloat(item.priceHourly) || 0,
-        priceDaily: parseFloat(item.priceDaily) || 0
+        priceDaily: parseFloat(item.priceDaily) || 0,
+        refId: item.refId || null
       })
     })
 
@@ -814,15 +819,84 @@ const processReturns = async () => {
     return `Tempo: ${hours} ora${hours !== 1 ? 'e' : ''} ${minutes} min ${seconds} sec`
   }
 
+  const getBikeCategory = (type) => {
+    const electricTypes = ['ebike-full', 'ebike-front', 'ebike-other', 'bike-front', 'bike-full', 'ebike-generale', 'electric']
+    if (electricTypes.includes(type)) return 'electric'
+    if (type === 'muscolare' || type === 'muscolari' || type === 'bici') return 'muscle'
+    return 'other'
+  }
+
+  const getBikeCategoryTotals = (bill) => {
+    if (!bill || !bill.items) return { electric: 0, muscle: 0, other: 0 }
+    
+    let electric = 0
+    let muscle = 0
+    let other = 0
+    
+    bill.items.forEach((item) => {
+      if (item.kind !== 'bike') return
+      const bikeType = bikeTypesMap[item.refId]
+      const category = getBikeCategory(bikeType)
+      const itemTotal = item.total || 0
+      
+      if (category === 'electric') electric += itemTotal
+      else if (category === 'muscle') muscle += itemTotal
+      else other += itemTotal
+    })
+    
+    return {
+      electric: Math.round(electric * 100) / 100,
+      muscle: Math.round(muscle * 100) / 100,
+      other: Math.round(other * 100) / 100
+    }
+  }
+
   // STEP 4: PAGAMENTO (solo per collega ufficio)
-  const openPaymentModal = (contract) => {
+  const openPaymentModal = async (contract) => {
     setSelectedContractForPayment(contract)
     setPaymentMethod('cash')
     setPaymentNotes('')
     setItemPriceOverrides({})
     setEditingItemPriceKey(null)
     setItemPriceDrafts({})
+    setBikeTypesMap({})
     setShowPaymentModal(true)
+
+    if (!contract || !contract.items) return
+
+    setLoadingBikeTypes(true)
+    try {
+      const bikeRefIds = [...new Set(
+        contract.items
+          .filter(item => item.kind === 'bike' && item.refId)
+          .map(item => item.refId)
+      )]
+
+      if (bikeRefIds.length === 0) {
+        setBikeTypesMap({})
+        return
+      }
+
+      const typesMap = {}
+      await Promise.all(
+        bikeRefIds.map(async (refId) => {
+          try {
+            const response = await api.get(`/api/bikes/${refId}`)
+            typesMap[refId] = response.data?.type || null
+          } catch (error) {
+            console.warn(`Errore caricamento tipo bici ${refId}:`, error)
+            typesMap[refId] = null
+          }
+        })
+      )
+
+      setBikeTypesMap(typesMap)
+    } catch (error) {
+      console.error('Errore caricamento tipi bici:', error)
+      setBikeTypesMap({})
+    } finally {
+      setLoadingBikeTypes(false)
+    }
   }
 
   const completePayment = async () => {
@@ -2925,41 +2999,66 @@ Assicurazione: €{item.insurance.toFixed(2)}
                       )
                     })}
                     
-                    {/* Riepilogo contratto ricalcolato */}
-                    {(() => {
-                      const bill = calculatePaymentTotals(selectedContractForPayment)
-                      
-                      return (
-                        <>
-                          <div style={{
-                            marginTop: '16px',
-                            padding: '14px',
-                            background: '#ecfdf5',
-                            border: '1px solid #a7f3d0',
-                            borderRadius: '10px'
-                          }}>
-                            <div style={{ fontSize: '14px', fontWeight: '700', color: '#065f46', marginBottom: '8px' }}>
-                              🔄 Ricalcolo contratto finale
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
-                              <span style={{ color: '#6b7280' }}>Noleggio bici</span>
-                              <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.bikesTotal.toFixed(2)}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
-                              <span style={{ color: '#6b7280' }}>Assicurazione</span>
-                              <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.insuranceTotal.toFixed(2)}</span>
-                            </div>
-                            {bill.extrasTotal > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
-                                <span style={{ color: '#6b7280' }}>Extra</span>
-                                <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.extrasTotal.toFixed(2)}</span>
-                              </div>
-                            )}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', fontSize: '15px', fontWeight: '700', borderTop: '1px solid #a7f3d0', marginTop: '6px' }}>
-                              <span style={{ color: '#065f46' }}>Totale contratto</span>
-                              <span style={{ color: '#065f46' }}>€{bill.finalTotal.toFixed(2)}</span>
-                            </div>
-                          </div>
+                     {/* Riepilogo contratto ricalcolato */}
+                     {(() => {
+                       const bill = calculatePaymentTotals(selectedContractForPayment)
+                       const categoryTotals = getBikeCategoryTotals(bill)
+                       
+                       return (
+                         <>
+                           <div style={{
+                             marginTop: '16px',
+                             padding: '14px',
+                             background: '#ecfdf5',
+                             border: '1px solid #a7f3d0',
+                             borderRadius: '10px'
+                           }}>
+                             <div style={{ fontSize: '14px', fontWeight: '700', color: '#065f46', marginBottom: '8px' }}>
+                               🔄 Ricalcolo contratto finale
+                             </div>
+                             {(categoryTotals.electric > 0 || categoryTotals.muscle > 0 || categoryTotals.other > 0) && (
+                               <>
+                                 {categoryTotals.electric > 0 && (
+                                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                     <span style={{ color: '#6b7280' }}>⚡ Biciclette elettriche</span>
+                                     <span style={{ fontWeight: '600', color: '#1f2937' }}>€{categoryTotals.electric.toFixed(2)}</span>
+                                   </div>
+                                 )}
+                                 {categoryTotals.muscle > 0 && (
+                                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                     <span style={{ color: '#6b7280' }}>💪 Biciclette muscolari</span>
+                                     <span style={{ fontWeight: '600', color: '#1f2937' }}>€{categoryTotals.muscle.toFixed(2)}</span>
+                                   </div>
+                                 )}
+                                 {categoryTotals.other > 0 && (
+                                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                     <span style={{ color: '#6b7280' }}>🚲 Altre biciclette</span>
+                                     <span style={{ fontWeight: '600', color: '#1f2937' }}>€{categoryTotals.other.toFixed(2)}</span>
+                                   </div>
+                                 )}
+                               </>
+                             )}
+                             {categoryTotals.electric === 0 && categoryTotals.muscle === 0 && categoryTotals.other === 0 && (
+                               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                 <span style={{ color: '#6b7280' }}>Noleggio bici</span>
+                                 <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.bikesTotal.toFixed(2)}</span>
+                               </div>
+                             )}
+                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                               <span style={{ color: '#6b7280' }}>Assicurazione</span>
+                               <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.insuranceTotal.toFixed(2)}</span>
+                             </div>
+                             {bill.extrasTotal > 0 && (
+                               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                 <span style={{ color: '#6b7280' }}>Extra</span>
+                                 <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.extrasTotal.toFixed(2)}</span>
+                               </div>
+                             )}
+                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', fontSize: '15px', fontWeight: '700', borderTop: '1px solid #a7f3d0', marginTop: '6px' }}>
+                               <span style={{ color: '#065f46' }}>Totale contratto</span>
+                               <span style={{ color: '#065f46' }}>€{bill.finalTotal.toFixed(2)}</span>
+                             </div>
+                           </div>
 
                           <div style={{
                             display: 'flex',
