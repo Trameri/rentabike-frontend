@@ -820,9 +820,11 @@ const processReturns = async () => {
   }
 
   const getBikeCategory = (type) => {
+    const normalized = String(type || '').trim().toLowerCase()
     const electricTypes = ['ebike-full', 'ebike-front', 'ebike-other', 'bike-front', 'bike-full', 'ebike-generale', 'electric']
-    if (electricTypes.includes(type)) return 'electric'
-    if (type === 'muscolare' || type === 'muscolari' || type === 'bici') return 'muscle'
+    if (electricTypes.some(t => normalized.includes(t))) return 'electric'
+    if (/\b(muscolare|muscolari|bici)\b/.test(normalized)) return 'muscle'
+    if (normalized.includes('muscol')) return 'muscle'
     return 'other'
   }
 
@@ -843,6 +845,10 @@ const processReturns = async () => {
       else if (category === 'muscle') muscle += itemTotal
       else other += itemTotal
     })
+    
+    if (electric > 0 || muscle > 0) {
+      console.debug('Categorie bici contratto', { electric, muscle, other, bikeTypesMap })
+    }
     
     return {
       electric: Math.round(electric * 100) / 100,
@@ -3002,7 +3008,6 @@ Assicurazione: €{item.insurance.toFixed(2)}
                      {/* Riepilogo contratto ricalcolato */}
                      {(() => {
                        const bill = calculatePaymentTotals(selectedContractForPayment)
-                       const categoryTotals = getBikeCategoryTotals(bill)
                        
                        return (
                          <>
@@ -3016,34 +3021,52 @@ Assicurazione: €{item.insurance.toFixed(2)}
                              <div style={{ fontSize: '14px', fontWeight: '700', color: '#065f46', marginBottom: '8px' }}>
                                🔄 Ricalcolo contratto finale
                              </div>
-                             {(categoryTotals.electric > 0 || categoryTotals.muscle > 0 || categoryTotals.other > 0) && (
+                             
+                             {loadingBikeTypes ? (
+                               <div style={{ fontSize: '13px', color: '#6b7280', padding: '4px 0' }}>
+                                 Caricamento categorie bici...
+                               </div>
+                             ) : (
                                <>
-                                 {categoryTotals.electric > 0 && (
-                                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
-                                     <span style={{ color: '#6b7280' }}>⚡ Biciclette elettriche</span>
-                                     <span style={{ fontWeight: '600', color: '#1f2937' }}>€{categoryTotals.electric.toFixed(2)}</span>
-                                   </div>
-                                 )}
-                                 {categoryTotals.muscle > 0 && (
-                                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
-                                     <span style={{ color: '#6b7280' }}>💪 Biciclette muscolari</span>
-                                     <span style={{ fontWeight: '600', color: '#1f2937' }}>€{categoryTotals.muscle.toFixed(2)}</span>
-                                   </div>
-                                 )}
-                                 {categoryTotals.other > 0 && (
-                                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
-                                     <span style={{ color: '#6b7280' }}>🚲 Altre biciclette</span>
-                                     <span style={{ fontWeight: '600', color: '#1f2937' }}>€{categoryTotals.other.toFixed(2)}</span>
-                                   </div>
-                                 )}
+                                 {(() => {
+                                   const categoryTotals = getBikeCategoryTotals(bill)
+                                   const hasCategories = categoryTotals.electric > 0 || categoryTotals.muscle > 0 || categoryTotals.other > 0
+                                   
+                                   if (!hasCategories) {
+                                     return (
+                                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                         <span style={{ color: '#6b7280' }}>Noleggio bici</span>
+                                         <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.bikesTotal.toFixed(2)}</span>
+                                       </div>
+                                     )
+                                   }
+                                   
+                                   return (
+                                     <>
+                                       {categoryTotals.electric > 0 && (
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                           <span style={{ color: '#6b7280' }}>⚡ Biciclette elettriche</span>
+                                           <span style={{ fontWeight: '600', color: '#1f2937' }}>€{categoryTotals.electric.toFixed(2)}</span>
+                                         </div>
+                                       )}
+                                       {categoryTotals.muscle > 0 && (
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                           <span style={{ color: '#6b7280' }}>💪 Biciclette muscolari</span>
+                                           <span style={{ fontWeight: '600', color: '#1f2937' }}>€{categoryTotals.muscle.toFixed(2)}</span>
+                                         </div>
+                                       )}
+                                       {categoryTotals.other > 0 && (
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
+                                           <span style={{ color: '#6b7280' }}>🚲 Altre biciclette</span>
+                                           <span style={{ fontWeight: '600', color: '#1f2937' }}>€{categoryTotals.other.toFixed(2)}</span>
+                                         </div>
+                                       )}
+                                     </>
+                                   )
+                                 })()}
                                </>
                              )}
-                             {categoryTotals.electric === 0 && categoryTotals.muscle === 0 && categoryTotals.other === 0 && (
-                               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
-                                 <span style={{ color: '#6b7280' }}>Noleggio bici</span>
-                                 <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.bikesTotal.toFixed(2)}</span>
-                               </div>
-                             )}
+                             
                              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }}>
                                <span style={{ color: '#6b7280' }}>Assicurazione</span>
                                <span style={{ fontWeight: '600', color: '#1f2937' }}>€{bill.insuranceTotal.toFixed(2)}</span>
