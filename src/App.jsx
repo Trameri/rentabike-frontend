@@ -206,7 +206,10 @@ function Layout({ children }){
           gap: '6px',
           flex: 1,
           minHeight: 0,
+          minWidth: 0,
+          width: '100%',
           overflowY: 'auto',
+          overflowX: 'hidden',
           overscrollBehavior: 'contain',
           paddingRight: '4px'
         }}>
@@ -219,6 +222,9 @@ function Layout({ children }){
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
+                width: '100%',
+                minWidth: 0,
+                overflowWrap: 'anywhere',
                 padding: '12px 16px',
                 color: '#e2e8f0',
                 textDecoration: 'none',
@@ -230,14 +236,14 @@ function Layout({ children }){
               onMouseEnter={(e) => {
                 e.target.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%)';
                 e.target.style.color = '#fff';
-                e.target.style.transform = 'translateX(8px)';
+                e.target.style.transform = 'none';
                 e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
                 e.target.style.borderLeft = '3px solid #3b82f6';
               }}
               onMouseLeave={(e) => {
                 e.target.style.background = 'transparent';
                 e.target.style.color = '#e2e8f0';
-                e.target.style.transform = 'translateX(0)';
+                e.target.style.transform = 'none';
                 e.target.style.boxShadow = 'none';
                 e.target.style.borderLeft = 'none';
               }}
