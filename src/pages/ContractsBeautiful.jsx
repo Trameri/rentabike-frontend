@@ -611,27 +611,32 @@ export default function ContractsBeautiful(){
                     transition: 'all 0.3s ease'
                   }}
                 />
-                <button
-                  type="submit"
-                  disabled={!quickBarcode.trim() || loading}
-                  style={{
-                    padding: '12px 24px',
-                    background: quickBarcode.trim() ? 
-                      'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#d1d5db',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: quickBarcode.trim() ? 'pointer' : 'not-allowed',
-                    fontSize: '14px',
-                    fontWeight: '600'
-                  }}
-                >
-                  {loading ? '⏳' : '➕ Aggiungi'}
-                </button>
-                <MobileBarcodeScanner
-                  disabled={loading}
-                  onScan={handleBarcodeScanned}
-                />
+                <div className="quick-barcode-actions">
+                  <MobileBarcodeScanner
+                    disabled={loading}
+                    onScan={handleBarcodeScanned}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!quickBarcode.trim() || loading}
+                    style={{
+                      minHeight: '46px',
+                      padding: '10px 18px',
+                      background: quickBarcode.trim() && !loading
+                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        : '#d1d5db',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: quickBarcode.trim() && !loading ? 'pointer' : 'not-allowed',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {loading ? '⏳ Ricerca...' : '➕ Aggiungi'}
+                  </button>
+                </div>
               </form>
 
               {/* Lista articoli */}
@@ -1187,8 +1192,22 @@ export default function ContractsBeautiful(){
             gap: 8px !important;
           }
           .quick-barcode-form input,
-          .quick-barcode-form button {
+          .quick-barcode-form > button {
             width: 100%;
+          }
+          .quick-barcode-actions {
+            display: flex;
+            width: 100%;
+            gap: 8px;
+          }
+          .quick-barcode-actions > * {
+            flex: 1;
+            min-width: 0;
+          }
+          .quick-barcode-actions button {
+            width: 100%;
+            min-height: 46px;
+            padding: 10px 8px !important;
           }
           .contract-type-options {
             flex-wrap: wrap;
@@ -1196,6 +1215,22 @@ export default function ContractsBeautiful(){
           .contract-type-options button {
             flex: 1 1 140px;
             min-height: 44px;
+          }
+        }
+        @media (min-width: 641px) {
+          .quick-barcode-actions {
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+            gap: 8px;
+          }
+          .barcode-scan-mobile-label {
+            display: none;
+          }
+        }
+        @media (max-width: 640px) {
+          .barcode-scan-desktop-label {
+            display: none;
           }
         }
         @keyframes spin {

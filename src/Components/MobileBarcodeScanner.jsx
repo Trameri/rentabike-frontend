@@ -80,11 +80,15 @@ export default function MobileBarcodeScanner({ onScan, disabled = false }) {
   return (
     <>
       <button
+        className="barcode-camera-scan"
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(true)}
+        title="Apri la webcam per leggere un codice a barre"
+        aria-label="Scansiona un codice a barre con la fotocamera"
         style={{
-          padding: '12px 14px',
+          minHeight: '46px',
+          padding: '10px 16px',
           background: disabled ? '#cbd5e1' : '#1d4ed8',
           color: 'white',
           border: 'none',
@@ -92,10 +96,14 @@ export default function MobileBarcodeScanner({ onScan, disabled = false }) {
           cursor: disabled ? 'not-allowed' : 'pointer',
           fontSize: '14px',
           fontWeight: 600,
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          boxShadow: disabled ? 'none' : '0 2px 5px rgba(29,78,216,0.25)',
+          transition: 'background 150ms ease, box-shadow 150ms ease'
         }}
       >
-        📷 Scansiona
+        <span aria-hidden="true">📷</span>{' '}
+        <span className="barcode-scan-desktop-label">Scansiona da webcam</span>
+        <span className="barcode-scan-mobile-label">Scansiona</span>
       </button>
 
       {isOpen && createPortal(
