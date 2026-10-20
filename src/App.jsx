@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react'
+import React, { lazy, Suspense, useEffect, useState } from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
 import LocationLogo from './Components/LocationLogo.jsx'
 import NotificationProvider from './Components/NotificationSystem.jsx'
@@ -38,7 +38,18 @@ const LocationDashboard = lazy(() => import('./pages/LocationDashboard.jsx'))
 
 function Layout({ children }){
   const { user } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const logout = ()=>{ clearToken(); window.location.replace('/') }
+
+  useEffect(() => {
+    if (!isMenuOpen) return undefined
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setIsMenuOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [isMenuOpen])
 
   const menuItems = [
     { path: '/dashboard', icon: '📊', label: 'Dashboard' },
@@ -63,33 +74,89 @@ function Layout({ children }){
 
   return (
     <div style={{
-      display: 'grid', 
-      gridTemplateColumns: '280px 1fr', 
-      minHeight: '100vh',
+      height: '100dvh',
+      overflow: 'hidden',
       background: '#f8fafc'
     }}>
+      <button
+        type="button"
+        aria-label={isMenuOpen ? 'Chiudi menu' : 'Apri menu'}
+        aria-expanded={isMenuOpen}
+        aria-controls="main-navigation"
+        onClick={() => setIsMenuOpen(open => !open)}
+        style={{
+          position: 'fixed',
+          top: '12px',
+          left: '12px',
+          zIndex: 102,
+          width: '42px',
+          height: '42px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '5px',
+          background: '#0f172a',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '10px',
+          boxShadow: '0 4px 12px rgba(15,23,42,0.25)',
+          cursor: 'pointer'
+        }}
+      >
+        <span style={{ width: '19px', height: '2px', background: '#fff', borderRadius: '2px' }} />
+        <span style={{ width: '19px', height: '2px', background: '#fff', borderRadius: '2px' }} />
+        <span style={{ width: '19px', height: '2px', background: '#fff', borderRadius: '2px' }} />
+      </button>
+
+      {isMenuOpen && (
+        <button
+          type="button"
+          aria-label="Chiudi menu"
+          onClick={() => setIsMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99,
+            border: 0,
+            background: 'rgba(15,23,42,0.45)',
+            cursor: 'pointer'
+          }}
+        />
+      )}
+
       <aside style={{
+        position: 'fixed',
+        inset: '0 auto 0 0',
+        zIndex: 100,
+        width: 'min(280px, calc(100vw - 52px))',
+        height: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
         background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
         color: '#fff',
-        padding: '24px',
+        padding: '64px 16px 16px',
         boxShadow: '4px 0 20px rgba(0,0,0,0.15)',
-        borderRight: '1px solid rgba(255,255,255,0.1)'
+        borderRight: '1px solid rgba(255,255,255,0.1)',
+        overflow: 'hidden',
+        transform: isMenuOpen ? 'translateX(0)' : 'translateX(-105%)',
+        visibility: isMenuOpen ? 'visible' : 'hidden',
+        transition: `transform 220ms ease, visibility 0s linear ${isMenuOpen ? '0ms' : '220ms'}`
       }}>
         {/* Logo/Header */}
         <div style={{
-          marginBottom: '32px',
+          marginBottom: '16px',
           textAlign: 'center',
-          paddingBottom: '24px',
+          paddingBottom: '16px',
           borderBottom: '1px solid rgba(255,255,255,0.1)'
         }}>
           {/* Logo dinamico della location */}
           <div style={{
-            marginBottom: '12px',
+            marginBottom: '8px',
             display: 'flex',
             justifyContent: 'center',
             background: 'rgba(255, 255, 255, 0.1)',
             borderRadius: '50%',
-            padding: '16px',
+            padding: '10px',
             backdropFilter: 'blur(10px)',
             border: '1px solid rgba(255, 255, 255, 0.2)'
           }}>
@@ -133,11 +200,21 @@ function Layout({ children }){
         </div>
 
         {/* Navigation */}
-        <nav style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+        <nav id="main-navigation" aria-label="Navigazione principale" style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          paddingRight: '4px'
+        }}>
           {menuItems.map(item => (
             <Link 
               key={item.path}
               to={item.path} 
+              onClick={() => setIsMenuOpen(false)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -176,7 +253,8 @@ function Layout({ children }){
           onClick={logout} 
           style={{
             width: '100%',
-            marginTop: '32px',
+            flexShrink: 0,
+            marginTop: '12px',
             padding: '12px 16px',
             background: 'rgba(239, 68, 68, 0.1)',
             border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -207,13 +285,21 @@ function Layout({ children }){
       </aside>
       
       <main style={{
-        padding: '32px',
-        overflow: 'auto'
+        height: '100dvh',
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        padding: '0 0 16px'
       }}>
-        <div className="container">
+        <div className="container" style={{ paddingTop: '56px' }}>
           {children}
         </div>
       </main>
+      <style>{`
+        @media (prefers-reduced-motion: reduce) {
+          aside { transition: none !important; }
+        }
+      `}</style>
     </div>
   )
 }
