@@ -17,6 +17,10 @@ import LocationLogo from '../Components/LocationLogo.jsx'
 import { jwtDecode } from 'jwt-decode'
 import { loadActiveContracts, isItemAvailableForDates } from '../utils/availabilityCheck.js'
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export default function ContractsBeautiful(){
   const [items, setItems] = useState([])
   const [customer, setCustomer] = useState({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' })
@@ -94,8 +98,22 @@ export default function ContractsBeautiful(){
   const handleBarcodeScanned = async (barcode) => {
     setLoading(true)
     try {
-      const { data } = await api.get('/api/items/lookup', { params: { value: barcode } })
-      const matches = data.matches || []
+      const query = escapeRegex(barcode.trim())
+      const [bikesResponse, accessoriesResponse] = await Promise.all([
+        api.get('/api/bikes', { params: { q: query } }),
+        api.get('/api/accessories', { params: { q: query } })
+      ])
+      const products = [
+        ...bikesResponse.data.map(product => ({ ...product, kind: 'bike' })),
+        ...accessoriesResponse.data.map(product => ({ ...product, kind: 'accessory' }))
+      ]
+      const normalizedQuery = barcode.trim().toLocaleLowerCase()
+      const barcodeMatches = products.filter(product =>
+        product.barcode?.toLocaleLowerCase() === normalizedQuery
+      )
+      const matches = barcodeMatches.length
+        ? barcodeMatches
+        : products.filter(product => product.name?.toLocaleLowerCase().includes(normalizedQuery))
 
       if (matches.length === 0) {
         alert('❌ Nessun prodotto trovato con questo codice o nome')
