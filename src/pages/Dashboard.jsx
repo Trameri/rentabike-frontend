@@ -166,18 +166,11 @@ export default function Dashboard(){
         console.error('Errore caricamento tutti i contratti:', error)
       }
 
-      // Carica informazioni di sistema
-      try {
-        const systemResponse = await api.get('/api/system/info')
-        setSystemInfo(systemResponse.data)
-      } catch (error) {
-        console.error('Errore caricamento info sistema:', error)
-        setSystemInfo({
-          uptime: 'N/A',
-          version: '1.0.0',
-          status: 'online'
-        })
-      }
+      setSystemInfo({
+        uptime: 'N/A',
+        version: '1.0.0',
+        status: 'online'
+      })
       
       setLastUpdate(new Date())
       showNotification('✅ Dati aggiornati con successo', 'success')

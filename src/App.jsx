@@ -1,10 +1,10 @@
-import React, { lazy, Suspense, useState, useEffect } from 'react'
-import { Routes, Route, Link, useNavigate } from 'react-router-dom'
+import React, { lazy, Suspense } from 'react'
+import { Routes, Route, Link } from 'react-router-dom'
 import LocationLogo from './Components/LocationLogo.jsx'
 import NotificationProvider from './Components/NotificationSystem.jsx'
-import { AuthProvider } from './context/AuthContext.jsx'
+import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 
-import { getToken, setToken, clearToken, api } from './services/api.js'
+import { getToken, clearToken } from './services/api.js'
 
 const Login = lazy(() => import('./pages/LoginBeautiful.jsx'))
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
@@ -37,21 +37,9 @@ const ExcelExport = lazy(() => import('./pages/ExcelExport.jsx'))
 const LocationDashboard = lazy(() => import('./pages/LocationDashboard.jsx'))
 
 function Layout({ children }){
-  const nav = useNavigate();
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
   const logout = ()=>{ clearToken(); window.location.replace('/') }
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const response = await api('/auth/me');
-        setUser(response.user);
-      } catch (err) {
-        console.error('Errore nel recupero utente:', err);
-      }
-    })();
-  }, []);
-  
   const menuItems = [
     { path: '/dashboard', icon: '📊', label: 'Dashboard' },
     { path: '/bikes', icon: '🚴', label: 'Bici' },

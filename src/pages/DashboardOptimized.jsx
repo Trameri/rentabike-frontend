@@ -79,19 +79,11 @@ export default function DashboardOptimized(){
         })
       )
 
-      // Load system info
-      promises.push(
-        api.get('/api/system/info').then(response => {
-          setSystemInfo(response.data)
-        }).catch(error => {
-          console.error('Errore caricamento info sistema:', error)
-          setSystemInfo({
-            uptime: 'N/A',
-            version: '1.0.0',
-            status: 'online'
-          })
-        })
-      )
+      setSystemInfo({
+        uptime: 'N/A',
+        version: '1.0.0',
+        status: 'online'
+      })
 
       await Promise.allSettled(promises)
       setLastUpdate(new Date())
