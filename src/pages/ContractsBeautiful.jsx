@@ -33,7 +33,6 @@ export default function ContractsBeautiful(){
   const [insuranceFlat, setIns] = useState(0)
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [currentStep, setCurrentStep] = useState(1)
   
   // Stati per i nuovi componenti
   const [selectedContract, setSelectedContract] = useState(null)
@@ -200,23 +199,19 @@ export default function ContractsBeautiful(){
   async function createContract(){
     try {
       if (!customer.name.trim() || !customer.phone.trim()) {
-        setCurrentStep(1)
         alert('❌ Inserisci nome e telefono del cliente')
         return
       }
       if (!customer.idFrontUrl) {
-        setCurrentStep(2)
         alert('❌ Acquisisci il fronte del documento')
         return
       }
       if (items.length === 0) {
-        setCurrentStep(3)
         alert('❌ Aggiungi almeno un articolo al contratto')
         return
       }
       if (isReservation) {
         if (!reservationDate) {
-          setCurrentStep(4)
           alert('❌ Inserisci la data di prenotazione')
           return
         }
@@ -290,7 +285,6 @@ export default function ContractsBeautiful(){
       setEndDate(''); 
       setReservationDate('');
       setCalculatedPrice(null);
-      setCurrentStep(1);
       setIsReservation(false);
       
     } catch (error) {
@@ -351,21 +345,24 @@ export default function ContractsBeautiful(){
 
 
 
-  const steps = [
-    { number: 1, title: 'Dati Cliente', icon: '👤' },
-    { number: 2, title: 'Documenti', icon: '📷' },
-    { number: 3, title: 'Articoli', icon: '🚲' },
-    { number: 4, title: 'Finalizza', icon: '✅' }
-  ]
-
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="contract-page" style={{
+      height: 'calc(100dvh - 72px)',
+      minHeight: 0,
+      boxSizing: 'border-box',
+      padding: '12px 16px',
+      maxWidth: '1800px',
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
       {/* Header */}
       <div style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        borderRadius: '20px',
-        padding: '32px',
-        marginBottom: '32px',
+        borderRadius: '12px',
+        padding: '10px 16px',
+        marginBottom: '10px',
         color: 'white',
         position: 'relative',
         overflow: 'hidden'
@@ -373,145 +370,80 @@ export default function ContractsBeautiful(){
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '24px',
+          gap: '12px',
           position: 'relative',
           zIndex: 2
         }}>
           <div style={{
             background: 'rgba(255, 255, 255, 0.15)',
             borderRadius: '50%',
-            padding: '16px',
+            padding: '6px',
             backdropFilter: 'blur(10px)'
           }}>
             <LocationLogo 
               locationName={user?.location?.name || user?.username} 
-              size="large"
+              size="small"
             />
           </div>
           <div>
             <h1 style={{
-              margin: '0 0 8px 0',
-              fontSize: '2.5rem',
+              margin: 0,
+              fontSize: '1.25rem',
               fontWeight: '800'
             }}>
               📋 Nuovo Contratto
             </h1>
-            <p style={{ margin: 0, opacity: 0.9, fontSize: '18px' }}>
+            <p style={{ margin: 0, opacity: 0.9, fontSize: '13px' }}>
               Crea un nuovo contratto di noleggio
             </p>
           </div>
         </div>
       </div>
 
-      {/* Navigazione sempre disponibile durante la compilazione */}
-      <div style={{
-        position: 'sticky',
-        top: '8px',
-        zIndex: 20,
-        background: 'white',
-        borderRadius: '14px',
-        padding: '10px',
-        marginBottom: '24px',
-        boxShadow: '0 4px 16px rgba(15,23,42,0.12)',
-        border: '1px solid #e2e8f0'
-      }}>
-        <div style={{
-          gap: '8px'
-        }} className="contract-step-tabs">
-          {steps.map((step, index) => (
-            <button
-              key={step.number}
-              type="button"
-              onClick={() => setCurrentStep(step.number)}
-              aria-current={currentStep === step.number ? 'step' : undefined}
-              style={{
-                minWidth: 0,
-                minHeight: '54px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '8px 10px',
-                border: currentStep === step.number ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                borderRadius: '10px',
-                background: currentStep === step.number ? '#eff6ff' : 'white',
-                color: currentStep === step.number ? '#1d4ed8' : '#475569',
-                fontSize: '14px',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
-            >
-              <span aria-hidden="true">{step.icon}</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{step.title}</span>
-              {((step.number === 1 && customer.name.trim() && customer.phone.trim()) ||
-                (step.number === 2 && customer.idFrontUrl) ||
-                (step.number === 3 && items.length > 0)) && (
-                <span aria-label="Completato" style={{ color: '#059669' }}>✓</span>
-              )}
-              {step.number === 3 && items.length > 0 && (
-                <span style={{
-                  padding: '2px 7px',
-                  borderRadius: '999px',
-                  background: '#dbeafe',
-                  color: '#1d4ed8',
-                  fontSize: '12px'
-                }}>{items.length}</span>
-              )}
-            </button>
-          ))}
-        </div>
-        <div style={{
-          marginTop: '8px',
-          padding: '8px 10px 2px',
-          color: '#64748b',
-          fontSize: '13px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '8px',
-          flexWrap: 'wrap'
-        }}>
-          <span>{customer.name.trim() || 'Cliente da inserire'}{customer.phone.trim() ? ` · ${customer.phone}` : ''}</span>
-          <span>{items.length} {items.length === 1 ? 'articolo' : 'articoli'} · puoi cambiare scheda in ogni momento</span>
-        </div>
-      </div>
-
-      <div style={{
+      <div className="contract-workspace" style={{
+        flex: 1,
+        minHeight: 0,
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr)',
-        gap: '16px'
+        gridTemplateColumns: 'minmax(240px, 0.9fr) minmax(300px, 1.2fr) minmax(240px, 0.9fr)',
+        gap: '12px',
+        overflow: 'hidden'
       }}>
         {/* Colonna Sinistra */}
         <div style={{
-          display: currentStep <= 2 ? 'flex' : 'none',
+          gridColumn: '1',
+          display: 'flex',
           flexDirection: 'column',
-          gap: '16px'
+          gap: '10px',
+          minWidth: 0,
+          minHeight: 0,
+          overflowY: 'auto'
         }}>
           
           {/* Step 1: Dati Cliente */}
-          {currentStep === 1 && <div style={{
+          <div style={{
             background: 'white',
             borderRadius: '16px',
-            padding: '24px',
+            padding: '14px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-            border: currentStep === 1 ? '2px solid #3b82f6' : '1px solid #e5e7eb'
+            border: '1px solid #e5e7eb'
           }}>
             <h3 style={{
-              margin: '0 0 20px 0',
+              margin: '0 0 10px 0',
               color: '#1e293b',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
-              fontSize: '1.25rem',
+              gap: '8px',
+              fontSize: '1rem',
               fontWeight: '700'
             }}>
               👤 Dati Cliente
             </h3>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div>
                 <label style={{
                   display: 'block',
-                  marginBottom: '8px',
+                  marginBottom: '4px',
                   fontWeight: '600',
                   color: '#374151'
                 }}>
@@ -524,7 +456,7 @@ export default function ContractsBeautiful(){
                   placeholder="Mario Rossi"
                   style={{
                     width: '100%',
-                    padding: '12px 16px',
+                    padding: '9px 12px',
                     border: '2px solid #e5e7eb',
                     borderRadius: '12px',
                     fontSize: '16px',
@@ -539,7 +471,7 @@ export default function ContractsBeautiful(){
               <div>
                 <label style={{
                   display: 'block',
-                  marginBottom: '8px',
+                  marginBottom: '4px',
                   fontWeight: '600',
                   color: '#374151'
                 }}>
@@ -552,7 +484,7 @@ export default function ContractsBeautiful(){
                   placeholder="+39 123 456 7890"
                   style={{
                     width: '100%',
-                    padding: '12px 16px',
+                    padding: '9px 12px',
                     border: '2px solid #e5e7eb',
                     borderRadius: '12px',
                     fontSize: '16px',
@@ -564,30 +496,29 @@ export default function ContractsBeautiful(){
                 />
               </div>
             </div>
-          </div>}
+          </div>
 
           {/* Step 2: Documenti */}
-          {currentStep === 2 && (
             <div style={{
               background: 'white',
               borderRadius: '16px',
-              padding: '24px',
+              padding: '14px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-              border: currentStep === 2 ? '2px solid #3b82f6' : '1px solid #e5e7eb'
+              border: '1px solid #e5e7eb'
             }}>
               <h3 style={{
-                margin: '0 0 20px 0',
+                margin: '0 0 10px 0',
                 color: '#1e293b',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                fontSize: '1.25rem',
+                gap: '8px',
+                fontSize: '1rem',
                 fontWeight: '700'
               }}>
                 📷 Documenti di Identità
               </h3>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <DocumentCapture
                   onCapture={(imageData) => handleDocumentCapture(imageData, 'front')}
                   label="Documento Fronte"
@@ -601,32 +532,30 @@ export default function ContractsBeautiful(){
                 />
               </div>
             </div>
-          )}
         </div>
 
         {/* Colonna Destra */}
-        <div style={{
-          display: currentStep >= 3 ? 'flex' : 'none',
-          flexDirection: 'column',
-          gap: '16px'
-        }}>
+        <div style={{ display: 'contents' }}>
           
           {/* Step 3: Scanner e Articoli */}
-          {currentStep === 3 && (
             <div style={{
+              gridColumn: '2',
+              minWidth: 0,
+              minHeight: 0,
+              overflowY: 'auto',
               background: 'white',
               borderRadius: '16px',
-              padding: '24px',
+              padding: '14px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-              border: currentStep === 3 ? '2px solid #3b82f6' : '1px solid #e5e7eb'
+              border: '1px solid #e5e7eb'
             }}>
               <h3 style={{
-                margin: '0 0 20px 0',
+                margin: '0 0 10px 0',
                 color: '#1e293b',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                fontSize: '1.25rem',
+                gap: '8px',
+                fontSize: '1rem',
                 fontWeight: '700'
               }}>
                 🚲 Scansiona Articoli
@@ -946,24 +875,26 @@ export default function ContractsBeautiful(){
               )}
 
             </div>
-          )}
 
           {/* Step 4: Finalizza */}
-          {currentStep === 4 && (
             <div style={{
+              gridColumn: '3',
+              minWidth: 0,
+              minHeight: 0,
+              overflowY: 'auto',
               background: 'white',
               borderRadius: '16px',
-              padding: '24px',
+              padding: '14px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-              border: '2px solid #10b981'
+              border: '1px solid #10b981'
             }}>
               <h3 style={{
-                margin: '0 0 20px 0',
+                margin: '0 0 10px 0',
                 color: '#1e293b',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                fontSize: '1.25rem',
+                gap: '8px',
+                fontSize: '1rem',
                 fontWeight: '700'
               }}>
                 ✅ Finalizza Contratto
@@ -1144,7 +1075,6 @@ export default function ContractsBeautiful(){
                 </button>
               </div>
             </div>
-          )}
         </div>
       </div>
 
@@ -1206,13 +1136,20 @@ export default function ContractsBeautiful(){
       )}
 
       <style>{`
-        .contract-step-tabs {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-        @media (max-width: 560px) {
-          .contract-step-tabs {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+        @media (max-width: 900px) {
+          .contract-page {
+            height: auto !important;
+            min-height: calc(100dvh - 72px);
+            overflow: visible !important;
+          }
+          .contract-workspace {
+            display: flex !important;
+            flex-direction: column;
+            overflow: visible !important;
+          }
+          .contract-workspace > div {
+            grid-column: auto !important;
+            overflow: visible !important;
           }
         }
         @keyframes spin {
