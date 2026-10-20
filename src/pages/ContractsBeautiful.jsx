@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../services/api.js'
 import { calculateItemPrice } from '../utils/contractCalculations.js'
 import dateUtils from '../utils/dateUtils.js'
 import DocumentCapture from '../Components/DocumentCapture.jsx'
 
 import BarcodeScanner from '../Components/BarcodeScanner.jsx'
-import BarcodeGenerator from '../Components/BarcodeGenerator.jsx'
 import PriceCalculator from '../Components/PriceCalculator.jsx'
 import ContractMirror from '../Components/ContractMirror.jsx'
 import BikeSwapper from '../Components/BikeSwapper.jsx'
@@ -35,6 +35,8 @@ export default function ContractsBeautiful(){
   const [insuranceFlat, setIns] = useState(0)
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [showBackDocument, setShowBackDocument] = useState(false)
+  const [enlargedPhoto, setEnlargedPhoto] = useState(null)
   
   // Stati per i nuovi componenti
   const [selectedContract, setSelectedContract] = useState(null)
@@ -523,15 +525,38 @@ export default function ContractsBeautiful(){
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <DocumentCapture
                   onCapture={(imageData) => handleDocumentCapture(imageData, 'front')}
+                  imageData={customer.idFrontUrl}
                   label="Documento Fronte"
                   type="front"
                 />
                 
-                <DocumentCapture
-                  onCapture={(imageData) => handleDocumentCapture(imageData, 'back')}
-                  label="Documento Retro (Opzionale)"
-                  type="back"
-                />
+                <button
+                  type="button"
+                  onClick={() => setShowBackDocument(open => !open)}
+                  aria-expanded={showBackDocument}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    background: '#f8fafc',
+                    color: '#334155',
+                    textAlign: 'left',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {showBackDocument ? '▾' : '▸'} Documento Retro (Opzionale)
+                  {customer.idBackUrl ? ' · acquisito' : ''}
+                </button>
+                {showBackDocument && (
+                  <DocumentCapture
+                    onCapture={(imageData) => handleDocumentCapture(imageData, 'back')}
+                    imageData={customer.idBackUrl}
+                    label="Documento Retro (Opzionale)"
+                    type="back"
+                  />
+                )}
               </div>
             </div>
         </div>
@@ -615,91 +640,23 @@ export default function ContractsBeautiful(){
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {items.map((item, index) => (
                       <div key={index} style={{
-                        padding: '16px',
+                        padding: '8px',
                         background: '#f8fafc',
-                        borderRadius: '12px',
-                        border: '2px solid #e2e8f0'
+                        borderRadius: '10px',
+                        border: '1px solid #e2e8f0'
                       }}>
                         <div style={{
                           display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          marginBottom: 12
+                          alignItems: 'center',
+                          gap: '8px'
                         }}>
-                          {/* Foto dell'item */}
-                          <div style={{
-                            width: '80px',
-                            height: '80px',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            marginRight: '12px',
-                            flexShrink: 0,
-                            border: '2px solid #e5e7eb'
-                          }}>
-                            {item.photo ? (
-                              <img
-                                src={item.photo}
-                                alt={item.name}
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  objectFit: 'cover',
-                                  cursor: 'pointer'
-                                }}
-                                onClick={() => {
-                                  // Mostra immagine ingrandita
-                                  const modal = document.createElement('div');
-                                  modal.style.cssText = `
-                                    position: fixed;
-                                    top: 0;
-                                    left: 0;
-                                    width: 100%;
-                                    height: 100%;
-                                    background: rgba(0,0,0,0.8);
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    z-index: 1000;
-                                    cursor: pointer;
-                                  `;
-                                  modal.innerHTML = `
-                                    <img src="${item.photo}" alt="${item.name}" style="
-                                      max-width: 90%;
-                                      max-height: 90%;
-                                      object-fit: contain;
-                                      border-radius: 8px;
-                                      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-                                    ">
-                                  `;
-                                  modal.onclick = () => document.body.removeChild(modal);
-                                  document.body.appendChild(modal);
-                                }}
-                              />
-                            ) : (
-                              <div style={{
-                                width: '100%',
-                                height: '100%',
-                                background: item.kind === 'bike' ? '#dbeafe' : '#fef3c7',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '32px'
-                              }}>
-                                {item.kind === 'bike' ? '🚲' : '🎒'}
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '600', fontSize: 16, color: '#374151' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '700', fontSize: 15, color: '#374151', overflowWrap: 'anywhere' }}>
                               {item.kind === 'bike' ? '🚲' : '🎒'} {item.name}
-                            </div>
-                            <div style={{ fontSize: 12, color: '#6b7280' }}>
-                              {item.barcode}
                             </div>
                             
                             {/* Prezzi - modificabili */}
-                            <div style={{ marginTop: 8 }}>
+                            <div style={{ marginTop: 5 }}>
                               {editingPrices[index] ? (
                                 <div style={{
                                   display: 'flex',
@@ -793,19 +750,15 @@ export default function ContractsBeautiful(){
                             {/* Assicurazione individuale solo per bici */}
                             {item.kind === 'bike' && (
                               <div style={{
-                                marginTop: 8,
-                                padding: 8,
-                                background: '#fff7ed',
-                                border: '1px solid #fed7aa',
-                                borderRadius: 6
+                                marginTop: 5
                               }}>
                                 <label style={{
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: 6,
-                                  fontSize: 12,
+                                  gap: 5,
+                                  fontSize: 11,
                                   fontWeight: 600,
-                                  color: '#ea580c',
+                                  color: '#9a3412',
                                   cursor: 'pointer'
                                 }}>
                                   <input
@@ -818,18 +771,37 @@ export default function ContractsBeautiful(){
                                           : prevItem
                                       ));
                                     }}
-                                    style={{ marginRight: 4 }}
+                                    style={{ margin: 0 }}
                                   />
                                   🛡️ Assicurazione (+€5.00)
                                 </label>
-                                {item.insurance && (
-                                  <div style={{ fontSize: 10, color: '#9a3412', marginTop: 2 }}>
-                                    Copertura danni e furto
-                                  </div>
-                                )}
                               </div>
                             )}
                           </div>
+                          {item.photo && (
+                            <button
+                              type="button"
+                              onClick={() => setEnlargedPhoto({ src: item.photo, name: item.name })}
+                              aria-label={`Ingrandisci foto ${item.name}`}
+                              style={{
+                                width: '52px',
+                                height: '52px',
+                                flexShrink: 0,
+                                padding: 0,
+                                overflow: 'hidden',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '7px',
+                                background: '#fff',
+                                cursor: 'zoom-in'
+                              }}
+                            >
+                              <img
+                                src={item.photo}
+                                alt={`Foto ${item.name}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                            </button>
+                          )}
                           <button
                             onClick={() => removeItem(index)}
                             style={{
@@ -846,14 +818,6 @@ export default function ContractsBeautiful(){
                             ✕
                           </button>
                         </div>
-                        
-                        {item.barcode && (
-                          <BarcodeGenerator
-                            code={item.barcode}
-                            name={item.name}
-                            type={item.kind}
-                          />
-                        )}
                       </div>
                     ))}
                   </div>
@@ -1135,6 +1099,56 @@ export default function ContractsBeautiful(){
           }}
           onClose={() => setShowContractManagement(false)}
         />
+      )}
+
+      {enlargedPhoto && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Foto ${enlargedPhoto.name}`}
+          onClick={() => setEnlargedPhoto(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            background: 'rgba(15,23,42,0.85)',
+            cursor: 'zoom-out'
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setEnlargedPhoto(null)}
+            aria-label="Chiudi foto"
+            style={{
+              position: 'fixed',
+              top: '16px',
+              right: '20px',
+              border: 0,
+              background: 'transparent',
+              color: 'white',
+              fontSize: '32px',
+              cursor: 'pointer'
+            }}
+          >×</button>
+          <img
+            src={enlargedPhoto.src}
+            alt={`Foto ${enlargedPhoto.name}`}
+            onClick={event => event.stopPropagation()}
+            style={{
+              maxWidth: 'min(100%, 1200px)',
+              maxHeight: '88dvh',
+              objectFit: 'contain',
+              borderRadius: '10px',
+              boxShadow: '0 12px 48px rgba(0,0,0,0.4)',
+              cursor: 'default'
+            }}
+          />
+        </div>,
+        document.body
       )}
 
       <style>{`

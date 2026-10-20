@@ -1,20 +1,13 @@
-import React, { useState } from 'react'
 import WebcamCapture from './WebcamCapture.jsx'
 
-const DocumentCapture = ({ onCapture, label = "Scatta Foto Documento", type = "front" }) => {
-  const [capturedImage, setCapturedImage] = useState(null)
-
-  const handleImageCapture = (imageData) => {
-    setCapturedImage(imageData)
-    onCapture(imageData)
-  }
-
+const DocumentCapture = ({ onCapture, imageData = null, label = "Scatta Foto Documento", type = "front" }) => {
   return (
     <div>
       <WebcamCapture
-        onCapture={handleImageCapture}
+        onCapture={onCapture}
         label={label}
         type={type}
+        initialImage={imageData}
       />
     </div>
   )

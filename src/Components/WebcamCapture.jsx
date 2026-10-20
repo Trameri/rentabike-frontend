@@ -1,11 +1,29 @@
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
-const WebcamCapture = ({ onCapture, label = "Scatta Foto Documento", type = "front" }) => {
+const WebcamCapture = ({ onCapture, label = "Scatta Foto Documento", type = "front", initialImage = null }) => {
   const [isActive, setIsActive] = useState(false)
-  const [capturedImage, setCapturedImage] = useState(null)
+  const [capturedImage, setCapturedImage] = useState(initialImage)
   const [stream, setStream] = useState(null)
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
+
+  useEffect(() => {
+    setCapturedImage(initialImage)
+  }, [initialImage])
+
+  useEffect(() => () => {
+    stream?.getTracks().forEach(track => track.stop())
+  }, [stream])
+
+  useEffect(() => {
+    if (!isActive) return undefined
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') stopCamera()
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [isActive, stream])
 
   const startCamera = async () => {
     const constraintsList = [
@@ -132,118 +150,108 @@ const WebcamCapture = ({ onCapture, label = "Scatta Foto Documento", type = "fro
         </div>
       )}
 
-      {isActive && (
-        <div>
-          <p style={{ 
-            fontSize: '14px', 
-            color: '#10b981', 
-            marginBottom: '12px',
-            textAlign: 'center',
-            fontWeight: '600'
-          }}>
-            📹 Camera attiva - Posiziona il documento nel riquadro
-          </p>
-          <div style={{
-            position: 'relative',
-            display: 'inline-block',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            marginBottom: '16px'
-          }}>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              style={{
-                width: '100%',
-                maxWidth: '400px',
-                height: 'auto',
-                display: 'block',
-                backgroundColor: '#000',
-                borderRadius: '8px'
-              }}
-              onLoadedMetadata={() => {
-                if (videoRef.current) {
-                  videoRef.current.play().catch(e => console.log('Errore play:', e))
-                }
-              }}
-            />
-            
-            {/* Overlay guida per documento */}
+      {isActive && createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Fotocamera: ${label}`}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 2000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px',
+              background: 'rgba(15,23,42,0.82)'
+            }}
+          >
             <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              border: '2px solid #3b82f6',
-              borderRadius: '8px',
-              width: '80%',
-              height: '60%',
-              pointerEvents: 'none'
+              width: 'min(1100px, 96vw)',
+              maxHeight: '94dvh',
+              overflowY: 'auto',
+              padding: '20px',
+              borderRadius: '16px',
+              background: 'white',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
+              textAlign: 'center'
             }}>
+              <p style={{ margin: '0 0 14px', color: '#059669', fontWeight: 700, fontSize: 18 }}>
+                📹 Camera attiva — Posiziona il documento nel riquadro
+              </p>
               <div style={{
-                position: 'absolute',
-                top: '-30px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(59, 130, 246, 0.9)',
-                color: 'white',
-                padding: '4px 12px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                fontWeight: '500'
+                position: 'relative',
+                width: '100%',
+                maxHeight: '70dvh',
+                overflow: 'hidden',
+                borderRadius: '10px',
+                background: '#000'
               }}>
-                Posiziona il documento qui
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{
+                    width: '100%',
+                    maxHeight: '70dvh',
+                    objectFit: 'contain',
+                    display: 'block'
+                  }}
+                  onLoadedMetadata={() => {
+                    if (videoRef.current) {
+                      videoRef.current.play().catch(e => console.log('Errore play:', e))
+                    }
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  border: '3px solid #3b82f6',
+                  borderRadius: '8px',
+                  width: '80%',
+                  height: '60%',
+                  pointerEvents: 'none'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: '-32px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    whiteSpace: 'nowrap',
+                    background: 'rgba(59, 130, 246, 0.95)',
+                    color: 'white',
+                    padding: '5px 12px',
+                    borderRadius: '5px',
+                    fontSize: '13px',
+                    fontWeight: 600
+                  }}>Posiziona il documento qui</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                <button
+                  onClick={capturePhoto}
+                  style={{
+                    background: '#10b981', color: 'white', border: 'none',
+                    padding: '12px 24px', borderRadius: '8px', cursor: 'pointer',
+                    fontSize: '16px', fontWeight: 600
+                  }}
+                >📸 Scatta Foto</button>
+                <button
+                  onClick={stopCamera}
+                  style={{
+                    background: '#ef4444', color: 'white', border: 'none',
+                    padding: '12px 24px', borderRadius: '8px', cursor: 'pointer',
+                    fontSize: '16px', fontWeight: 600
+                  }}
+                >❌ Annulla</button>
               </div>
             </div>
-          </div>
-          
-          <div style={{
-            display: 'flex',
-            gap: '12px',
-            justifyContent: 'center'
-          }}>
-            <button
-              onClick={capturePhoto}
-              style={{
-                background: '#10b981',
-                color: 'white',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              📸 Scatta Foto
-            </button>
-            
-            <button
-              onClick={stopCamera}
-              style={{
-                background: '#ef4444',
-                color: 'white',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              ❌ Annulla
-            </button>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {capturedImage && (
         <div>
