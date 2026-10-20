@@ -21,6 +21,10 @@ function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+function normalizeProductName(value) {
+  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+}
+
 export default function ContractsBeautiful(){
   const [items, setItems] = useState([])
   const [customer, setCustomer] = useState({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' })
@@ -113,7 +117,9 @@ export default function ContractsBeautiful(){
       )
       const matches = barcodeMatches.length
         ? barcodeMatches
-        : products.filter(product => product.name?.toLocaleLowerCase().includes(normalizedQuery))
+        : products.filter(product =>
+            product.name && normalizeProductName(product.name) === normalizeProductName(barcode)
+          )
 
       if (matches.length === 0) {
         alert('❌ Nessun prodotto trovato con questo codice o nome')
