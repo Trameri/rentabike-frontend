@@ -1224,11 +1224,17 @@ export default function ContractsBeautiful(){
             align-items: center;
             gap: 8px;
           }
+          .barcode-camera-scan {
+            display: none;
+          }
           .barcode-scan-mobile-label {
             display: none;
           }
         }
         @media (max-width: 640px) {
+          .barcode-camera-scan {
+            display: block;
+          }
           .barcode-scan-desktop-label {
             display: none;
           }
