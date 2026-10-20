@@ -5,7 +5,7 @@ import { calculateItemPrice } from '../utils/contractCalculations.js'
 import dateUtils from '../utils/dateUtils.js'
 import DocumentCapture from '../Components/DocumentCapture.jsx'
 
-import BarcodeScanner from '../Components/BarcodeScanner.jsx'
+import MobileBarcodeScanner from '../Components/MobileBarcodeScanner.jsx'
 import PriceCalculator from '../Components/PriceCalculator.jsx'
 import ContractMirror from '../Components/ContractMirror.jsx'
 import BikeSwapper from '../Components/BikeSwapper.jsx'
@@ -610,7 +610,6 @@ export default function ContractsBeautiful(){
                     background: 'white',
                     transition: 'all 0.3s ease'
                   }}
-                  autoFocus
                 />
                 <button
                   type="submit"
@@ -629,6 +628,10 @@ export default function ContractsBeautiful(){
                 >
                   {loading ? '⏳' : '➕ Aggiungi'}
                 </button>
+                <MobileBarcodeScanner
+                  disabled={loading}
+                  onScan={handleBarcodeScanned}
+                />
               </form>
 
               {/* Lista articoli */}
