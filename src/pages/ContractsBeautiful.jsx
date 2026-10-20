@@ -94,158 +94,58 @@ export default function ContractsBeautiful(){
   const handleBarcodeScanned = async (barcode) => {
     setLoading(true)
     try {
-      let response = await api.get(`/api/bikes/barcode/${barcode}`)
-      if (response.data) {
-        if (response.data.status === 'available') {
-          const bike = response.data
-          const exists = items.find(i => i.id === bike._id && i.kind === 'bike');
-          if (exists) {
-            alert('⚠️ Bici già aggiunta al contratto');
-            setLoading(false);
-            return;
-          }
+      const { data } = await api.get('/api/items/lookup', { params: { value: barcode } })
+      const matches = data.matches || []
 
-          const contractStart = isReservation && reservationDate ? `${reservationDate}T00:00:00.000Z` : startDate;
-          const contractEnd = isReservation && reservationDate ? `${reservationDate}T23:59:59.000Z` : endDate;
-          const isAvailable = isItemAvailableForDates(bike._id, 'bike', contractStart, contractEnd, contracts);
-          if (!isAvailable) {
-            alert('❌ Bici non disponibile: esiste una prenotazione o contratto attivo per questo articolo nelle date selezionate');
-            setLoading(false);
-            return;
-          }
-
-          setItems(prev => [...prev, { 
-            kind: 'bike', 
-            id: bike._id, 
-            name: bike.name, 
-            barcode: bike.barcode,
-            priceHourly: bike.priceHourly,
-            priceDaily: bike.priceDaily,
-            originalPriceHourly: bike.priceHourly,
-            originalPriceDaily: bike.priceDaily,
-            photo: bike.photoUrl,
-            insurance: false,
-            insuranceFlat: 0
-          }])
-          
-          playBeep()
-          
-          const notification = document.createElement('div');
-          notification.innerHTML = `
-            <div style="
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-              color: white;
-              padding: 16px 24px;
-              border-radius: 12px;
-              box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
-              z-index: 10000;
-              font-weight: 600;
-              animation: slideIn 0.3s ease-out;
-            ">
-              ✅ Bici aggiunta: ${bike.name}
-            </div>
-            <style>
-              @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-              }
-            </style>
-          `;
-          document.body.appendChild(notification);
-          setTimeout(() => {
-            if (notification.parentNode) {
-              notification.parentNode.removeChild(notification);
-            }
-          }, 3000);
-          
-          setLoading(false)
-          return
-        } else {
-          const notification = document.createElement('div');
-          notification.innerHTML = `
-            <div style="
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-              color: white;
-              padding: 16px 24px;
-              border-radius: 12px;
-              box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
-              z-index: 10000;
-              font-weight: 600;
-              animation: slideIn 0.3s ease-out;
-            ">
-              ❌ Bici non disponibile (stato: ${response.data.status})
-            </div>
-            <style>
-              @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-              }
-            </style>
-          `;
-          document.body.appendChild(notification);
-          setTimeout(() => {
-            if (notification.parentNode) {
-              notification.parentNode.removeChild(notification);
-            }
-          }, 3000);
-          setLoading(false)
-          return
-        }
+      if (matches.length === 0) {
+        alert('❌ Nessun prodotto trovato con questo codice o nome')
+        return
       }
+      if (matches.length > 1) {
+        alert('❌ Nome prodotto non univoco: correggi il testo e riprova')
+        return
+      }
+
+      const product = matches[0]
+      if (product.status !== 'available') {
+        alert(`❌ Prodotto non disponibile (stato: ${product.status})`)
+        return
+      }
+
+      const exists = items.some(item => item.id === product._id && item.kind === product.kind)
+      if (exists) {
+        alert('⚠️ Prodotto già aggiunto al contratto')
+        return
+      }
+
+      const contractStart = isReservation && reservationDate ? `${reservationDate}T00:00:00.000Z` : startDate
+      const contractEnd = isReservation && reservationDate ? `${reservationDate}T23:59:59.000Z` : endDate
+      if (!isItemAvailableForDates(product._id, product.kind, contractStart, contractEnd, contracts)) {
+        alert('❌ Prodotto non disponibile nelle date selezionate')
+        return
+      }
+
+      setItems(prev => [...prev, {
+        kind: product.kind,
+        id: product._id,
+        name: product.name,
+        barcode: product.barcode,
+        priceHourly: product.priceHourly,
+        priceDaily: product.priceDaily,
+        originalPriceHourly: product.priceHourly,
+        originalPriceDaily: product.priceDaily,
+        photo: product.photoUrl,
+        insurance: false,
+        insuranceFlat: 0
+      }])
+      playBeep()
+      alert(`✅ Prodotto aggiunto: ${product.name}`)
     } catch (error) {
-      try {
-        let response = await api.get(`/api/accessories/barcode/${barcode}`)
-        if (response.data) {
-          if (response.data.status === 'available') {
-            const accessory = response.data
-            
-            const exists = items.find(i => i.id === accessory._id && i.kind === 'accessory');
-            if (exists) {
-              alert('⚠️ Accessorio già aggiunto');
-              setLoading(false);
-              return;
-            }
-
-            const contractStart = isReservation && reservationDate ? `${reservationDate}T00:00:00.000Z` : startDate;
-            const contractEnd = isReservation && reservationDate ? `${reservationDate}T23:59:59.000Z` : endDate;
-            const isAvailable = isItemAvailableForDates(accessory._id, 'accessory', contractStart, contractEnd, contracts);
-            if (!isAvailable) {
-              alert('❌ Accessorio non disponibile: esiste una prenotazione o contratto attivo per questo articolo nelle date selezionate');
-              setLoading(false);
-              return;
-            }
-            
-            setItems(prev => [...prev, { 
-              kind: 'accessory', 
-              id: accessory._id, 
-              name: accessory.name, 
-              barcode: accessory.barcode,
-              priceHourly: accessory.priceHourly,
-              priceDaily: accessory.priceDaily,
-              originalPriceHourly: accessory.priceHourly,
-              originalPriceDaily: accessory.priceDaily,
-              photo: accessory.photoUrl
-            }])
-            
-            playBeep()
-            alert(`✅ Accessorio aggiunto: ${accessory.name}`)
-          } else {
-            alert(`❌ Accessorio non disponibile (stato: ${response.data.status})`)
-          }
-        } else {
-          alert('❌ Accessorio non trovato o non disponibile')
-        }
-      } catch (accessoryError) {
-        alert('❌ Codice a barre non trovato')
-      }
+      console.error('Errore nella ricerca del prodotto:', error)
+      alert(`❌ Errore nella ricerca del prodotto: ${error.response?.data?.error || error.message}`)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleQuickBarcodeInput = (e) => {
@@ -726,7 +626,7 @@ export default function ContractsBeautiful(){
                   type="text"
                   value={quickBarcode}
                   onChange={handleQuickBarcodeInput}
-                  placeholder="🔫 Scansiona con pistola (termina con *) o digita barcode"
+                  placeholder="🔫 Scansiona il barcode oppure digita il nome del prodotto"
                   style={{
                     flex: 1,
                     padding: '12px 16px',
