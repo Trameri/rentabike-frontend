@@ -199,8 +199,24 @@ export default function ContractsBeautiful(){
 // Funzione per creare contratto aggiornata
   async function createContract(){
     try {
+      if (!customer.name.trim() || !customer.phone.trim()) {
+        setCurrentStep(1)
+        alert('❌ Inserisci nome e telefono del cliente')
+        return
+      }
+      if (!customer.idFrontUrl) {
+        setCurrentStep(2)
+        alert('❌ Acquisisci il fronte del documento')
+        return
+      }
+      if (items.length === 0) {
+        setCurrentStep(3)
+        alert('❌ Aggiungi almeno un articolo al contratto')
+        return
+      }
       if (isReservation) {
         if (!reservationDate) {
+          setCurrentStep(4)
           alert('❌ Inserisci la data di prenotazione')
           return
         }
@@ -387,81 +403,92 @@ export default function ContractsBeautiful(){
         </div>
       </div>
 
-      {/* Progress Steps */}
+      {/* Navigazione sempre disponibile durante la compilazione */}
       <div style={{
+        position: 'sticky',
+        top: '8px',
+        zIndex: 20,
         background: 'white',
-        borderRadius: '16px',
-        padding: '24px',
+        borderRadius: '14px',
+        padding: '10px',
         marginBottom: '24px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+        boxShadow: '0 4px 16px rgba(15,23,42,0.12)',
+        border: '1px solid #e2e8f0'
       }}>
         <div style={{
+          gap: '8px'
+        }} className="contract-step-tabs">
+          {steps.map((step, index) => (
+            <button
+              key={step.number}
+              type="button"
+              onClick={() => setCurrentStep(step.number)}
+              aria-current={currentStep === step.number ? 'step' : undefined}
+              style={{
+                minWidth: 0,
+                minHeight: '54px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '8px 10px',
+                border: currentStep === step.number ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                borderRadius: '10px',
+                background: currentStep === step.number ? '#eff6ff' : 'white',
+                color: currentStep === step.number ? '#1d4ed8' : '#475569',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              <span aria-hidden="true">{step.icon}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{step.title}</span>
+              {((step.number === 1 && customer.name.trim() && customer.phone.trim()) ||
+                (step.number === 2 && customer.idFrontUrl) ||
+                (step.number === 3 && items.length > 0)) && (
+                <span aria-label="Completato" style={{ color: '#059669' }}>✓</span>
+              )}
+              {step.number === 3 && items.length > 0 && (
+                <span style={{
+                  padding: '2px 7px',
+                  borderRadius: '999px',
+                  background: '#dbeafe',
+                  color: '#1d4ed8',
+                  fontSize: '12px'
+                }}>{items.length}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div style={{
+          marginTop: '8px',
+          padding: '8px 10px 2px',
+          color: '#64748b',
+          fontSize: '13px',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          gap: '8px',
+          flexWrap: 'wrap'
         }}>
-          {steps.map((step, index) => (
-            <div key={step.number} style={{
-              display: 'flex',
-              alignItems: 'center',
-              flex: 1
-            }}>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '50%',
-                  background: currentStep >= step.number ? 
-                    'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : '#e5e7eb',
-                  color: currentStep >= step.number ? 'white' : '#9ca3af',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '20px',
-                  fontWeight: 'bold',
-                  transition: 'all 0.3s ease'
-                }}>
-                  {step.icon}
-                </div>
-                <div style={{
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: currentStep >= step.number ? '#3b82f6' : '#9ca3af',
-                  textAlign: 'center'
-                }}>
-                  {step.title}
-                </div>
-              </div>
-              
-              {index < steps.length - 1 && (
-                <div style={{
-                  flex: 1,
-                  height: '2px',
-                  background: currentStep > step.number ? '#3b82f6' : '#e5e7eb',
-                  margin: '0 16px',
-                  transition: 'all 0.3s ease'
-                }} />
-              )}
-            </div>
-          ))}
+          <span>{customer.name.trim() || 'Cliente da inserire'}{customer.phone.trim() ? ` · ${customer.phone}` : ''}</span>
+          <span>{items.length} {items.length === 1 ? 'articolo' : 'articoli'} · puoi cambiare scheda in ogni momento</span>
         </div>
       </div>
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '24px'
+        gridTemplateColumns: 'minmax(0, 1fr)',
+        gap: '16px'
       }}>
         {/* Colonna Sinistra */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{
+          display: currentStep <= 2 ? 'flex' : 'none',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
           
           {/* Step 1: Dati Cliente */}
-          <div style={{
+          {currentStep === 1 && <div style={{
             background: 'white',
             borderRadius: '16px',
             padding: '24px',
@@ -536,30 +563,11 @@ export default function ContractsBeautiful(){
                   onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                 />
               </div>
-
-              <button
-                onClick={() => setCurrentStep(2)}
-                disabled={!customer.name || !customer.phone}
-                style={{
-                  background: (!customer.name || !customer.phone) ? '#9ca3af' : 
-                    'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '12px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: (!customer.name || !customer.phone) ? 'not-allowed' : 'pointer',
-                  marginTop: '8px'
-                }}
-              >
-                Continua ai Documenti →
-              </button>
             </div>
-          </div>
+          </div>}
 
           {/* Step 2: Documenti */}
-          {currentStep >= 2 && (
+          {currentStep === 2 && (
             <div style={{
               background: 'white',
               borderRadius: '16px',
@@ -591,34 +599,20 @@ export default function ContractsBeautiful(){
                   label="Documento Retro (Opzionale)"
                   type="back"
                 />
-
-                <button
-                  onClick={() => setCurrentStep(3)}
-                  disabled={!customer.idFrontUrl}
-                  style={{
-                    background: !customer.idFrontUrl ? '#9ca3af' : 
-                      'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    cursor: !customer.idFrontUrl ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Continua agli Articoli →
-                </button>
               </div>
             </div>
           )}
         </div>
 
         {/* Colonna Destra */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{
+          display: currentStep >= 3 ? 'flex' : 'none',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
           
           {/* Step 3: Scanner e Articoli */}
-          {currentStep >= 3 && (
+          {currentStep === 3 && (
             <div style={{
               background: 'white',
               borderRadius: '16px',
@@ -951,30 +945,11 @@ export default function ContractsBeautiful(){
                 </div>
               )}
 
-              {items.length > 0 && (
-                <button
-                  onClick={() => setCurrentStep(4)}
-                  style={{
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    width: '100%',
-                    marginTop: '16px'
-                  }}
-                >
-                  Finalizza Contratto →
-                </button>
-              )}
             </div>
           )}
 
           {/* Step 4: Finalizza */}
-          {currentStep >= 4 && (
+          {currentStep === 4 && (
             <div style={{
               background: 'white',
               borderRadius: '16px',
@@ -1231,6 +1206,15 @@ export default function ContractsBeautiful(){
       )}
 
       <style>{`
+        .contract-step-tabs {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        @media (max-width: 560px) {
+          .contract-step-tabs {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
