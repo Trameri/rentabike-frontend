@@ -73,7 +73,7 @@ function Layout({ children }){
   ];
 
   return (
-    <div style={{
+    <div className="app-shell" style={{
       height: '100dvh',
       overflow: 'hidden',
       background: '#f8fafc'
@@ -290,14 +290,14 @@ function Layout({ children }){
         </button>
       </aside>
       
-      <main style={{
+      <main className="app-main" style={{
         height: '100dvh',
         overflowX: 'hidden',
         overflowY: 'auto',
         overscrollBehavior: 'contain',
         padding: '0 0 16px'
       }}>
-        <div className="container" style={{ paddingTop: '56px' }}>
+        <div className="container app-content" style={{ paddingTop: '56px' }}>
           {children}
         </div>
       </main>

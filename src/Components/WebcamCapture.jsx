@@ -101,7 +101,7 @@ const WebcamCapture = ({ onCapture, label = "Scatta Foto Documento", type = "fro
   }
 
   return (
-    <div style={{
+    <div className="webcam-modal-content" style={{
       border: '2px dashed #d1d5db',
       borderRadius: '12px',
       padding: '20px',
@@ -230,7 +230,7 @@ const WebcamCapture = ({ onCapture, label = "Scatta Foto Documento", type = "fro
                   }}>Posiziona il documento qui</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+              <div className="webcam-modal-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
                 <button
                   onClick={capturePhoto}
                   style={{

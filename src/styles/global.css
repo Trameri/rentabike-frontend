@@ -17,6 +17,7 @@ body {
 /* Utility classes */
 .container {
   max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -200,6 +201,47 @@ body {
 
 .table tbody tr:hover {
   background: #f8fafc;
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .app-content {
+    padding-top: 60px !important;
+  }
+
+  .app-main {
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    max-width: 100%;
+  }
+
+  .table-container {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .webcam-modal-content {
+    padding: 12px !important;
+  }
+
+  .webcam-modal-actions {
+    flex-wrap: wrap;
+  }
+
+  .webcam-modal-actions button {
+    flex: 1 1 140px;
+    min-height: 44px;
+  }
 }
 
 /* Status badges */

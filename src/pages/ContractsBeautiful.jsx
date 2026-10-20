@@ -589,7 +589,7 @@ export default function ContractsBeautiful(){
               </h3>
               
               {/* Inserimento rapido barcode */}
-              <form onSubmit={handleQuickBarcodeSubmit} style={{
+              <form className="quick-barcode-form" onSubmit={handleQuickBarcodeSubmit} style={{
                 display: 'flex',
                 gap: '12px',
                 alignItems: 'center',
@@ -910,7 +910,7 @@ export default function ContractsBeautiful(){
                   }}>
                     📋 Tipo di Contratto
                   </label>
-                  <div style={{ display: 'flex', gap: '12px' }}>
+                  <div className="contract-type-options" style={{ display: 'flex', gap: '12px' }}>
                       <button
                         type="button"
                         onClick={() => {
@@ -1166,6 +1166,33 @@ export default function ContractsBeautiful(){
           .contract-workspace > div {
             grid-column: auto !important;
             overflow: visible !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .contract-page {
+            padding: 8px !important;
+          }
+          .contract-workspace {
+            gap: 8px !important;
+          }
+          .contract-workspace > div {
+            padding: 12px !important;
+          }
+          .quick-barcode-form {
+            flex-direction: column;
+            align-items: stretch !important;
+            gap: 8px !important;
+          }
+          .quick-barcode-form input,
+          .quick-barcode-form button {
+            width: 100%;
+          }
+          .contract-type-options {
+            flex-wrap: wrap;
+          }
+          .contract-type-options button {
+            flex: 1 1 140px;
+            min-height: 44px;
           }
         }
         @keyframes spin {
