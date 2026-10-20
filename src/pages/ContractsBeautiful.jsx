@@ -163,7 +163,6 @@ export default function ContractsBeautiful(){
         insuranceFlat: 0
       }])
       playBeep()
-      alert(`✅ Prodotto aggiunto: ${product.name}`)
     } catch (error) {
       console.error('Errore nella ricerca del prodotto:', error)
       alert(`❌ Errore nella ricerca del prodotto: ${error.response?.data?.error || error.message}`)
