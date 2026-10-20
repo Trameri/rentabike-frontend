@@ -404,29 +404,8 @@ const getEndOfWeek = (date) => {
       setLoading(true)
       const { data } = await api.get('/api/contracts')
       
-      // Carica le foto delle bici per ogni contratto
-      const contractsWithPhotos = await Promise.all(
-        data.map(async (contract) => {
-          const itemsWithPhotos = await Promise.all(
-            contract.items.map(async (item) => {
-              if (item.kind === 'bike' && item.refId && !item.photoUrl) {
-                try {
-                  const bikeResponse = await api.get(`/api/bikes/${item.refId}`)
-                  return { ...item, photoUrl: bikeResponse.data.photoUrl || null }
-                } catch (error) {
-                  console.warn(`Errore caricamento foto bici ${item.refId}:`, error)
-                  return item
-                }
-              }
-              return item
-            })
-          )
-          return { ...contract, items: itemsWithPhotos }
-        })
-      )
-      
       // Valida i contratti e mostra eventuali warning
-      const contractsWithValidation = contractsWithPhotos.map(contract => {
+      const contractsWithValidation = data.map(contract => {
         const errors = validateContract(contract)
         return { ...contract, validationErrors: errors }
       })

@@ -1,39 +1,40 @@
-import React, { useState, useEffect } from 'react'
+import React, { lazy, Suspense, useState, useEffect } from 'react'
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
-import Login from './pages/LoginBeautiful.jsx'
 import LocationLogo from './Components/LocationLogo.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import Bikes from './pages/Bikes.jsx'
-import Accessories from './pages/Accessories.jsx'
-import Contracts from './pages/ContractsBeautiful.jsx'
-import ContractsTest from './pages/ContractsTest.jsx'
-import ContractsSimplified from './pages/ContractsSimplified.jsx'
-import BikeSwapManager from './pages/BikeSwapManager.jsx'
-import SystemDiagnostic from './pages/SystemDiagnostic.jsx'
-import ContractManager from './pages/ContractManager.jsx'
-import Reports from './pages/Reports.jsx'
-import DailyReport from './pages/DailyReport.jsx'
-
-import ContractHistory from './pages/ContractHistory.jsx'
-import UserManagement from './pages/UserManagement.jsx'
-import UserCredentials from './pages/UserCredentials.jsx'
-import BarcodeManagement from './pages/BarcodeManagement.jsx'
-import BarcodeTest from './Components/BarcodeTest.jsx'
-import WebcamTest from './Components/WebcamTest.jsx'
-import LogoTest from './pages/LogoTest.jsx'
 import NotificationProvider from './Components/NotificationSystem.jsx'
-import ContractsOptimized from './pages/ContractsOptimized.jsx'
-import SystemStatus from './pages/SystemStatus.jsx'
-import BikesOptimized from './pages/BikesOptimized.jsx'
-import WebcamTestOptimized from './Components/WebcamTestOptimized.jsx'
-import PricingLogicTest from './Components/PricingLogicTest.jsx'
-import BikeManagement from './Components/BikeManagement.jsx'
-import BikeROIStats from './pages/BikeROIStats.jsx'
-import BikeROIDebug from './Components/BikeROIDebug.jsx'
-import ExcelExport from './pages/ExcelExport.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 
 import { getToken, setToken, clearToken, api } from './services/api.js'
+
+const Login = lazy(() => import('./pages/LoginBeautiful.jsx'))
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
+const Bikes = lazy(() => import('./pages/Bikes.jsx'))
+const Accessories = lazy(() => import('./pages/Accessories.jsx'))
+const Contracts = lazy(() => import('./pages/ContractsBeautiful.jsx'))
+const ContractsTest = lazy(() => import('./pages/ContractsTest.jsx'))
+const ContractsSimplified = lazy(() => import('./pages/ContractsSimplified.jsx'))
+const BikeSwapManager = lazy(() => import('./pages/BikeSwapManager.jsx'))
+const SystemDiagnostic = lazy(() => import('./pages/SystemDiagnostic.jsx'))
+const ContractManager = lazy(() => import('./pages/ContractManager.jsx'))
+const Reports = lazy(() => import('./pages/Reports.jsx'))
+const DailyReport = lazy(() => import('./pages/DailyReport.jsx'))
+const ContractHistory = lazy(() => import('./pages/ContractHistory.jsx'))
+const UserManagement = lazy(() => import('./pages/UserManagement.jsx'))
+const UserCredentials = lazy(() => import('./pages/UserCredentials.jsx'))
+const BarcodeManagement = lazy(() => import('./pages/BarcodeManagement.jsx'))
+const BarcodeTest = lazy(() => import('./Components/BarcodeTest.jsx'))
+const WebcamTest = lazy(() => import('./Components/WebcamTest.jsx'))
+const LogoTest = lazy(() => import('./pages/LogoTest.jsx'))
+const ContractsOptimized = lazy(() => import('./pages/ContractsOptimized.jsx'))
+const SystemStatus = lazy(() => import('./pages/SystemStatus.jsx'))
+const BikesOptimized = lazy(() => import('./pages/BikesOptimized.jsx'))
+const WebcamTestOptimized = lazy(() => import('./Components/WebcamTestOptimized.jsx'))
+const PricingLogicTest = lazy(() => import('./Components/PricingLogicTest.jsx'))
+const BikeManagement = lazy(() => import('./Components/BikeManagement.jsx'))
+const BikeROIStats = lazy(() => import('./pages/BikeROIStats.jsx'))
+const BikeROIDebug = lazy(() => import('./Components/BikeROIDebug.jsx'))
+const ExcelExport = lazy(() => import('./pages/ExcelExport.jsx'))
+const LocationDashboard = lazy(() => import('./pages/LocationDashboard.jsx'))
 
 function Layout({ children }){
   const nav = useNavigate();
@@ -229,52 +230,52 @@ function Layout({ children }){
   )
 }
 
-import LocationDashboard from './pages/LocationDashboard.jsx'
-
 export default function App(){
   const token = getToken();
   return (
     <AuthProvider>
       <NotificationProvider>
-        <Routes>
-        {!token && <Route path="/*" element={<Login />} />}
-        {token && (
-          <Route path="/*" element={<Layout>
-            <Routes>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/bikes" element={<Bikes />} />
-              <Route path="/bike-management" element={<BikeManagement />} />
-              <Route path="/accessories" element={<Accessories />} />
-              <Route path="/contracts" element={<Contracts />} />
-              <Route path="/contracts-test" element={<ContractsTest />} />
-              <Route path="/contracts-simple" element={<ContractsSimplified />} />
-              <Route path="/bike-swap" element={<BikeSwapManager />} />
-              <Route path="/system-diagnostic" element={<SystemDiagnostic />} />
-              <Route path="/contract-manager" element={<ContractManager />} />
-              <Route path="/barcodes" element={<BarcodeManagement />} />
-              <Route path="/barcode-test" element={<BarcodeTest />} />
+        <Suspense fallback={<div role="status">Caricamento...</div>}>
+          <Routes>
+            {!token && <Route path="/*" element={<Login />} />}
+            {token && (
+              <Route path="/*" element={<Layout>
+                <Routes>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/bikes" element={<Bikes />} />
+                  <Route path="/bike-management" element={<BikeManagement />} />
+                  <Route path="/accessories" element={<Accessories />} />
+                  <Route path="/contracts" element={<Contracts />} />
+                  <Route path="/contracts-test" element={<ContractsTest />} />
+                  <Route path="/contracts-simple" element={<ContractsSimplified />} />
+                  <Route path="/bike-swap" element={<BikeSwapManager />} />
+                  <Route path="/system-diagnostic" element={<SystemDiagnostic />} />
+                  <Route path="/contract-manager" element={<ContractManager />} />
+                  <Route path="/barcodes" element={<BarcodeManagement />} />
+                  <Route path="/barcode-test" element={<BarcodeTest />} />
 
-              <Route path="/history" element={<ContractHistory />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/bike-roi-stats" element={<BikeROIStats />} />
-              <Route path="/bike-roi-debug" element={<BikeROIDebug />} />
-              <Route path="/excel-export" element={<ExcelExport />} />
-              <Route path="/daily-report" element={<DailyReport />} />
-              <Route path="/users" element={<UserManagement />} />
-              <Route path="/user-credentials" element={<UserCredentials />} />
-              <Route path="/location-dashboard/:locationId" element={<LocationDashboard />} />
-              <Route path="/webcam-test" element={<WebcamTest />} />
-              <Route path="/webcam-test-optimized" element={<WebcamTestOptimized />} />
-              <Route path="/logo-test" element={<LogoTest />} />
-              <Route path="/contracts-optimized" element={<ContractsOptimized />} />
-              <Route path="/system-status" element={<SystemStatus />} />
-              <Route path="/bikes-optimized" element={<BikesOptimized />} />
-              <Route path="/pricing-test" element={<PricingLogicTest />} />
-              <Route path="*" element={<Dashboard />} />
-            </Routes>
-          </Layout>} />
-        )}
-        </Routes>
+                  <Route path="/history" element={<ContractHistory />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/bike-roi-stats" element={<BikeROIStats />} />
+                  <Route path="/bike-roi-debug" element={<BikeROIDebug />} />
+                  <Route path="/excel-export" element={<ExcelExport />} />
+                  <Route path="/daily-report" element={<DailyReport />} />
+                  <Route path="/users" element={<UserManagement />} />
+                  <Route path="/user-credentials" element={<UserCredentials />} />
+                  <Route path="/location-dashboard/:locationId" element={<LocationDashboard />} />
+                  <Route path="/webcam-test" element={<WebcamTest />} />
+                  <Route path="/webcam-test-optimized" element={<WebcamTestOptimized />} />
+                  <Route path="/logo-test" element={<LogoTest />} />
+                  <Route path="/contracts-optimized" element={<ContractsOptimized />} />
+                  <Route path="/system-status" element={<SystemStatus />} />
+                  <Route path="/bikes-optimized" element={<BikesOptimized />} />
+                  <Route path="/pricing-test" element={<PricingLogicTest />} />
+                  <Route path="*" element={<Dashboard />} />
+                </Routes>
+              </Layout>} />
+            )}
+          </Routes>
+        </Suspense>
       </NotificationProvider>
     </AuthProvider>
   )
