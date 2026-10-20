@@ -14,6 +14,7 @@ import ContractClosure from '../Components/ContractClosure.jsx'
 import ContractManagement from '../Components/ContractManagement.jsx'
 import QuickBikeSwap from '../Components/QuickBikeSwap.jsx'
 import LocationLogo from '../Components/LocationLogo.jsx'
+import { useNotifications } from '../Components/NotificationSystem.jsx'
 import { jwtDecode } from 'jwt-decode'
 import { loadActiveContracts, isItemAvailableForDates } from '../utils/availabilityCheck.js'
 
@@ -26,6 +27,7 @@ function normalizeProductName(value) {
 }
 
 export default function ContractsBeautiful(){
+  const { showSuccess } = useNotifications()
   const [items, setItems] = useState([])
   const [customer, setCustomer] = useState({ name:'', phone:'', idFrontUrl:'', idBackUrl:'' })
   const [notes, setNotes] = useState('')
@@ -273,8 +275,8 @@ export default function ContractsBeautiful(){
         console.warn('⚠️ Prenotazione creata ma senza data di inizio salvata dal backend')
       }
       
-      const statusMessage = isReservation ? 'prenotato' : 'creato';
-      alert(`✅ Contratto ${statusMessage} con successo!\nID: ${data._id}\nAssicurazione totale: €${totalInsurance}`)
+      const statusMessage = isReservation ? 'prenotato' : 'creato'
+      showSuccess(`Contratto ${statusMessage} con successo!`, { duration: 4000 })
 
       // Reset form
       setItems([]); 
